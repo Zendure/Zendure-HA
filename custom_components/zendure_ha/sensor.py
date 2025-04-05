@@ -33,7 +33,14 @@ class ZendureSensor(SensorEntity):
         logchanges: int = 0,
     ) -> None:
         """Initialize a Zendure entity."""
-        self.entity_description = SensorEntityDescription(key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass)
+        raw_name = deviceinfo.get("name", "")
+        display_prefix = raw_name.replace("solarflow_800_hyper", "SF800") if "solarflow_800" in raw_name else raw_name
+        self.entity_description = SensorEntityDescription(
+            key=uniqueid,
+            name=f"{display_prefix} {uniqueid}",
+            native_unit_of_measurement=uom,
+            device_class=deviceclass
+        )
         self._attr_unique_id = f"{deviceinfo.get('name', None)}-{uniqueid}"
         self.entity_id = f"sensor.{deviceinfo.get('name', None)}-{snakecase(uniqueid)}"
         self._attr_translation_key = snakecase(uniqueid)
