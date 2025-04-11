@@ -165,6 +165,36 @@ class ZendureManager(DataUpdateCoordinator[int]):
                     if properties := payload.get("cluster", None):
                         device.updateProperty("clusterId", properties["clusterId"])
 
+
+
+
+                    if properties := payload.get("packData", None):
+                        for bat in properties:
+                            sn = bat.pop("sn")
+
+                            # Mapping für "schöne" Anzeige-Namen
+                            if sn not in device.battery_sn_map:
+                                device.battery_sn_map[sn] = device.battery_sn_counter
+                                device.battery_sn_counter += 1
+
+                            bat_id = device.battery_sn_map[sn]
+
+                            for key, value in bat.items():
+                                propname = f"battery_{bat_id}_{key}"
+
+                                # Keys, die unskaliert bleiben sollen
+                                no_scaling = {"softVersion", "socLevel"}
+
+                                # Werte skalieren, falls nötig
+                                if key in {"totalVol", "minVol", "maxVol"}:
+                                    value = round(value / 100.0, 2)
+                                elif key == "maxTemp":
+                                    value = round((value / 10.0) - 273.15, 2)
+
+
+                                device.updateProperty(propname, value)
+
+
                     # if properties := payload.get("packData", None):
                     #     for bat in properties:
                     #         sn = bat.pop("sn")

@@ -22,6 +22,7 @@ from .number import ZendureNumber
 from .select import ZendureSelect
 from .sensor import ZendureSensor
 from .switch import ZendureSwitch
+from stringcase import snakecase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +58,9 @@ class ZendureDevice:
         self.topic_function = f"iot/{self.prodkey}/{self.hid}/function/invoke"
         self.mqtt: mqtt_client.Client
         self.entities: dict[str, Any] = {}
+        self.battery_sn_map: dict[str, int] = {}
+        self.battery_sn_counter = 1
+
         self.devices.append(self)
 
         self.lastUpdate = datetime.now()
@@ -112,16 +116,33 @@ class ZendureDevice:
         )
         self.mqtt.publish(self._topic_write, payload)
 
+
     def sensorAdd(self, propertyname: str, value: Any | None = None) -> None:
         try:
-            _LOGGER.info(f"{self.hid} {self.name}new sensor: {propertyname}")
+            _LOGGER.info(f"{self.hid} {self.name} new sensor: {propertyname}")
+
+            from homeassistant.components.sensor import SensorEntityDescription
+            from stringcase import snakecase
+
+            desc = SensorEntityDescription(key=propertyname, name=propertyname)
             sensor = ZendureSensor(self.attr_device_info, propertyname, logchanges=1)
+            sensor.entity_description = desc
+            sensor._attr_translation_key = snakecase(propertyname)
+
             self.entities[propertyname] = sensor
             ZendureSensor.addSensors([sensor])
-            if value:
+
+            if value is not None:
                 sensor.update_value(value)
+
+            _LOGGER.info(f"✅ Sensor '{propertyname}' → translation_key: {sensor._attr_translation_key}, value: {value}")
+
         except Exception as err:
-            _LOGGER.error(err)
+            _LOGGER.error(f"Fehler beim Erzeugen von Sensor {propertyname}: {err}")
+
+
+
+
 
     def updateBattery(self, data: list[int]) -> None:
         batPct = data[0]
