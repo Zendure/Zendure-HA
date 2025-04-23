@@ -49,6 +49,8 @@ class ZendureDevice:
             model=model,
             serial_number=definition.snNumber,
         )
+        if definition.parent:
+            self.attr_device_info["via_device"] = (DOMAIN, definition.parent.deviceName)
         self._topic_read = f"iot/{self.prodkey}/{self.hid}/properties/read"
         self._topic_write = f"iot/{self.prodkey}/{self.hid}/properties/write"
         self.topic_function = f"iot/{self.prodkey}/{self.hid}/function/invoke"
@@ -388,7 +390,9 @@ class ZendureDeviceDefinition:
     """Class to hold zendure device properties."""
 
     productKey: str
+    deviceKey: str
     deviceName: str
     productName: str
     snNumber: str
     ip_address: str | None
+    parent: ZendureDeviceDefinition | None

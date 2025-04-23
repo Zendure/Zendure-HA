@@ -109,6 +109,28 @@ class Api:
         _LOGGER.error(response.text)
         return None
 
+    async def _createDeviceDefinition(self, data: dict[str, str], parent: ZendureDeviceDefinition | None = None) -> ZendureDeviceDefinition | None:
+        prodName = data.get("productName")
+        if not data or not (deviceKey := data.get("deviceKey")) or not prodName:
+            _LOGGER.debug(
+                f"Unable to get details for: {data.get('deviceId')} {prodName}"
+            )
+            return None
+
+
+        _LOGGER.info(f"Adding device: {deviceKey} {prodName}")
+
+        return ZendureDeviceDefinition(
+            productKey=data["productKey"],
+            deviceKey=deviceKey,
+            deviceName=data["deviceName"],
+            snNumber=data["snNumber"],
+            productName=prodName,
+            ip_address=data.get("ip"),
+            parent=parent,
+        )
+
+
     async def getDevices(self) -> dict[str, ZendureDeviceDefinition]:
         if not self.session:
             raise SessionNotInitializedError
@@ -123,20 +145,23 @@ class Api:
                 respJson = await response.json()
                 deviceInfo = respJson["data"]
                 for dev in deviceInfo:
-                    if (deviceId := dev["id"]) is None or (prodName := dev["productName"]) is None:
+                    if (deviceId := dev["id"]) is None or dev["productName"] is None:
                         continue
                     try:
-                        if not (data := await self._get_detail(deviceId)) or (deviceKey := data.get("deviceKey", None)) is None:
-                            _LOGGER.debug(f"Unable to get details for: {deviceId} {prodName}")
+                        data = await self._get_detail(deviceId)
+                        device = await self._createDeviceDefinition(data)
+                        if device is None:
                             continue
-                        _LOGGER.info(f"Adding device: {deviceKey} {prodName}")
-                        devices[deviceKey] = ZendureDeviceDefinition(
-                            productKey=data["productKey"],
-                            deviceName=data["deviceName"],
-                            snNumber=data["snNumber"],
-                            productName=prodName,
-                            ip_address=data.get("ip", None),
-                        )
+                        devices[device.deviceKey] = device
+
+
+                        if len(data["packDataList"]):
+                            for pack in data["packDataList"]:
+                                if pack.get("productName", "") == "Ace 1500":
+                                    device = await self._createDeviceDefinition(pack)
+                                    if device is None:
+                                        continue
+                                    devices[device.deviceKey] = device
 
                         _LOGGER.info(f"Data: {data}")
                     except Exception as e:
