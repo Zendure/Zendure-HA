@@ -139,14 +139,11 @@ class ZendureDevice:
             return False
 
         # update energy sensors
-        if value:
-            match key:
-                case "outputPackPower":
-                    self.update_energy(0, int(value))
-                    self.update_energy(1, int(0))
-                case "packInputPower":
-                    self.update_energy(1, int(value))
-                    self.update_energy(0, int(0))
+        match key:
+            case "outputPackPower":
+                self.update_energy(0, int(value))
+            case "packInputPower":
+                self.update_energy(1, int(value))
 
         # update entity state
         if entity is not None and entity.platform and entity.state != value:
@@ -157,7 +154,7 @@ class ZendureDevice:
     def update_energy(self, idx: int, value: int) -> None:
         time = datetime.now()
         # reset the value dailey
-        if self.powerSensors and self.totaltime[idx] != datetime.max and self.totalValue[idx] != 0:
+        if self.powerSensors and self.totaltime[idx] != datetime.max:
             secs = time.timestamp() - self.totaltime[idx].timestamp()
             kWh = self.totalValue[idx] * secs / 3600000
             kWh += float(self.powerSensors[idx].state) if self.powerSensors[idx].state is not None and time.day == self.totaltime[idx].day else 0
