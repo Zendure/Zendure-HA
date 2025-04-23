@@ -329,7 +329,7 @@ class ZendureManager(DataUpdateCoordinator[int]):
             if self.operation == SmartMode.MANUAL:
                 self.updateSetpoint(self.setpoint, ManagerState.DISCHARGING if self.setpoint >= 0 else ManagerState.CHARGING)
             elif powerActual < 0:
-                self.updateSetpoint(min(0, powerActual + p1 + SmartMode.MIN_POWER), ManagerState.CHARGING)
+                self.updateSetpoint(min(0, powerActual + p1 + min(abs(powerActual),SmartMode.MIN_POWER)), ManagerState.CHARGING)
             elif powerActual > 0:
                 self.updateSetpoint(max(0, powerActual + p1), ManagerState.DISCHARGING)
             elif self.zero_idle == datetime.max:
