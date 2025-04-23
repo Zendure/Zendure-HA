@@ -41,7 +41,7 @@ It is strongly recommended to create a 2nd Zendure account for this integration 
 - Logout of primary, into secondary
 - Accept the request.
 
-Now that this is comleted use the 2nd account for the setup of the integration.
+Now that this is completed use the 2nd account for the setup of the integration.
 
 ### Smart Matching Sensor Configuration
 
@@ -134,7 +134,7 @@ In this way the maximal availability for charging/discharging is achieved. This 
 At this moment the integration cannot handle the Zenlink cluster (will be added in the future).
 However it is possible to create clusters of your own in the integration. For which you can use the information about clusters from the Zendure App for that as well. This option is only available if you have multiple devices.
 ![image](https://github.com/user-attachments/assets/dba74b54-e75f-481d-b35b-98a37f079fad)
-In this example the Zen 05 behaves like a cluster with a maximum output of 800watt. At this moment there are three options available 800/1200 and 2400 watt.The Zen66 device is part of this cluster. The output per device of this cluster is dependant on the actual capacity of the devices. If the device is not in a cluster the ZendureManager will use it maximum input or output. Wherever the device cluster is not defined, the ZendureManager will not use the device! The configured values are persisted, and also after a reboot of HA they should stay the same.
+In this example the Zen 05 behaves like a cluster with a maximum output of 800watt. At this moment there are three options available 800/1200 and 2400 watt. The Zen66 device is part of this cluster. The output per device of this cluster is dependant on the actual capacity of the devices. If the device is not in a cluster the ZendureManager will use it maximum input or output. Wherever the device cluster is not defined, the ZendureManager will not use the device! The configured values are persisted, and also after a reboot of HA they should stay the same.
 
 ## Home assistant Energy Dashboard
 
@@ -142,7 +142,7 @@ The Zendure integration reports power values in watts (W), which represent insta
 
 To integrate your Zendure devices with the Energy Dashboard, you'll need to create additional sensors that convert the power readings into energy measurements. You can use the (Riemann sum) Integral sensor to accumulate power readings into energy values.
 
-To do this go to Devices & Services > Helpers and add an Integral sensor for both the power flowing into the battery (eg: sensor.hyper_2000_grid_input_power) as well as the power feeding back to the grid/house (eg: sensor.hyper_2000_energy_power)
+To do this go to Devices & Services > Helpers and add an Integral sensor for both the power flowing into the battery (eg: `sensor.hyper_2000_grid_input_power`) as well as the power feeding back to the grid/house (eg: `sensor.hyper_2000_energy_power`)
 
 Once you have the integral sensors set up:
 

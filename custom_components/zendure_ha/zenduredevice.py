@@ -6,6 +6,7 @@ import json
 import logging
 import traceback
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -34,18 +35,19 @@ class ZendureDevice:
     clusters: list[ZendureDevice] = []
     _messageid = 0
 
-    def __init__(self, hass: HomeAssistant, h_id: str, h_prod: str, name: str, model: str) -> None:
+    def __init__(self, hass: HomeAssistant, h_id: str, definition: ZendureDeviceDefinition, model: str) -> None:
         """Initialize ZendureDevice."""
         self._hass = hass
         self.hid = h_id
-        self.prodkey = h_prod
-        self.name = name
-        self.unique = "".join(name.split())
+        self.prodkey = definition.productKey
+        self.name = definition.deviceName
+        self.unique = "".join(self.name.split())
         self.attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self.name)},
             name=self.name,
             manufacturer="Zendure",
             model=model,
+            serial_number=definition.snNumber,
         )
         self._topic_read = f"iot/{self.prodkey}/{self.hid}/properties/read"
         self._topic_write = f"iot/{self.prodkey}/{self.hid}/properties/write"
@@ -68,28 +70,20 @@ class ZendureDevice:
         self.powerSensors: list[ZendureSensor] = []
 
     def sensorsCreate(self) -> None:
-        selects = [
-            self.select(
-                "acMode",
-                {1: "input", 2: "output"},
-                self.update_ac_mode,
-            )
-        ]
-
         if len(self.devices) > 1:
             clusters: dict[Any, str] = {0: "clusterunknown", 1: "clusterowncircuit", 2: "cluster800", 3: "cluster1200", 4: "cluster2400"}
             for d in self.devices:
                 if d != self:
                     clusters[d.hid] = f"Part of {d.name} cluster"
-            selects.append(
+
+            ZendureSelect.addSelects([
                 self.select(
                     "cluster",
                     clusters,
                     self.update_cluster,
                     True,
                 )
-            )
-        ZendureSelect.addSelects(selects)
+            ])
 
         self.powerSensors = [
             self.sensor("aggrChargeDaykWh", None, "kWh", "energy", "total_increasing", 2, True),
@@ -103,14 +97,14 @@ class ZendureDevice:
         for i in range(len(data)):
             idx = i + 1
             sensors = [
-                self.sensor(f"battery {idx} totalVol", "{{ (value / 100) }}", "V", "voltage"),
-                self.sensor(f"battery {idx} maxVol", "{{ (value / 100) }}", "V", "voltage"),
-                self.sensor(f"battery {idx} minVol", "{{ (value / 100) }}", "V", "voltage"),
-                self.sensor(f"battery {idx} batcur", "{{ (value / 10) }}", "A", "current"),
+                self.sensor(f"battery {idx} totalVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
+                self.sensor(f"battery {idx} maxVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
+                self.sensor(f"battery {idx} minVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
+                self.sensor(f"battery {idx} batcur", "{{ (value / 10) }}", "A", "current", "measurement"),
                 self.sensor(f"battery {idx} state"),
-                self.sensor(f"battery {idx} power", None, "W", "power"),
-                self.sensor(f"battery {idx} socLevel", None, "%", "battery"),
-                self.sensor(f"battery {idx} maxTemp", "{{ (value | float/10 - 273.15) | round(2) }}", "°C", "temperature"),
+                self.sensor(f"battery {idx} power", None, "W", "power", "measurement"),
+                self.sensor(f"battery {idx} socLevel", None, "%", "battery", "measurement"),
+                self.sensor(f"battery {idx} maxTemp", "{{ (value | float/10 - 273.15) | round(2) }}", "°C", "temperature", "measurement"),
                 self.sensor(f"battery {idx} softVersion"),
             ]
             ZendureSensor.addSensors(sensors)
@@ -132,7 +126,7 @@ class ZendureDevice:
             elif key.endswith("power"):
                 entity = self.sensor(key, None, "w", "power")
             elif key.endswith(("Temperature", "Temp")):
-                entity = self.sensor(key, "{{ (value | float/10 - 273.15) | round(2) }}", "°C", "temperature")
+                entity = self.sensor(key, "{{ (value | float/10 - 273.15) | round(2) }}", "°C", "temperature", "measurement")
             elif key.endswith("PowerCycle"):
                 entity = None
             else:
@@ -165,9 +159,9 @@ class ZendureDevice:
         # reset the value dailey
         if self.powerSensors and self.totaltime[idx] != datetime.max and self.totalValue[idx] != 0:
             secs = time.timestamp() - self.totaltime[idx].timestamp()
-            wattHour = self.totalValue[idx] * secs / 3600000
-            wattHour += float(self.powerSensors[idx].state) if self.powerSensors[idx].state is not None and time.day == self.totaltime[idx].day else 0
-            self.powerSensors[idx].update_value(wattHour)
+            kWh = self.totalValue[idx] * secs / 3600000
+            kWh += float(self.powerSensors[idx].state) if self.powerSensors[idx].state is not None and time.day == self.totaltime[idx].day else 0
+            self.powerSensors[idx].update_value(kWh)
 
         self.totaltime[idx] = time
         self.totalValue[idx] = value
@@ -368,7 +362,7 @@ class ZendureDevice:
 
     @property
     def clusterMin(self) -> int:
-        """Get the maximum power of the cluster."""
+        """Get the minimum power of the cluster."""
         cmin = sum(d.powerMin for d in self.clusterdevices)
         match self.clusterType:
             case 1:
@@ -387,3 +381,14 @@ class ZendureDevice:
 class AcMode:
     INPUT = 1
     OUTPUT = 2
+
+
+@dataclass
+class ZendureDeviceDefinition:
+    """Class to hold zendure device properties."""
+
+    productKey: str
+    deviceName: str
+    productName: str
+    snNumber: str
+    ip_address: str | None

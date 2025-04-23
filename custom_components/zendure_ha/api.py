@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from ipaddress import ip_address
 import logging
+from math import prod
 import traceback
 from base64 import b64decode
 from collections.abc import Callable
@@ -14,14 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from paho.mqtt import client as mqtt_client
 
-from .devices.ace1500 import ACE1500
-from .devices.aio2400 import AIO2400
-from .devices.hub1000 import Hub1000
-from .devices.hub1200 import Hub1200
-from .devices.hub2000 import Hub2000
-from .devices.hyper2000 import Hyper2000
-from .devices.solarflow800 import SolarFlow800
-from .zenduredevice import ZendureDevice
+from .zenduredevice import ZendureDeviceDefinition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,11 +109,11 @@ class Api:
         _LOGGER.error(response.text)
         return None
 
-    async def getDevices(self, hass: HomeAssistant) -> dict[str, ZendureDevice]:
+    async def getDevices(self) -> dict[str, ZendureDeviceDefinition]:
         if not self.session:
             raise SessionNotInitializedError
 
-        devices: dict[str, ZendureDevice] = {}
+        devices: dict[str, ZendureDeviceDefinition] = {}
         try:
             url = f"{self.zen_api}{SF_DEVICELIST_PATH}"
             _LOGGER.info("Getting device list ...")
@@ -135,24 +130,13 @@ class Api:
                             _LOGGER.debug(f"Unable to get details for: {deviceId} {prodName}")
                             continue
                         _LOGGER.info(f"Adding device: {deviceKey} {prodName}")
-
-                        match prodName:
-                            case "Hyper 2000":
-                                devices[deviceKey] = Hyper2000(hass, deviceKey, data)
-                            case "SolarFlow 800":
-                                devices[deviceKey] = SolarFlow800(hass, deviceKey, data)
-                            case "Hub 1000":
-                                devices[deviceKey] = Hub1000(hass, deviceKey, data)
-                            case "SolarFlow2.0":
-                                devices[deviceKey] = Hub1200(hass, deviceKey, data)
-                            case "SolarFlow Hub 2000":
-                                devices[deviceKey] = Hub2000(hass, deviceKey, data)
-                            case "SolarFlow AIO ZY":
-                                devices[deviceKey] = AIO2400(hass, deviceKey, data)
-                            case "Ace 1500":
-                                devices[deviceKey] = ACE1500(hass, deviceKey, data)
-                            case _:
-                                _LOGGER.info(f"Device {prodName} is not supported!")
+                        devices[deviceKey] = ZendureDeviceDefinition(
+                            productKey=data["productKey"],
+                            deviceName=data["deviceName"],
+                            snNumber=data["snNumber"],
+                            productName=prodName,
+                            ip_address=data.get("ip", None),
+                        )
 
                         _LOGGER.info(f"Data: {data}")
                     except Exception as e:

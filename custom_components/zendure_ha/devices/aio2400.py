@@ -9,17 +9,18 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.binary_sensor import ZendureBinarySensor
 from custom_components.zendure_ha.number import ZendureNumber
+from custom_components.zendure_ha.select import ZendureSelect
 from custom_components.zendure_ha.sensor import ZendureSensor
 from custom_components.zendure_ha.switch import ZendureSwitch
-from custom_components.zendure_ha.zenduredevice import ManagerState, ZendureDevice
+from custom_components.zendure_ha.zenduredevice import ManagerState, ZendureDevice, ZendureDeviceDefinition
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class AIO2400(ZendureDevice):
-    def __init__(self, hass: HomeAssistant, h_id: str, data: Any) -> None:
+    def __init__(self, hass: HomeAssistant, h_id: str, definition: ZendureDeviceDefinition) -> None:
         """Initialise AIO2400."""
-        super().__init__(hass, h_id, data["productKey"], data["deviceName"], "AIO 2400")
+        super().__init__(hass, h_id, definition, "AIO 2400")
         self.powerMin = -2400
         self.powerMax = 2400
         self.numbers: list[ZendureNumber] = []
@@ -51,26 +52,34 @@ class AIO2400(ZendureDevice):
 
         sensors = [
             self.sensor("hubState"),
-            self.sensor("solarInputPower", None, "W", "power"),
+            self.sensor("solarInputPower", None, "W", "power", "measurement"),
             self.sensor("batVolt", None, "V", "voltage"),
-            self.sensor("packInputPower", None, "W", "power"),
-            self.sensor("outputPackPower", None, "W", "power"),
-            self.sensor("outputHomePower", None, "W", "power"),
+            self.sensor("packInputPower", None, "W", "power", "measurement"),
+            self.sensor("outputPackPower", None, "W", "power", "measurement"),
+            self.sensor("outputHomePower", None, "W", "power", "measurement"),
             self.sensor("remainOutTime", "{{ (value / 60) }}", "h", "duration"),
             self.sensor("remainInputTime", "{{ (value / 60) }}", "h", "duration"),
             self.sensor("packNum", None),
             self.sensor("electricLevel", None, "%", "battery"),
             self.sensor("energyPower", None, "W"),
             self.sensor("inverseMaxPower", None, "W"),
-            self.sensor("solarPower1", None, "W", "power"),
-            self.sensor("solarPower2", None, "W", "power"),
-            self.sensor("gridInputPower", None, "W", "power"),
-            self.sensor("packInputPowerCycle", None, "W", "power"),
-            self.sensor("outputHomePowerCycle", None, "W", "power"),
+            self.sensor("solarPower1", None, "W", "power", "measurement"),
+            self.sensor("solarPower2", None, "W", "power", "measurement"),
+            self.sensor("gridInputPower", None, "W", "power", "measurement"),
             self.sensor("pass", None),
             self.sensor("strength", None),
         ]
         ZendureSensor.addSensors(sensors)
+
+        selects = [
+            self.select(
+                "acMode",
+                {1: "input", 2: "output"},
+                self.update_ac_mode,
+            )
+        ]
+
+        ZendureSelect.addSelects(selects)
 
     def updateProperty(self, key: Any, value: Any) -> bool:
         # Call the base class updateProperty method

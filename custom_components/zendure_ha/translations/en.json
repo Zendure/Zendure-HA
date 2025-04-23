@@ -88,14 +88,36 @@
           "10": "Electricity Price"
         }
       },
+      "pass_mode": {
+        "name": "Pass mode",
+        "state": {
+          "0": "Automatic",
+          "1": "Always off",
+          "2": "Always on"
+        }
+      },
+      "so_h": {
+        "name": "State of health"
+      },
+      "soc_status": {
+        "name": "Soc status",
+        "state": {
+          "0": "Active",
+          "1": "Auto-Calibration"
+        }
+      },
+      "hub_state": {
+        "name": "Hub status",
+        "state": {
+          "0": "Stop output and standby",
+          "1": "Stop output and switch off"
+        }
+      },
       "pack_num": {
         "name": "Battery Count"
       },
       "bat_volt": {
         "name": "Battery Voltage"
-      },
-      "hub_state": {
-        "name": "Hub State"
       },
       "electric_level": {
         "name": "Battery"

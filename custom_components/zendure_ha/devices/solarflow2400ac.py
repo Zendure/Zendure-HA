@@ -11,17 +11,18 @@ from custom_components.zendure_ha.binary_sensor import ZendureBinarySensor
 from custom_components.zendure_ha.number import ZendureNumber
 from custom_components.zendure_ha.select import ZendureSelect
 from custom_components.zendure_ha.sensor import ZendureSensor
-from custom_components.zendure_ha.zenduredevice import ZendureDevice, ZendureDeviceDefinition
+from custom_components.zendure_ha.switch import ZendureSwitch
+from custom_components.zendure_ha.zenduredevice import ManagerState, ZendureDevice, ZendureDeviceDefinition
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class Hub1000(ZendureDevice):
+class SolarFlow2400AC(ZendureDevice):
     def __init__(self, hass: HomeAssistant, h_id: str, definition: ZendureDeviceDefinition) -> None:
-        """Initialise Hub2000."""
-        super().__init__(hass, h_id, definition, "Hub 1000")
-        self.powerMin = -1000
-        self.powerMax = 800
+        """Initialise SolarFlow2400AC."""
+        super().__init__(hass, h_id, definition, "SolarFlow 2400 AC")
+        self.powerMin = -2400
+        self.powerMax = 2400
         self.numbers: list[ZendureNumber] = []
 
     def sensorsCreate(self) -> None:
@@ -43,6 +44,11 @@ class Hub1000(ZendureDevice):
             self.number("minSoc", "{{ value | int / 10 }}", "%", None, 5, 100, NumberMode.SLIDER),
         ]
         ZendureNumber.addNumbers(self.numbers)
+
+        switches = [
+            self.switch("lampSwitch", None, "switch"),
+        ]
+        ZendureSwitch.addSwitches(switches)
 
         sensors = [
             self.sensor("hubState"),
@@ -75,6 +81,7 @@ class Hub1000(ZendureDevice):
 
         ZendureSelect.addSelects(selects)
 
+
     def updateProperty(self, key: Any, value: Any) -> bool:
         # Call the base class updateProperty method
         if not super().updateProperty(key, value):
@@ -84,6 +91,30 @@ class Hub1000(ZendureDevice):
                 self.powerMax = value
                 self.numbers[1].update_range(0, value)
         return True
+
+    def powerState(self, state: ManagerState) -> None:
+        """Update the state of the manager."""
+        _LOGGER.info(f"Hyper {self.name} update setpoint")
+
+        autoModel = 0 if state == ManagerState.IDLE else 8
+        self.function_invoke({
+            "arguments": [
+                {
+                    "autoModelProgram": 0 if state == ManagerState.IDLE else 2,
+                    "autoModelValue": {
+                        "chargingType": 0,
+                        "chargingPower": 0,
+                        "outPower": 0,
+                    },
+                    "msgType": 1,
+                    "autoModel": autoModel,
+                }
+            ],
+            "deviceKey": self.hid,
+            "function": "deviceAutomation",
+            "messageId": self._messageid,
+            "timestamp": int(datetime.now().timestamp()),
+        })
 
     def powerSet(self, power: int, inprogram: bool) -> None:
         delta = abs(power - self.powerAct)

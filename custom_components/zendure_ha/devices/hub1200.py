@@ -10,15 +10,15 @@ from homeassistant.core import HomeAssistant
 from custom_components.zendure_ha.binary_sensor import ZendureBinarySensor
 from custom_components.zendure_ha.number import ZendureNumber
 from custom_components.zendure_ha.sensor import ZendureSensor
-from custom_components.zendure_ha.zenduredevice import ZendureDevice
+from custom_components.zendure_ha.zenduredevice import ZendureDevice, ZendureDeviceDefinition
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Hub1200(ZendureDevice):
-    def __init__(self, hass: HomeAssistant, h_id: str, data: Any) -> None:
+    def __init__(self, hass: HomeAssistant, h_id: str, definition: ZendureDeviceDefinition) -> None:
         """Initialise Hub1200."""
-        super().__init__(hass, h_id, data["productKey"], data["deviceName"], "Hub 1200")
+        super().__init__(hass, h_id, definition, "Hub 1200")
         self.powerMin = -1000
         self.powerMax = 800
         self.numbers: list[ZendureNumber] = []
@@ -32,6 +32,8 @@ class Hub1200(ZendureDevice):
             self.binary("wifiState", None, "switch"),
             self.binary("heatState", None, "switch"),
             self.binary("reverseState", None, "switch"),
+            self.binary("pass", None, "switch"),
+            self.binary("autoRecover", None, "switch"),
         ]
         ZendureBinarySensor.addBinarySensors(binairies)
 
@@ -45,23 +47,20 @@ class Hub1200(ZendureDevice):
 
         sensors = [
             self.sensor("hubState"),
-            self.sensor("solarInputPower", None, "W", "power"),
+            self.sensor("solarInputPower", None, "W", "power", "measurement"),
             self.sensor("batVolt", None, "V", "voltage"),
-            self.sensor("packInputPower", None, "W", "power"),
-            self.sensor("outputPackPower", None, "W", "power"),
-            self.sensor("outputHomePower", None, "W", "power"),
+            self.sensor("packInputPower", None, "W", "power", "measurement"),
+            self.sensor("outputPackPower", None, "W", "power", "measurement"),
+            self.sensor("outputHomePower", None, "W", "power", "measurement"),
             self.sensor("remainOutTime", "{{ (value / 60) }}", "h", "duration"),
             self.sensor("remainInputTime", "{{ (value / 60) }}", "h", "duration"),
+            self.sensor("soH", "{{ (value / 10) }}", "%", None, "measurement"),
             self.sensor("packNum", None),
             self.sensor("electricLevel", None, "%", "battery"),
             self.sensor("energyPower", None, "W"),
             self.sensor("inverseMaxPower", None, "W"),
-            self.sensor("solarPower1", None, "W", "power"),
-            self.sensor("solarPower2", None, "W", "power"),
-            self.sensor("gridInputPower", None, "W", "power"),
-            self.sensor("packInputPowerCycle", None, "W", "power"),
-            self.sensor("outputHomePowerCycle", None, "W", "power"),
-            self.sensor("pass", None),
+            self.sensor("solarPower1", None, "W", "power", "measurement"),
+            self.sensor("solarPower2", None, "W", "power", "measurement"),
             self.sensor("strength", None),
         ]
         ZendureSensor.addSensors(sensors)
