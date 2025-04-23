@@ -158,10 +158,10 @@ class Api:
                         if len(data["packDataList"]):
                             for pack in data["packDataList"]:
                                 if pack.get("productName", "") == "Ace 1500":
-                                    device = await self._createDeviceDefinition(pack)
-                                    if device is None:
+                                    subdevice = await self._createDeviceDefinition(pack, device)
+                                    if subdevice is None:
                                         continue
-                                    devices[device.deviceKey] = device
+                                    devices[subdevice.deviceKey] = subdevice
 
                         _LOGGER.info(f"Data: {data}")
                     except Exception as e:
