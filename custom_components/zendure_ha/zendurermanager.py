@@ -47,6 +47,7 @@ class ZendureManager(DataUpdateCoordinator[int]):
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize ZendureManager."""
+        self.debug_unknown_topics = True
         super().__init__(
             hass,
             _LOGGER,
@@ -252,10 +253,10 @@ class ZendureManager(DataUpdateCoordinator[int]):
                 for d in ZendureDevice.devices:
                     d.sendRefresh()
 
-            # if self.uselocal:
-            #     _LOGGER.info("Check for bluetooth devices ...")
-            #     bleak_scanner = bluetooth.async_get_scanner(self._hass)
-            #     bleak_scanner.register_detection_callback(self._device_detected)
+            if self.uselocal:
+                _LOGGER.info("Check for bluetooth devices ...")
+                bleak_scanner = bluetooth.async_get_scanner(self._hass)
+                bleak_scanner.register_detection_callback(self._device_detected)
 
         except Exception as err:
             _LOGGER.error(err)
@@ -268,7 +269,7 @@ class ZendureManager(DataUpdateCoordinator[int]):
             # check for valid device in payload
             payload = json.loads(msg.payload.decode())
             if not (deviceid := payload.get("deviceId", None)) or not (device := ZendureDevice.devicedict.get(deviceid, None)):
-                # _LOGGER.info(f"Unknown topic: {msg.topic} => {payload}")
+                _LOGGER.info(f"Unknown topic: {msg.topic} => {payload}")
                 return
             device.lastUpdate = datetime.now() + timedelta(seconds=30)
 
@@ -276,6 +277,46 @@ class ZendureManager(DataUpdateCoordinator[int]):
             parameter = topics[-1]
 
             _LOGGER.info(f"Topic: {msg.topic} => {payload}")
+            _LOGGER.warning(f"📚 Topic-Struktur: {topics}")
+            _LOGGER.warning(f"🧩 Unbekannter Parameter: {parameter}")
+
+            if len(topics) >= 2 and topics[-2] == "properties":
+                if topics[-1] == "write":
+                    _LOGGER.warning("✏️ properties/write empfangen")
+                    _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                    try:
+                        if not payload:
+                            _LOGGER.warning("⚠️ Kein Payload erhalten oder Payload leer!")
+                        else:
+                            for line in json.dumps(payload, indent=2).splitlines():
+                                _LOGGER.warning(line)
+                    except Exception as e:
+                        _LOGGER.warning(f"📦 Rohdaten (Fallback): {msg.payload.decode(errors='replace')}")
+                        _LOGGER.warning(f"❌ Fehler beim Dekodieren: {e}")
+                    return
+                elif topics[-1] == "report":
+                    _LOGGER.warning("📤 properties/report empfangen")
+                    _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                    try:
+                        for line in json.dumps(payload, indent=2).splitlines():
+                            _LOGGER.warning(line)
+                    except Exception as e:
+                        _LOGGER.warning(f"📦 Rohdaten (Fallback): {msg.payload.decode(errors='replace')}")
+                        _LOGGER.warning(f"❌ Fehler beim Dekodieren: {e}")
+                    return
+
+            if "calculations" in topics:
+                _LOGGER.warning("🧮 calculations empfangen")
+                _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                try:
+                    for line in json.dumps(payload, indent=2).splitlines():
+                        _LOGGER.warning(line)
+                except Exception:
+                    _LOGGER.warning(f"📦 Rohdaten (Fallback): {msg.payload.decode(errors='replace')}")
+                return
+
+
+
             match parameter:
                 case "report":
                     if properties := payload.get("properties", None):
@@ -300,17 +341,17 @@ class ZendureManager(DataUpdateCoordinator[int]):
                                     device.updateProperty(f"battery {idx} {key}", value)
 
                 case "config":
-                    # _LOGGER.info(f"Receive: {device.hid} => event: {payload}")
+                    _LOGGER.info(f"Receive: {device.hid} => event: {payload}")
                     return
 
                 case "device":
-                    # if topics[-2] == "event":
-                    #     _LOGGER.info(f"Receive: {device.hid} => event: {payload}")
+                    if topics[-2] == "event":
+                        _LOGGER.info(f"Receive: {device.hid} => event: {payload}")
                     return
 
                 case "error":
-                    # if topics[-2] == "event":
-                    #     _LOGGER.info(f"Receive: {device.hid} => error: {payload}")
+                    if topics[-2] == "event":
+                        _LOGGER.info(f"Receive: {device.hid} => error: {payload}")
                     return
 
                 case "reply":
@@ -318,8 +359,71 @@ class ZendureManager(DataUpdateCoordinator[int]):
                     _LOGGER.info(f"Receive: {device.hid} => ready!")
                     return
 
-                # case _:
-                #     _LOGGER.info(f"Unknown topic {msg.topic} => {payload}")
+                case "log":
+                    log_type = payload.get("logType", -1)
+                    if log_type != 1:
+                        _LOGGER.warning("📘 Ungenutzter logType empfangen:")
+                        _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                        try:
+                            log_data = payload.get("log", {})
+                            sn = log_data.get("sn", "unknown")
+                            params = log_data.get("params", [])
+                            _LOGGER.warning(f"📦 Seriennummer: {sn}")
+                            _LOGGER.warning(f"📊 Parameteranzahl: {len(params)}")
+                            # Beispielauswertung
+                            if len(params) >= 40:
+                                voltage_min = params[6] / 1000
+                                voltage_max = params[7] / 1000
+                                temp_max = params[35] / 10
+                                _LOGGER.warning(f"🔋 Zellspannung min: {voltage_min:.3f} V")
+                                _LOGGER.warning(f"🔋 Zellspannung max: {voltage_max:.3f} V")
+                                _LOGGER.warning(f"🌡️  Max. Temperatur: {temp_max:.1f} °C")
+                            _LOGGER.warning(f"📦 Inhalt: {json.dumps(log_data, indent=2)}")
+                        except Exception:
+                            _LOGGER.warning(f"📦 Rohdaten: {payload}")
+                    return
+                
+                
+
+                case "properties":
+                    if topics[-1] == "write":
+                        _LOGGER.warning("✏️ properties/write empfangen")
+                        _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                        try:
+                            if not payload:
+                                _LOGGER.warning("⚠️ Kein Payload erhalten oder Payload leer!")
+                            else:
+                                for line in json.dumps(payload, indent=2).splitlines():
+                                    _LOGGER.warning(line)
+                        except Exception as e:
+                            _LOGGER.warning(f"📦 Rohdaten (Fallback): {msg.payload.decode(errors='replace')}")
+                            _LOGGER.warning(f"❌ Fehler beim Dekodieren: {e}")
+                        return
+                    elif topics[-1] == "report":
+                        _LOGGER.warning("🔍 Unbekanntes MQTT-Topic empfangen:")
+                        _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                        _LOGGER.warning(f"📚 Topic-Struktur: {topics}")
+                        try:
+                            for line in json.dumps(payload, indent=2).splitlines():
+                                _LOGGER.warning(line)
+                        except Exception as e:
+                            _LOGGER.warning(f"📦 Rohdaten (Fallback): {msg.payload.decode(errors='replace')}")
+                            _LOGGER.warning(f"❌ Fehler beim Dekodieren: {e}")
+                        return
+
+               
+            if len(topics) >= 2 and topics[-2] == "properties" and topics[-1] == "report":
+                _LOGGER.warning("📤 properties/report empfangen (aus fallback)")
+                _LOGGER.warning(f"📌 Topic: {msg.topic}")
+                try:
+                    for line in json.dumps(payload, indent=2).splitlines():
+                        _LOGGER.warning(line)
+                except Exception as e:
+                    _LOGGER.warning(f"📦 Rohdaten (Fallback): {msg.payload.decode(errors='replace')}")
+                    _LOGGER.warning(f"❌ Fehler beim Dekodieren: {e}")
+                return
+
+                
 
         except Exception as err:
             _LOGGER.error(err)
