@@ -31,6 +31,8 @@ from .devices.hub2000 import Hub2000
 from .devices.hyper2000 import Hyper2000
 from .devices.solarflow800 import SolarFlow800
 from .devices.solarflow2400ac import SolarFlow2400AC
+from .devices.batteries.ab1000 import AB1000
+from .devices.batteries.ab2000 import AB2000
 from custom_components.zendure_ha.api import Api
 from custom_components.zendure_ha.number import ZendureNumber, ZendureRestoreNumber
 from custom_components.zendure_ha.select import ZendureRestoreSelect, ZendureSelect
@@ -141,6 +143,21 @@ class ZendureManager(DataUpdateCoordinator[int]):
                             device = ACE1500(self._hass, deviceKey, deviceDef)
                         case "SolarFlow 2400 AC":
                             device = SolarFlow2400AC(self._hass, deviceKey, deviceDef)
+                        # Batteries
+                        case "AB 1000":
+                            device = AB1000(
+                                self._hass,
+                                deviceKey,
+                                deviceDef,
+                                ZendureDevice.devicedict[deviceDef.parent],
+                            )
+                        case "AB 2000":
+                            device = AB2000(
+                                self._hass,
+                                deviceKey,
+                                deviceDef,
+                                ZendureDevice.devicedict[deviceDef.parent],
+                            )
                         case _:
                             _LOGGER.info(f"Device {deviceDef.productName} is not supported!")
                             continue
@@ -284,20 +301,23 @@ class ZendureManager(DataUpdateCoordinator[int]):
 
                     if batprops := payload.get("packData", None):
                         # get the battery serial numbers
-                        if properties and (cnt := properties.get("packNum", None)):
-                            if cnt != len(device.batteries):
-                                device.batteries = ["" for x in range(len(batprops))]
+                        if properties and properties.get("packNum", None):
+                            if not len(device.batteries):
                                 self._hass.loop.call_soon_threadsafe(device.sensorsBatteryCreate, [bat["sn"] for bat in batprops if "sn" in bat])
-                            elif device.batteries:
-                                device.batteries = [bat["sn"] for bat in batprops if "sn" in bat]
+                            device.batteries = [bat["sn"] for bat in batprops if "sn" in bat]
 
                         # update the battery properties
                         for bat in batprops:
                             sn = bat.pop("sn")
-                            if sn in device.batteries:
+                            batteryDevice = ZendureDevice.devicedict.get(sn, None)
+                            if sn in device.batteries and batteryDevice:
                                 idx = list.index(device.batteries, sn) + 1
-                                for key, value in bat.items():
-                                    device.updateProperty(f"battery {idx} {key}", value)
+                                if batteryDevice:
+                                    for key, value in bat.items():
+                                        # old way
+                                        device.updateProperty(f"battery {idx} {key}", value)
+                                        # new way
+                                        batteryDevice.updateProperty(key, value)
 
                 case "config":
                     # _LOGGER.info(f"Receive: {device.hid} => event: {payload}")

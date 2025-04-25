@@ -35,7 +35,14 @@ class ZendureDevice:
     clusters: list[ZendureDevice] = []
     _messageid = 0
 
-    def __init__(self, hass: HomeAssistant, h_id: str, definition: ZendureDeviceDefinition, model: str) -> None:
+    def __init__(
+            self,
+            hass: HomeAssistant,
+            h_id: str,
+            definition: ZendureDeviceDefinition,
+            model: str,
+            parent: ZendureDevice = None
+    ) -> None:
         """Initialize ZendureDevice."""
         self._hass = hass
         self.hid = h_id
@@ -48,6 +55,7 @@ class ZendureDevice:
             manufacturer="Zendure",
             model=model,
             serial_number=definition.snNumber,
+            via_device=(DOMAIN, parent.name) if parent else None,
         )
         self._topic_read = f"iot/{self.prodkey}/{self.hid}/properties/read"
         self._topic_write = f"iot/{self.prodkey}/{self.hid}/properties/write"
@@ -396,3 +404,4 @@ class ZendureDeviceDefinition:
     productName: str
     snNumber: str
     ip_address: str | None
+    parent: str | None = None

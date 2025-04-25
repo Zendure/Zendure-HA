@@ -138,6 +138,37 @@ class Api:
                             ip_address=data.get("ip", None),
                         )
 
+                        if len(data["packDataList"]):
+                            for pack in data["packDataList"]:
+                                if (
+                                    pack.get("productName", "").lower() == "ace 1500"
+                                    or not pack["sn"]
+                                ):
+                                    continue
+
+                                # Determine productKey and deviceName based on serial number prefix
+                                sn_prefix = pack["sn"][0]
+                                if sn_prefix == "C":
+                                    productKey = "ab2000"
+                                    deviceName = "AB 2000"
+                                elif sn_prefix == "A":
+                                    productKey = "ab1000"
+                                    deviceName = "AB 1000"
+                                else:
+                                    _LOGGER.warning(
+                                        f"Unknown device with serial number prefix: {sn_prefix}"
+                                    )
+                                    continue
+
+                                devices[pack["sn"]] = ZendureDeviceDefinition(
+                                    productKey=productKey,
+                                    deviceName=deviceName,
+                                    snNumber=pack["sn"],
+                                    productName=deviceName,
+                                    ip_address=None,
+                                    parent=deviceKey,
+                                )
+
                         _LOGGER.info(f"Data: {data}")
                     except Exception as e:
                         _LOGGER.error(traceback.format_exc())
