@@ -32,7 +32,7 @@ After you have successfully installed and configured HACS you can simply press t
 
 ## Configuration options
 
-![image](https://github.com/user-attachments/assets/a92daa42-99aa-41fa-880a-d7acd19185da)
+![image]
 
 It is strongly recommended to create a 2nd Zendure account for this integration to avoid being logged out of the app. To do this:
 - Signout of the zendure app (or use a 2nd device/spouse for this if available)
