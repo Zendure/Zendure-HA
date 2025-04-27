@@ -10,6 +10,7 @@
 | SolarFlow 2400 AC |
 | ACE 1500 |
 | AIO 2400 |
+| Hub 1000 |
 | Hub 1200 |
 | Hub 2000 |
 
