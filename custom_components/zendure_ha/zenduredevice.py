@@ -388,22 +388,22 @@ class ZendureDevice:
         return s
 
     def asInt(self, name: str) -> int:
-        if (sensor := self.entities.get(name, None)) and sensor.state:
+        if (sensor := self.entities.get(name, None)) and sensor.state is not None:
             return int(sensor.state)
         return 0
 
     def isInt(self, name: str) -> int | None:
-        if (sensor := self.entities.get(name, None)) and sensor.state:
+        if (sensor := self.entities.get(name, None)) and sensor.state is not None:
             return int(sensor.state)
         return None
 
     def asFloat(self, name: str) -> float:
-        if (sensor := self.entities.get(name, None)) and sensor.state:
+        if (sensor := self.entities.get(name, None)) and sensor.state is not None:
             return float(sensor.state)
         return 0
 
     def isEqual(self, name: str, value: Any) -> bool:
-        if (sensor := self.entities.get(name, None)) and sensor.state:
+        if (sensor := self.entities.get(name, None)) and sensor.state is not None:
             return sensor.state == value
         return False
 
