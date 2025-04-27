@@ -222,7 +222,7 @@ class ZendureDevice:
         try:
             time = datetime.now()
             # reset the value dailey
-            if self.powerSensors and self.totaltime[idx] != datetime.max and self.totalValue[idx] != 0:
+            if self.powerSensors and self.totaltime[idx] != datetime.max and self.totalValue[idx] is not None:
                 secs = time.timestamp() - self.totaltime[idx].timestamp()
                 kWh = self.totalValue[idx] * secs / 3600000
                 kWh += float(self.powerSensors[idx].state) if self.powerSensors[idx].state is not None and time.day == self.totaltime[idx].day else 0
