@@ -32,7 +32,9 @@ After you have successfully installed and configured HACS you can simply press t
 
 ## Configuration options
 
-![image]
+<img width="494" alt="Bildschirmfoto 2025-04-27 um 10 11 14" src="https://github.com/user-attachments/assets/e805e120-56d6-47b7-abe1-236e80d4b2cd" />
+
+
 
 It is strongly recommended to create a 2nd Zendure account for this integration to avoid being logged out of the app. To do this:
 - Signout of the zendure app (or use a 2nd device/spouse for this if available)
@@ -130,12 +132,6 @@ The actual soc is calculated like this:
 - dischargecapacity = packNum * max(0, electricLevel - minSoc)
 
 In this way the maximal availability for charging/discharging is achieved. This is also the reason why the AC mode can not be manipulated because it would break this feature.
-
-## Clusters
-At this moment the integration cannot handle the Zenlink cluster (will be added in the future).
-However it is possible to create clusters of your own in the integration. For which you can use the information about clusters from the Zendure App for that as well. This option is only available if you have multiple devices.
-![image](https://github.com/user-attachments/assets/dba74b54-e75f-481d-b35b-98a37f079fad)
-In this example the Zen 05 behaves like a cluster with a maximum output of 800watt. At this moment there are three options available 800/1200 and 2400 watt. The Zen66 device is part of this cluster. The output per device of this cluster is dependant on the actual capacity of the devices. If the device is not in a cluster the ZendureManager will use it maximum input or output. Wherever the device cluster is not defined, the ZendureManager will not use the device! The configured values are persisted, and also after a reboot of HA they should stay the same.
 
 ## Home assistant Energy Dashboard
 
