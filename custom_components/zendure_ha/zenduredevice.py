@@ -74,6 +74,7 @@ class ZendureDevice:
         self.powerMin = 0
         self.powerAct = 0
         self.capacity = 0
+        self.deviceCapacity = 0
         self.clusterType: Any = 0
         self.clusterdevices: list[ZendureDevice] = []
         self.powerSensors: list[ZendureSensor] = []
@@ -112,8 +113,13 @@ class ZendureDevice:
     def sensorsBatteryCreate(self, data: list[str]) -> None:
         if self.logMqtt:
             _LOGGER.info(f"update_battery: {self.name} => {data}")
+        self.deviceCapacity = 0
         self.batteries = data
         for i in range(len(data)):
+            if data[i].startswith("A"):
+                self.deviceCapacity += 1
+            else:
+                self.deviceCapacity += 2
             idx = i + 1
             sensors = [
                 self.sensor(f"battery {idx} totalVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
