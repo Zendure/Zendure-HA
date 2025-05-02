@@ -398,12 +398,12 @@ class ZendureManager(DataUpdateCoordinator[int]):
         totalPower = 0
         for d in ZendureDevice.devices:
             if state == ManagerState.DISCHARGING:
-                d.capacity = max(0, d.asInt("deviceCapacity") * (d.asInt("electricLevel") - d.asInt("minSoc")))
-                _LOGGER.info(f"Update capacity: {d.name} {d.capacity} = {d.asInt('deviceCapacity')} * ({d.asInt('electricLevel')} - {d.asInt('minSoc')})")
+                d.capacity = max(0, d.deviceCapacity * (d.asInt("electricLevel") - d.asInt("minSoc")))
+                _LOGGER.info(f"Update capacity: {d.name} {d.capacity} = {d.deviceCapacity} * ({d.asInt('electricLevel')} - {d.asInt('minSoc')})")
                 totalPower += d.powerMax
             else:
-                d.capacity = max(0, d.asInt("deviceCapacity") * (d.asInt("socSet") - d.asInt("electricLevel")))
-                _LOGGER.info(f"Update capacity: {d.name} {d.capacity} = {d.asInt('deviceCapacity')} * ({d.asInt('socSet')} - {d.asInt('electricLevel')})")
+                d.capacity = max(0, d.deviceCapacity * (d.asInt("socSet") - d.asInt("electricLevel")))
+                _LOGGER.info(f"Update capacity: {d.name} {d.capacity} = {d.deviceCapacity} * ({d.asInt('socSet')} - {d.asInt('electricLevel')})")
                 totalPower += abs(d.powerMin)
             if d.clusterType == 0:
                 d.capacity = 0
