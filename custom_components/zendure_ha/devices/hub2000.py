@@ -1,4 +1,4 @@
-"""Module for the Hyper2000 device integration in Home Assistant."""
+"""Module for the Hub2000 device integration in Home Assistant."""
 
 import logging
 from datetime import datetime
@@ -11,6 +11,7 @@ from custom_components.zendure_ha.binary_sensor import ZendureBinarySensor
 from custom_components.zendure_ha.number import ZendureNumber
 from custom_components.zendure_ha.select import ZendureSelect
 from custom_components.zendure_ha.sensor import ZendureSensor
+from custom_components.zendure_ha.switch import ZendureSwitch
 from custom_components.zendure_ha.zenduredevice import ZendureDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,13 +29,9 @@ class Hub2000(ZendureDevice):
         super().entitiesCreate()
 
         binaries = [
-            self.binary("masterSwitch", None, "switch"),
-            self.binary("buzzerSwitch", None, "switch"),
             self.binary("wifiState", None, "switch"),
             self.binary("heatState", None, "switch"),
-            self.binary("reverseState", None, "switch"),
             self.binary("pass", None, "switch"),
-            self.binary("autoRecover", None, "switch"),
         ]
         ZendureBinarySensor.addBinarySensors(binaries)
 
@@ -43,6 +40,7 @@ class Hub2000(ZendureDevice):
             self.number("outputLimit", None, "W", "power", 0, 200, NumberMode.SLIDER),
             self.number("socSet", "{{ value | int / 10 }}", "%", None, 5, 100, NumberMode.SLIDER),
             self.number("minSoc", "{{ value | int / 10 }}", "%", None, 5, 100, NumberMode.SLIDER),
+            self.number("inverseMaxPower", None, "W", "power", 0, 1200, NumberMode.SLIDER),
         ]
         ZendureNumber.addNumbers(self.numbers)
 
@@ -56,18 +54,23 @@ class Hub2000(ZendureDevice):
             self.sensor("remainInputTime", "{{ (value / 60) }}", "h", "duration"),
             self.sensor("packNum", None),
             self.sensor("electricLevel", None, "%", "battery"),
-            self.sensor("energyPower", None, "W"),
-            self.sensor("inverseMaxPower", None, "W"),
             self.sensor("solarPower1", None, "W", "power", "measurement"),
             self.sensor("solarPower2", None, "W", "power", "measurement"),
         ]
         ZendureSensor.addSensors(sensors)
 
-        selects = [self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)]
+        selects = [
+            self.select("passMode", {0: "auto", 1: "off", 2: "on"}, ),
+            self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)
+        ]
         ZendureSelect.addSelects(selects)
-
-    def entitiesBattery(self, sensors: list[ZendureSensor]) -> None:
-        sensors.append(self.sensor("soh", "{{ (value / 10) }}", "%", None))
+        
+        switches = [
+            self.switch("masterSwitch", None, "switch"),
+            self.switch("buzzerSwitch", None, "switch"),
+            self.switch("autoRecover", None, "switch"),
+        ]
+        ZendureSwitch.addSwitches(switches)
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
         # Call the base class entityUpdate method
