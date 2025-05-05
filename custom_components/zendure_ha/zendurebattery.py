@@ -35,6 +35,7 @@ class ZendureBattery(ZendureBase):
             self.sensor("maxTemp", "{{ (value | float/10 - 273.15) | round(2) }}", "°C", "temperature", "measurement"),
             self.sensor("softVersion"),
         ]
+        if parent.name == "Hub 1200" or parent.name == "Hub 2000":
+            sensors.append(self.sensor("soh", "{{ (value / 10) }}", "%", None))
 
-        parent.entitiesBattery(sensors)
         ZendureSensor.addSensors(sensors)
