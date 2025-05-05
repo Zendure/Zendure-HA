@@ -44,6 +44,8 @@ class AIO2400(ZendureDevice):
 
         switches = [
             self.switch("lampSwitch", None, "switch"),
+            self.switch("masterSwitch", None, "switch"),
+            self.switch("buzzerSwitch", None, "switch"),
         ]
         ZendureSwitch.addSwitches(switches)
 
@@ -70,12 +72,6 @@ class AIO2400(ZendureDevice):
 
         selects = [self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)]
         ZendureSelect.addSelects(selects)
-        
-        switches = [
-            self.switch("masterSwitch", None, "switch"),
-            self.switch("buzzerSwitch", None, "switch"),
-        ]
-        ZendureSwitch.addSwitches(switches)
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
         # Call the base class entityUpdate method
