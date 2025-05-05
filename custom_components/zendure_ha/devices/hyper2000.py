@@ -31,8 +31,6 @@ class Hyper2000(ZendureDevice):
         super().entitiesCreate()
 
         binaries = [
-            self.binary("masterSwitch", None, "switch"),
-            self.binary("buzzerSwitch", None, "switch"),
             self.binary("wifiState", None, "switch"),
             self.binary("heatState", None, "switch"),
             self.binary("reverseState", None, "switch"),
@@ -79,6 +77,12 @@ class Hyper2000(ZendureDevice):
 
         selects = [self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)]
         ZendureSelect.addSelects(selects)
+        
+        switches = [
+            self.switch("masterSwitch", None, "switch"),
+            self.switch("buzzerSwitch", None, "switch"),
+        ]
+        ZendureSwitch.addSwitches(switches)
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
         # Call the base class entityUpdate method
