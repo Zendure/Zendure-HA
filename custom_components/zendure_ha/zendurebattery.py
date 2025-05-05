@@ -28,7 +28,6 @@ class ZendureBattery(ZendureBase):
             self.sensor("totalVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
             self.sensor("maxVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
             self.sensor("minVol", "{{ (value / 100) }}", "V", "voltage", "measurement"),
-            self.sensor("batcur", "{{ (value / 10) }}", "A", "current", "measurement"),
             self.sensor("state"),
             self.sensor("power", None, "W", "power", "measurement"),
             self.sensor("socLevel", None, "%", "battery", "measurement"),
@@ -37,5 +36,8 @@ class ZendureBattery(ZendureBase):
         ]
         if parent.name == "Hub 1200" or parent.name == "Hub 2000":
             sensors.append(self.sensor("soh", "{{ (value / 10) }}", "%", None))
+            
+        if parent.name == "Hyper 2000":
+            self.sensor("batcur", "{{ (value / 10) }}", "A", "current", "measurement"),
 
         ZendureSensor.addSensors(sensors)
