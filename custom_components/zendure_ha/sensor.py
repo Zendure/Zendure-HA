@@ -91,15 +91,16 @@ class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
             self._attr_last_reset = dt_util.utcnow()
             _LOGGER.debug(f"Restored state for {self.entity_id}: {self._attr_native_value}")
 
-    def aggregate(self, time: datetime, value: int) -> None:
+    def aggregate(self, time: datetime, value: int, allowReset: bool) -> None:
         # reset the aggregate sensors each day
-        if self.state is None or self.last_reset is None or self.last_reset.date() != time.date():
+        if self.state is None or self.last_reset is None or (self.last_reset.date() != time.date() and allowReset):
             self._attr_native_value = 0.0
             self._attr_last_reset = time
         else:
             secs = time.timestamp() - self.lastValueUpdate.timestamp()
             self._attr_native_value = float(self.state) + self.last_value * secs / 3600000
 
+        _LOGGER.debug(f"Saved state for {self.entity_id}: {self._attr_native_value}")
         self.last_value = value
         self.lastValueUpdate = time
         if self.hass and self.hass.loop.is_running():
