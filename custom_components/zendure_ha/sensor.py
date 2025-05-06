@@ -100,7 +100,6 @@ class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
             secs = time.timestamp() - self.lastValueUpdate.timestamp()
             self._attr_native_value = float(self.state) + self.last_value * secs / 3600000
 
-        _LOGGER.debug(f"Saved state for {self.entity_id}: {self._attr_native_value}")
         self.last_value = value
         self.lastValueUpdate = time
         if self.hass and self.hass.loop.is_running():
