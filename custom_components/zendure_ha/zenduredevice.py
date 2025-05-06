@@ -87,6 +87,9 @@ class ZendureDevice(ZendureBase):
         self.powerSensors = [
             self.sensor("aggrChargeDaykWh", None, "kWh", "energy", "total", 2, True),
             self.sensor("aggrDischargeDaykWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrChargeTotalkWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrDischargeTotalkWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrSolarTotalkWh", None, "kWh", "energy", "total", 2, True),
         ]
         ZendureSensor.addSensors(self.powerSensors)
 
@@ -99,10 +102,12 @@ class ZendureDevice(ZendureBase):
         match key:
             case "outputPackPower":
                 self.powerAct = int(value)
-                self.update_aggr([int(value), 0])
+                self.update_aggr([int(value), 0, int(value), 0, 0])
             case "packInputPower":
                 self.powerAct = -int(value)
-                self.update_aggr([0, int(value)])
+                self.update_aggr([0, int(value), 0, int(value), 0])
+            case "solarInputPower":
+                self.update_aggr([0, 0, 0, 0, int(value)])
 
     def entityWrite(self, entity: Entity, value: Any) -> None:
         _LOGGER.info(f"Writing property {self.name} {entity.name} => {value}")
@@ -219,7 +224,7 @@ class ZendureDevice(ZendureBase):
             for i in range(len(values)):
                 s = self.powerSensors[i]
                 if isinstance(s, ZendureRestoreSensor):
-                    s.aggregate(time, values[i])
+                    s.aggregate(time, values[i], i<2)
         except Exception as err:
             _LOGGER.error(err)
 
