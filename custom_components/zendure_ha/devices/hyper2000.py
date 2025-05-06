@@ -83,7 +83,6 @@ class Hyper2000(ZendureDevice):
         ZendureSelect.addSelects(selects)
 
     def entitiesBattery(self, battery: ZendureBase, sensors: list[ZendureSensor]) -> None:
-        sensors.append(battery.sensor("soh", "{{ (value / 10) }}", "%", None))
         self.batCount += 1
         self.powerMin = (-1200 if battery.kwh == 2 else -950) if self.batCount == 1 else -1600
         self.numbers[0].update_range(0, abs(self.powerMin))     
