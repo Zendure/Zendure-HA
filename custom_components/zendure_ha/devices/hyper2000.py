@@ -24,9 +24,10 @@ class Hyper2000(ZendureDevice):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
         """Initialise Hyper2000."""
         super().__init__(hass, deviceId, prodName, definition)
-        self.powerMin = -1200
+        self.powerMin = -950
         self.powerMax = 800
         self.numbers: list[ZendureNumber] = []
+        self.batCount = 0;
 
     def entitiesCreate(self) -> None:
         super().entitiesCreate()
@@ -43,7 +44,7 @@ class Hyper2000(ZendureDevice):
         ZendureBinarySensor.addBinarySensors(binaries)
 
         self.numbers = [
-            self.number("inputLimit", None, "W", "power", 0, 1200, NumberMode.SLIDER),
+            self.number("inputLimit", None, "W", "power", 0, 950, NumberMode.SLIDER),
             self.number("outputLimit", None, "W", "power", 0, 200, NumberMode.SLIDER),
             self.number("socSet", "{{ value | int / 10 }}", "%", None, 5, 100, NumberMode.SLIDER),
             self.number("minSoc", "{{ value | int / 10 }}", "%", None, 5, 100, NumberMode.SLIDER),
@@ -83,6 +84,9 @@ class Hyper2000(ZendureDevice):
 
     def entitiesBattery(self, battery: ZendureBase, sensors: list[ZendureSensor]) -> None:
         sensors.append(battery.sensor("soh", "{{ (value / 10) }}", "%", None))
+        self.batCount += 1
+        self.powerMin = (-1200 if battery.kwh == 2 else -950) if self.batCount == 1 else -1600
+        self.numbers[0].update_range(0, abs(self.powerMin))     
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
         # Call the base class entityUpdate method
