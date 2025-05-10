@@ -13,6 +13,7 @@ from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
+from homeassistant.components.number import NumberMode
 from paho.mqtt import client as mqtt_client
 from paho.mqtt import enums as mqtt_enums
 
@@ -23,6 +24,7 @@ from .sensor import ZendureSensor
 from .switch import ZendureSwitch
 from .zendurebase import ZendureBase
 from .zendurebattery import ZendureBattery
+from .number import ZendureNumber
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +68,7 @@ class ZendureDevice(ZendureBase):
         self.powerAct = 0
         self.capacity = 0
         self.kwh = 0
+        self.offset = 0
         self.clusterType: Any = 0
         self.clusterdevices: list[ZendureDevice] = []
 
@@ -80,9 +83,9 @@ class ZendureDevice(ZendureBase):
             ZendureSelect.add([self.select("cluster", clusters, self.clusterUpdate, True)])
 
         ZendureSensor.add([
-            self.sensor("aggrChargeTotalkWh", None, "kWh", "energy", "total_increasing", 2, True),
-            self.sensor("aggrDischargeTotalkWh", None, "kWh", "energy", "total_increasing", 2, True),
-            self.sensor("aggrSolarTotalkWh", None, "kWh", "energy", "total_increasing", 2, True),
+            self.sensor("aggrChargeTotalkWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrDischargeTotalkWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrSolarTotalkWh", None, "kWh", "energy", "total", 2, True),
         ])
 
         def doMqttReset(entity: ZendureSwitch, value: Any) -> None:
@@ -91,6 +94,11 @@ class ZendureDevice(ZendureBase):
 
         ZendureSwitch.add([self.switch("MqttReset", onwrite=doMqttReset, value=False)])
         ZendureBinarySensor.add([self.binary("MqttOnline")])
+        ZendureNumber.add([self.number("offset", None, "W", "power", -50, 50, NumberMode.SLIDER, self._set_offset)])
+ 
+    def _set_offset(self, _number: Any, power: float) -> None:
+        self.offset = int(power)
+        _LOGGER.info(f"number {_number} power {power} offset {self.offset}")
 
     def entitiesBattery(self, _battery: ZendureBattery, _sensors: list[ZendureSensor]) -> None:
         return
