@@ -226,7 +226,7 @@ class ZendureBase:
 
     def aggr(self, name: str, value: int) -> None:
         """Aggregate value to sensor."""
-        if (sensor := self.entities.get(name, None)) and sensor.state is not None and sensor is ZendureRestoreSensor:
+        if (sensor := self.entities.get(name, None)):
             try:
                 time = dt_util.now()
                 sensor.aggregate(time, value)
