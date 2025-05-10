@@ -95,7 +95,7 @@ class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
 
     def aggregate(self, time: datetime, value: int) -> None:
         # reset the aggregate sensors each day
-        if self.state is None or self.last_reset is None or self.last_reset.date() != time.date():
+        if self.state is None or self.last_reset is None:
             self._attr_native_value = 0.0
             self._attr_last_reset = time
         else:
