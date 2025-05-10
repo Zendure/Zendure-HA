@@ -80,9 +80,9 @@ class ZendureDevice(ZendureBase):
             ZendureSelect.add([self.select("cluster", clusters, self.clusterUpdate, True)])
 
         ZendureSensor.add([
-            self.sensor("aggrChargeTotalkWh", None, "kWh", "energy", "total_increasing", 2, True),
-            self.sensor("aggrDischargeTotalkWh", None, "kWh", "energy", "total_increasing", 2, True),
-            self.sensor("aggrSolarTotalkWh", None, "kWh", "energy", "total_increasing", 2, True),
+            self.sensor("aggrChargeTotalkWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrDischargeTotalkWh", None, "kWh", "energy", "total", 2, True),
+            self.sensor("aggrSolarTotalkWh", None, "kWh", "energy", "total", 2, True),
         ])
 
         def doMqttReset(entity: ZendureSwitch, value: Any) -> None:
