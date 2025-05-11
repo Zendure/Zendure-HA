@@ -429,6 +429,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
                         clusterPower -= pwr
                     else:
                         pwr = 0
+                    pwr += d.offset
                 power -= pwr
 
                 # update the device
