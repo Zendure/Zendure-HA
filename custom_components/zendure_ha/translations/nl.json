@@ -180,6 +180,14 @@
           "off": "Altijd Uit",
           "on": "Altijd Aan"
         }
+      },
+      "grid_reverse": {
+        "name": "Bypass-modus",
+        "state": {
+          "auto": "Automatisch",
+          "off": "Altijd Uit",
+          "on": "Altijd Aan"
+        }
       }
     },
     "switch": {
