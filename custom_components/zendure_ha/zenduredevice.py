@@ -242,6 +242,9 @@ class ZendureDevice(ZendureBase):
         elif mode == AcMode.OUTPUT:
             self.writeProperties({"acMode": mode, "outputLimit": self.asInt("outputLimit")})
 
+    def update_bypass(self, _entity: ZendureSelect, mode: int) -> None:
+        self.writeProperties({"gridReverse": mode})
+
     def writeProperties(self, props: dict[str, Any]) -> None:
         ZendureDevice._messageid += 1
         payload = json.dumps(
