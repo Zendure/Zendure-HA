@@ -229,6 +229,14 @@
           "off": "Immer aus",
           "on": "Immer an"
         }
+      },
+      "grid_reverse": {
+        "name": "Bypass-Modus",
+        "state": {
+          "auto": "Automatisch",
+          "off": "Immer aus",
+          "on": "Immer an"
+        }
       }
     },
     "switch": {
