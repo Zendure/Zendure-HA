@@ -219,7 +219,7 @@
           "smart": "Couplage intelligent"
         }
       },
-      "pass_mode": {
+      "grid_reverse": {
         "name": "Mode contournement ( bypass )",
         "state": {
           "auto": "Automatique",
