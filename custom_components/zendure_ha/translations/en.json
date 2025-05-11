@@ -227,7 +227,7 @@
           "smart": "Smart Matching"
         }
       },
-      "grid_reverse": {
+      "pass_mode": {
         "name": "Bypass Mode",
         "state": {
           "auto": "Auto",
