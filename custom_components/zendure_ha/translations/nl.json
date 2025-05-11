@@ -173,7 +173,7 @@
           "smart": "Slimme Matching"
         }
       },
-      "grid_reverse": {
+      "pass_mode": {
         "name": "Bypass-modus",
         "state": {
           "auto": "Automatisch",
