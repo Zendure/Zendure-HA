@@ -92,14 +92,16 @@ class Hyper2000(ZendureDevice):
             self.sensor("OldMode"),
             self.sensor("circuitCheckMode"),
             self.sensor("dspversion"),
-            self.sensor("gridReverse"),
             self.sensor("gridOffMode"),
         ]
         ZendureSensor.add(sensors)
 
         self.nosensor(["invOutputPower"])
 
-        selects = [self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)]
+        selects = [
+            self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode),
+            self.select("gridReverse", {0: "auto", 1: "on", 2: "off"}, self.update_bypass),
+        ]
         ZendureSelect.add(selects)
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
