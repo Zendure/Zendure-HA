@@ -222,7 +222,7 @@
           "smart": "Smarte Leistungsregelung"
         }
       },
-      "pass_mode": {
+      "grid_reverse": {
         "name": "Bypass-Modus",
         "state": {
           "auto": "Automatisch",
