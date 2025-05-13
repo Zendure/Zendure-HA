@@ -57,6 +57,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
         self.p1meter = config_entry.data.get(CONF_P1METER)
         self.operation = 0
         self.setpoint = 0
+        self.offset = 0
         self.zero_idle = datetime.max
         self.zero_next = datetime.min
         self.zero_fast = datetime.min
@@ -90,6 +91,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
 
             numbers = [
                 self.number("manual_power", None, "W", "power", -10000, 10000, NumberMode.BOX, self._update_manual_energy),
+                self.number("offset", None, "W", "power", -50, 50, NumberMode.SLIDER, self._set_offset),
             ]
             ZendureNumber.add(numbers)
 
@@ -132,6 +134,11 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
             _LOGGER.error(traceback.format_exc())
             return False
         return True
+
+    def _set_offset(self, _number: Any, power: float) -> None:
+        self.setvalue("offset", int(power))
+        self.offset = int(power)
+        _LOGGER.info(f"number {_number} power {power} offset {self.offset} self {self}")
 
     async def unload(self) -> None:
         """Unload the manager."""
@@ -360,7 +367,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
 
             # update when we are discharging
             elif powerActual > 0:
-                self.updateSetpoint(max(0, powerActual + p1), ManagerState.DISCHARGING)
+                self.updateSetpoint(max(0, powerActual + p1 + self.offset), ManagerState.DISCHARGING)
 
             # check if it is the first time we are idle
             elif self.zero_idle == datetime.max:
