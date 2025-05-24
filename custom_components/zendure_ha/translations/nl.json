@@ -182,6 +182,12 @@
       "remain_input_time": {
         "name": "Resterende Laadtijd"
       },
+      "remain_out_time2min_soc": {
+        "name": "Geschatte ontladingstijd tot minSOC"
+      },
+      "remain_input_time2max_soc": {
+        "name": "Geschatte oplaadtijd tot maxSOC"
+      },
       "soft_version": {
         "name": "BMS Firmware"
       },
