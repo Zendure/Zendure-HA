@@ -217,6 +217,12 @@
       "remain_input_time": {
         "name": "Remaining Charge Time"
       },
+      "remain_out_time2min_soc": {
+        "name": "Estimated Discharge Time to minSOC"
+      },
+      "remain_input_time2max_soc": {
+        "name": "Estimated Charge Time to maxSOC"
+      },
       "soft_version": {
         "name": "BMS Firmware"
       },
