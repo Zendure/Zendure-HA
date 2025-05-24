@@ -220,7 +220,13 @@
       "remain_input_time": {
         "name": "Verbleibende Ladezeit"
       },
-      "soft_version": {
+      "remain_out_time2min_soc": {
+        "name": "Erwartete Entladezeit bis minSOC"
+      },
+      "remain_input_time2max_soc": {
+        "name": "Erwartete Ladezeit bis maxSOC"
+      },
+     "soft_version": {
         "name": "BMS Firmware"
       },
       "dspversion": {
