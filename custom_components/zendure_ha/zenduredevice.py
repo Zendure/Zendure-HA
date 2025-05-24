@@ -14,6 +14,7 @@ from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
+from homeassistant.components.number import NumberMode
 from paho.mqtt import client as mqtt_client
 from paho.mqtt import enums as mqtt_enums
 
@@ -23,6 +24,7 @@ from .sensor import ZendureSensor
 from .switch import ZendureSwitch
 from .zendurebase import ZendureBase
 from .zendurebattery import ZendureBattery
+from .number import ZendureNumber
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +71,11 @@ class ZendureDevice(ZendureBase):
         self.powerAct = 0
         self.capacity = 0
         self.kwh = 0
+        self.kwIn = None
+        self.kwOut = None
+        self.actSoc = None
+        self.minSoc = None
+        self.maxSoc = None
         self.clusterType: Any = 0
         self.clusterdevices: list[ZendureDevice] = []
 
@@ -87,6 +94,8 @@ class ZendureDevice(ZendureBase):
             self.sensor("aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2, True),
             self.sensor("aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2, True),
             self.sensor("ConnectionStatus"),
+            self.sensor("remainOutTime2minSoc", None, "h", "duration"),
+            self.sensor("remainInputTime2maxSoc", None, "h", "duration"),
         ])
 
         def doMqttReset(entity: ZendureSwitch, value: Any) -> None:
@@ -100,15 +109,29 @@ class ZendureDevice(ZendureBase):
 
     def entityChanged(self, key: str, _entity: Entity, value: Any) -> None:
         match key:
+            case "socSet":
+                self.maxSoc = int(value / 10)
+                self.updateInTime()
+            case "minSoc":
+                self.minSoc = int(value / 10)
+                self.updateOutTime()
+            case "electricLevel":
+                self.actSoc = int(value)
+                self.updateOutTime()
+                self.updateInTime()
             case "outputPackPower":
                 self.powerAct = int(value)
-                self.aggr("aggrChargeTotalkWh", int(value))
-                self.aggr("aggrDischargeTotalkWh", 0)
+                self.aggr("aggrChargeTotal", int(value))
+                self.aggr("aggrDischargeTotal", 0)
+                self.kwOut = int(value)
+                self.updateInTime()
             case "packInputPower":
-                self.aggr("aggrChargeTotalkWh", 0)
-                self.aggr("aggrDischargeTotalkWh", int(value))
+                self.aggr("aggrChargeTotal", 0)
+                self.aggr("aggrDischargeTotal", int(value))
+                self.kwIn = int(value)
+                self.updateOutTime()
             case "solarInputPower":
-                self.aggr("aggrSolarTotalkWh", int(value))
+                self.aggr("aggrSolarTotal", int(value))
 
     def entityWrite(self, entity: Entity, value: Any) -> None:
         _LOGGER.info(f"Writing property {self.name} {entity.name} => {value}")
@@ -121,6 +144,55 @@ class ZendureDevice(ZendureBase):
             value = int(value * 10)
 
         self.writeProperties({property_name: value})
+
+    def updateOutTime(self) -> None:
+        try:
+            # Early return if any required value is missing
+            if not all([self.minSoc, self.kwIn, self.actSoc]):
+                return
+
+            power_input = float(self.kwIn)
+
+            # Early return if power is too low
+            if power_input <= 10:
+                self.setvalue("remainOutTime2minSoc", None)
+                return
+
+            # Calculate discharge time to minimum SoC (in minutes)
+            remaining_charge_pct = (float(self.actSoc) - float(self.minSoc)) / 100
+            discharge_minutes = float(self.kwh) * 960 * remaining_charge_pct / power_input
+
+            # Clamp to valid range
+            result = min(999, max(0, discharge_minutes))
+            self.setvalue("remainOutTime2minSoc", result)
+
+
+        except Exception as err:
+            _LOGGER.error(f"set error: {err}")
+
+    def updateInTime(self) -> None:
+        try:
+            _LOGGER.info(f"Set remainInputTime2maxSoc maxsoc {self.maxSoc} kwOut {self.kwOut} actsoc {self.actSoc} kW {self.kwh} ")
+            # Early return if any required value is missing
+            if not all([self.minSoc, self.kwIn, self.actSoc]):
+                return
+
+            power_input = float(self.kwOut)
+
+            # Early return if power is too low
+            if power_input <= 10:
+                self.setvalue("remainInputTime2maxSoc", None)
+                return
+
+            # Calculate discharge time to minimum SoC (in minutes)
+            remaining_charge_pct = (float(self.maxSoc) - float(self.actSoc)) / 100
+            charge_minutes = float(self.kwh) * 960 * remaining_charge_pct / power_input
+
+            # Clamp to valid range
+            result = min(999, max(0, charge_minutes))
+            self.setvalue("remainInputTime2maxSoc", result)
+        except Exception as err:
+            _LOGGER.error(f"set error: {err}")
 
     def deviceMqttClient(self, mqttPsw: str) -> None:
         """Initialize MQTT client for device."""
