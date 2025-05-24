@@ -174,7 +174,7 @@ class ZendureDevice(ZendureBase):
         try:
             _LOGGER.info(f"Set remainInputTime2maxSoc maxsoc {self.maxSoc} kwOut {self.kwOut} actsoc {self.actSoc} kW {self.kwh} ")
             # Early return if any required value is missing
-            if not all([self.minSoc, self.kwIn, self.actSoc]):
+            if not all([self.minSoc, self.kwOut, self.actSoc]):
                 return
 
             power_input = float(self.kwOut)
