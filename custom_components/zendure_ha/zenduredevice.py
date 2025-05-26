@@ -160,7 +160,7 @@ class ZendureDevice(ZendureBase):
 
             # Calculate discharge time to minimum SoC (in minutes)
             remaining_charge_pct = (float(self.actSoc) - float(self.minSoc)) / 100
-            discharge_minutes = float(self.kwh) * 960 * remaining_charge_pct / power_input
+            discharge_minutes = float(self.kwh) * 1000 * remaining_charge_pct / power_input
 
             # Clamp to valid range
             result = min(999, max(0, discharge_minutes))
@@ -186,7 +186,7 @@ class ZendureDevice(ZendureBase):
 
             # Calculate discharge time to minimum SoC (in minutes)
             remaining_charge_pct = (float(self.maxSoc) - float(self.actSoc)) / 100
-            charge_minutes = float(self.kwh) * 960 * remaining_charge_pct / power_input
+            charge_minutes = float(self.kwh) * 1000 * remaining_charge_pct / power_input
 
             # Clamp to valid range
             result = min(999, max(0, charge_minutes))
