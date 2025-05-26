@@ -56,8 +56,6 @@ class SolarFlow2400AC(ZendureDevice):
             self.sensor("packInputPower", None, "W", "power", "measurement"),
             self.sensor("outputPackPower", None, "W", "power", "measurement"),
             self.sensor("outputHomePower", None, "W", "power", "measurement"),
-            self.sensor("remainOutTime", "{{ (value / 60) }}", "h", "duration"),
-            self.sensor("remainInputTime", "{{ (value / 60) }}", "h", "duration"),
             self.sensor("packNum", None),
             self.sensor("electricLevel", None, "%", "battery"),
             self.sensor("energyPower", None, "W"),
@@ -69,6 +67,9 @@ class SolarFlow2400AC(ZendureDevice):
             self.sensor("strength", None),
         ]
         ZendureSensor.add(sensors)
+
+        self.nosensor(["remainOutTime"])
+        self.nosensor(["remainInputTime"])
 
         selects = [self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)]
         ZendureSelect.add(selects)
