@@ -66,8 +66,6 @@ class Hyper2000(ZendureDevice):
             self.sensor("packInputPower", None, "W", "power", "measurement"),
             self.sensor("outputPackPower", None, "W", "power", "measurement"),
             self.sensor("outputHomePower", None, "W", "power", "measurement"),
-            self.sensor("remainOutTime", "{{ (value / 60) }}", "h", "duration"),
-            self.sensor("remainInputTime", "{{ (value / 60) }}", "h", "duration"),
             self.sensor("packNum", None),
             self.sensor("electricLevel", None, "%", "battery", "measurement"),
             self.sensor("energyPower", None, "W"),
@@ -96,6 +94,8 @@ class Hyper2000(ZendureDevice):
         ]
         ZendureSensor.add(sensors)
 
+        self.nosensor(["remainOutTime"])
+        self.nosensor(["remainInputTime"])
         self.nosensor(["invOutputPower"])
 
         selects = [
