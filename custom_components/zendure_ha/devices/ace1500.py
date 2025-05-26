@@ -65,7 +65,7 @@ class ACE1500(ZendureDevice):
         self.nosensor(["remainOutTime"])
         self.nosensor(["remainInputTime"])
 
-        selects = [self.select("acMode", {1: "input", 2: "output"}, self.update_ac_mode)]
+        selects = [self.select("acMode", {2: "input", 1: "output"}, self.update_ac_mode)]
         ZendureSelect.add(selects)
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
