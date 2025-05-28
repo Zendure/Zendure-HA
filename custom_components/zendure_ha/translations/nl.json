@@ -18,7 +18,8 @@
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale MQTT gebruiken",
           "wifissid": "Wifi SSID",
-          "wifipsw": "Wifi Wachtwoord"
+          "wifipsw": "Wifi Wachtwoord",
+		      "experiment": "experimental functions"
         }
       },
       "reconfigure": {
@@ -29,7 +30,8 @@
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale Mosquitto MQTT AddOn gebruiken",
           "wifissid": "Wifi SSID",
-          "wifipsw": "Wifi Wachtwoord"
+          "wifipsw": "Wifi Wachtwoord",
+		      "experiment": "experimental functions"
         }
       }
     }
@@ -69,6 +71,9 @@
       },
       "soc_set": {
         "name": "SOC Maximaal"
+      },
+      "offset": {
+        "name": "Offset nulvoeding"
       }
     },
     "sensor": {
