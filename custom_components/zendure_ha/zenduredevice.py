@@ -41,6 +41,7 @@ class ZendureDevice(ZendureBase):
     mqttIsLocal: bool = False
     mqttLocalUrl = ""
     mqttLog: bool = False
+    experiment: bool = False
     wifissid: str | None = None
     wifipsw: str | None = None
     _messageid = 700000
