@@ -28,7 +28,7 @@ from custom_components.zendure_ha.devices.solarflow800Pro import \
 
 from .api import Api
 from .const import (CONF_MQTTLOCAL, CONF_MQTTLOG, CONF_P1METER, CONF_WIFIPSW,
-                    CONF_WIFISSID, DOMAIN, ManagerState, SmartMode)
+                    CONF_WIFISSID, DOMAIN, CONF_EXPERIMENT, ManagerState, SmartMode)
 from .devices.ace1500 import ACE1500
 from .devices.aio2400 import AIO2400
 from .devices.hub1200 import Hub1200
@@ -61,10 +61,12 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
         self.p1meter = config_entry.data.get(CONF_P1METER)
         self.operation = 0
         self.setpoint = 0
+        self.offset = 0
         self.zero_idle = datetime.max
         self.zero_next = datetime.min
         self.zero_fast = datetime.min
         self.check_reset = datetime.min
+        self.experiment = config_entry.data.get(CONF_EXPERIMENT)
 
         # initialize mqtt
         ZendureDevice.mqttIsLocal = config_entry.data.get(CONF_MQTTLOCAL, False)
@@ -93,9 +95,11 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
             ]
             ZendureSelect.add(selects)
 
-            numbers = [
-                self.number("manual_power", None, "W", "power", -10000, 10000, NumberMode.BOX, self._update_manual_energy),
-            ]
+            if self.experiment:
+                numbers = [self.number("manual_power", None, "W", "power", -10000, 10000, NumberMode.BOX, self._update_manual_energy),
+                    self.number("offset", None, "W", "power", -50, 50, NumberMode.SLIDER, self._set_offset, True)]
+            else:
+                numbers = [self.number("manual_power", None, "W", "power", -10000, 10000, NumberMode.BOX, self._update_manual_energy)]
             ZendureNumber.add(numbers)
 
             # Set sensors from values entered in config flow setup
@@ -144,6 +148,10 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
             return False
         return True
 
+    def _set_offset(self, _number: Any, power: float) -> None:
+        self.setvalue("offset", int(power))
+        self.offset = int(power)
+        _LOGGER.info(f"number {_number} power {power} offset {self.offset} self {self}")
     async def unload(self) -> None:
         """Unload the manager."""
 
@@ -402,12 +410,12 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
                 self.updateSetpoint(self.setpoint, ManagerState.DISCHARGING if self.setpoint >= 0 else ManagerState.CHARGING)
 
             # update when we are charging
-            elif powerActual < 0:
-                self.updateSetpoint(min(0, powerActual + p1), ManagerState.CHARGING)
+            elif powerActual + p1 < self.offset:
+                self.updateSetpoint(min(0, powerActual + p1 + self.offset), ManagerState.CHARGING)
 
             # update when we are discharging
-            elif powerActual > 0:
-                self.updateSetpoint(max(0, powerActual + p1), ManagerState.DISCHARGING)
+            elif powerActual + p1 > self.offset:
+                self.updateSetpoint(max(0, powerActual + p1 + self.offset), ManagerState.DISCHARGING)
 
             # check if it is the first time we are idle
             elif self.zero_idle == datetime.max:
@@ -420,7 +428,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
                     _LOGGER.info(f"Start charging with p1: {p1}")
                     self.updateSetpoint(p1, ManagerState.CHARGING)
                     self.zero_idle = datetime.max
-                elif p1 >= 0:
+                elif p1 >= self.offset:
                     _LOGGER.info(f"Start discharging with p1: {p1}")
                     self.updateSetpoint(p1, ManagerState.DISCHARGING)
                     self.zero_idle = datetime.max
