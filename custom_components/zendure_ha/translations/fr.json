@@ -18,7 +18,8 @@
           "mqttlog": "Journaliser la communication MQTT",
           "mqttlocal": "Utiliser MQTT local",
           "wifissid": "SSID Wi-Fi",
-          "wifipsw": "Mot de passe Wi-Fi"
+          "wifipsw": "Mot de passe Wi-Fi",
+		      "experiment": "experimental functions"
         }
       },
       "reconfigure": {
@@ -29,7 +30,8 @@
           "mqttlog": "Journaliser la communication MQTT",
           "mqttlocal": "Utiliser Mosquitto MQTT AddOn local",
           "wifissid": "SSID Wi-Fi",
-          "wifipsw": "Mot de passe Wi-Fi"
+          "wifipsw": "Mot de passe Wi-Fi",
+		      "experiment": "experimental functions"
         }
       }
     }
@@ -69,6 +71,9 @@
       },
       "soc_set": {
         "name": "SOC maximum"
+      },
+      "offset": {
+        "name": "Décalage de l'avance nulle"
       }
     },
     "sensor": {
