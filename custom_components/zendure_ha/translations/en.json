@@ -18,7 +18,8 @@
           "mqttlocal": "Use local MQTT",
           "mqttlog": "Log MQTT communication",
           "wifissid": "Wifi SSID",
-          "wifipsw": "Wifi Password"
+          "wifipsw": "Wifi Password",
+		  "experiment": "experimental functions"
         }
       },
       "reconfigure": {
@@ -29,7 +30,8 @@
           "mqttlocal": "Use local MQTT",
           "mqttlog": "Log MQTT communication",
           "wifissid": "Wifi SSID",
-          "wifipsw": "Wifi Password"
+          "wifipsw": "Wifi Password",
+		  "experiment": "experimental functions"
         }
       }
     }
@@ -69,6 +71,9 @@
       },
       "soc_set": {
         "name": "SOC Maximum"
+      },
+      "offset": {
+        "name": "Offset zero feed"
       }
     },
     "sensor": {
