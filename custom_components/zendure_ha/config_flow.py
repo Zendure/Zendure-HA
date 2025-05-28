@@ -16,7 +16,7 @@ from homeassistant.helpers import selector
 
 from .api import Api
 from .const import (CONF_MQTTLOCAL, CONF_MQTTLOG, CONF_P1METER, CONF_WIFIPSW,
-                    CONF_WIFISSID, DOMAIN)
+                    CONF_WIFISSID, CONF_EXPERIMENT, DOMAIN)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         ),
         vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): str,
         vol.Required(CONF_MQTTLOCAL): bool,
+        vol.Required(CONF_EXPERIMENT): bool,
         vol.Required(CONF_MQTTLOG): bool,
         vol.Required(CONF_WIFISSID): str,
         vol.Required(CONF_WIFIPSW): selector.TextSelector(
@@ -142,6 +143,7 @@ class ZendureOptionsFlowHandler(OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): str,
                 vol.Required(CONF_MQTTLOG): bool,
+                vol.Required(CONF_EXPERIMENT): bool,
             }),
         )
 
