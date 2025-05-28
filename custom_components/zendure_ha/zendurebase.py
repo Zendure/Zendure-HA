@@ -6,6 +6,7 @@ import logging
 import traceback
 from collections.abc import Callable
 from typing import Any
+from stringcase import snakecase                                
 
 from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
@@ -16,7 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .binary_sensor import ZendureBinarySensor
 from .const import DOMAIN
-from .number import ZendureNumber
+from .number import ZendureRestoreNumber, ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureCalcSensor, ZendureRestoreSensor, ZendureSensor
 from .switch import ZendureSwitch
@@ -122,6 +123,7 @@ class ZendureBase:
         maximum: int = 2000,
         mode: NumberMode = NumberMode.AUTO,
         onwrite: Callable | None = None,
+        persistent: bool = False,                         
     ) -> ZendureNumber:
         def _write_property(entity: Entity, value: Any) -> None:
             self.entityWrite(entity, value)
@@ -130,17 +132,30 @@ class ZendureBase:
             onwrite = _write_property
 
         tmpl = Template(template, self._hass) if template else None
-        s = ZendureNumber(
-            self.attr_device_info,
-            uniqueid,
-            onwrite,
-            tmpl,
-            uom,
-            deviceclass,
-            maximum,
-            minimum,
-            mode,
-        )
+        if persistent:
+            s = ZendureRestoreNumber(
+                self.attr_device_info,
+                uniqueid,
+                onwrite,
+                tmpl,
+                uom,
+                deviceclass,
+                maximum,
+                minimum,
+                mode,
+            )
+        else:
+            s = ZendureNumber(
+                self.attr_device_info,
+                uniqueid,
+                onwrite,
+                tmpl,
+                uom,
+                deviceclass,
+                maximum,
+                minimum,
+                mode,
+            )
         self.entities[uniqueid] = s
         return s
 
@@ -197,6 +212,7 @@ class ZendureBase:
     ) -> ZendureSensor:
         s = ZendureCalcSensor(self.attr_device_info, uniqueid, calculate, uom, deviceclass, stateclass, precision)
         self.entities[uniqueid] = s
+        self._attr_translation_key = snakecase(uniqueid)                                                        
         return s
 
     def switch(
