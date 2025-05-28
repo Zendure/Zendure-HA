@@ -13,6 +13,7 @@ CONF_MQTTUSER = "mqttuser"
 CONF_MQTTPSW = "mqttpsw"
 CONF_WIFISSID = "wifissid"
 CONF_WIFIPSW = "wifipsw"
+CONF_EXPERIMENT = "experiment"
 
 
 class ManagerState(Enum):
