@@ -274,9 +274,14 @@ class ZendureBase:
             return None
         level = self.asInt("electricLevel")
         soc = self.asInt("socSet")
-        if value <= 0 or level >= soc:
+        kwOut = self.powerAct
+        kwh = float(self.kwh) * 1000
+        if level >= soc:
             return 0
-        value = float(value) / 60
-        if value >= 999:
+        if value >= 999 or kwOut == 0:
             return 999
-        return value * (soc - level) / (100 - level)
+        charge_minutes = kwh / kwOut * (soc - level) / 100 
+        return min(999, max(0, charge_minutes))
+        #remainingInputTime from the device will be ignored, trigger always from outputPackPower
+        #value = float(value) / 60
+        #return value * (soc - level) / (100 - level)
