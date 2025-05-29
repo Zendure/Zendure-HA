@@ -105,6 +105,7 @@ class ZendureDevice(ZendureBase):
                 self.powerAct = int(value)
                 self.aggr("aggrChargeTotal", int(value))
                 self.aggr("aggrDischargeTotal", 0)
+                self.setvalue("remainInputTime", -1)
             case "packInputPower":
                 self.aggr("aggrChargeTotal", 0)
                 self.aggr("aggrDischargeTotal", int(value))
