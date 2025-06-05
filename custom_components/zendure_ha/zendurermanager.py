@@ -398,7 +398,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
                 d.powerAct = d.asInt("packInputPower") - (d.asInt("outputPackPower") - d.asInt("solarInputPower"))
                 powerActual += d.powerAct
 
-            _LOGGER.info(f"Update p1: {p1} power: {powerActual} operation: {self.operation}")
+            _LOGGER.info(f"Update p1: {p1} power: {powerActual} operation: {self.operation} #devices: {len(ZendureDevice.devices)}")
             # update the manual setpoint
             if self.operation == SmartMode.MANUAL:
                 self.updateSetpoint(self.setpoint, ManagerState.DISCHARGING if self.setpoint >= 0 else ManagerState.CHARGING)
