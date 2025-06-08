@@ -170,10 +170,8 @@ class ZendureDevice(ZendureBase):
                     if batprops := payload.get("packData", None):
                         for b in batprops:
                             sn = b.pop("sn")
-                            if not b:
-                                continue
 
-                            if (bat := ZendureBattery.batterydict.get(sn, None)) is None:
+                            if ((bat := ZendureBattery.batterydict.get(sn, None)) is None) and (not b):
                                 match sn[0]:
                                     case "A":
                                         if sn[3] == "3":
@@ -193,7 +191,7 @@ class ZendureDevice(ZendureBase):
                                 self._hass.loop.call_soon_threadsafe(bat.entitiesCreate, self.entitiesBattery, done)
                                 done.wait(10)
 
-                            if bat.entities:
+                            if (bat is not None) and bat.entities:
                                 for key, value in b.items():
                                     bat.entityUpdate(key, value)
                     return True
