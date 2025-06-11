@@ -6,7 +6,7 @@ import json
 import logging
 import threading
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from bleak import BleakClient
@@ -154,6 +154,7 @@ class ZendureDevice(ZendureBase):
         self.mqttClient.publish(self.topic_function, payload)
 
     def mqttMessage(self, topics: list[str], payload: Any) -> bool:
+        self.check_reset = datetime.now() + timedelta(seconds=300)
         try:
             parameter = topics[-1]
             match parameter:
