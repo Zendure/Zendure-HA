@@ -90,7 +90,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
             # Add ZendureManager sensors
             _LOGGER.info(f"Adding sensors {self.name}")
             selects = [
-                self.select("Operation", {0: "off", 1: "manual", 2: "smart", 3: "smartD", 4: "smartC"}, self.update_operation, True),
+                self.select("Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_d", 4: "smart_c"}, self.update_operation, True),
             ]
             ZendureSelect.add(selects)
 
