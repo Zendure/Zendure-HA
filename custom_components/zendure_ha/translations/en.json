@@ -261,8 +261,8 @@
           "off": "Off",
           "manual": "Manual Power",
           "smart": "Smart Matching",
-          "smartD": "Smart discharge only",
-          "smartC": "Smart charge only"
+          "smart_d": "Smart discharge only",
+          "smart_c": "Smart charge only"
         }
       },
       "pass_mode": {
