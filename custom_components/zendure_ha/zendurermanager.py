@@ -90,7 +90,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
             # Add ZendureManager sensors
             _LOGGER.info(f"Adding sensors {self.name}")
             selects = [
-                self.select("Operation", {0: "off", 1: "manual", 2: "smart"}, self.update_operation, True),
+                self.select("Operation", {0: "off", 1: "manual", 2: "smart", 3: "smartD", 4: "smartC"}, self.update_operation, True),
             ]
             ZendureSelect.add(selects)
 
@@ -463,6 +463,7 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
         """Update the setpoint for all devices."""
         totalCapacity = 0
         totalPower = 0
+        checkSOC = 0
         for d in ZendureDevice.devices:
             if state == ManagerState.DISCHARGING:
                 d.capacity = max(0, d.kwh * (d.asInt("electricLevel") - d.asInt("minSoc")))
@@ -473,6 +474,18 @@ class ZendureManager(DataUpdateCoordinator[int], ZendureBase):
             if d.clusterType == 0:
                 d.capacity = 0
             totalCapacity += d.capacity
+            checkSOC += d.asInt("electricLevel")
+
+        """If manual mode or charge/discharge only and capacity = 0, switch to SmartMode OFF
+           capacity could be 0 in 2 case:
+                1: minSOC / socSet reached
+                2: no connection to the device -> all values are 0 -> we don't want to switch OFF"""
+        if ((self.operation==SmartMode.MATCHING_CHARGE and power < 0) or (self.operation==SmartMode.MATCHING_DISCHARGE and power > 0) or self.operation==SmartMode.MANUAL) and totalCapacity == 0 and checkSOC > 0:
+            self.entities["Operation"].update_value(int(SmartMode.NONE))
+
+        if (power > 0 and self.operation==SmartMode.MATCHING_CHARGE) or (power < 0 and self.operation==SmartMode.MATCHING_DISCHARGE):
+            state = ManagerState.IDLE
+            power = 0
 
         _LOGGER.info(f"Update setpoint: {power} state{state} capacity: {totalCapacity} max: {totalPower}")
 
