@@ -111,7 +111,11 @@
           "9": "Zendure App und BLE",
           "10": "Lokal Mqtt und Zendure App",
           "11": "Lokal Mqtt, Zendure App und BLE",
-          "16": "BLE Fehler"
+          "16": "BLE Fehler",
+          "18": "lokal MQTT und BLE Fehler",
+          "20": "Zendure Cloud und BLE Fehler",
+          "22": "Zendure App und BLE Fehler",
+          "24": "Lokal Mqtt, Zendure App und BLE Fehler"
         }
       },
       "so_h": {
@@ -259,7 +263,9 @@
         "state": {
           "off": "Aus",
           "manual": "Manuelle Leistungsregelung",
-          "smart": "Smarte Leistungsregelung"
+          "smart": "Smarte Leistungsregelung",
+          "smartD": "Smartes nur Entladen",
+          "smartC": "Smartes nur Laden"
         }
       },
       "pass_mode": {
