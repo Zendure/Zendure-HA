@@ -223,8 +223,8 @@
           "off": "Uit",
           "manual": "Handmatig Vermogen",
           "smart": "Slimme Matching",
-          "smartD": "Slimme ontlading",
-          "smartC": "Slimme opladen"
+          "smart_d": "Slimme ontlading",
+          "smart_c": "Slimme opladen"
         }
       },
       "pass_mode": {
