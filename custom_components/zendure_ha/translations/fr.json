@@ -261,8 +261,8 @@
           "off": "Arrêt",
           "manual": "Puissance manuelle",
           "smart": "Couplage intelligent",
-          "smartD": "Décharge intelligente",
-          "smartC": "Charge intelligente"
+          "smart_d": "Décharge intelligente",
+          "smart_c": "Charge intelligente"
         }
       },
       "pass_mode": {
