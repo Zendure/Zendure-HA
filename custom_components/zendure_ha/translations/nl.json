@@ -111,7 +111,11 @@
           "9": "Zendure App en BLE",
           "10": "Lokale Mqtt, Zendure App",
           "11": "Lokale Mqtt, Zendure App en BLE",
-          "16": "BLE Fout"
+          "16": "BLE Fout",
+          "18": "lokal MQTT en BLE Fout",
+          "20": "Zendure Cloud en BLE Fout",
+          "22": "Zendure App en BLE Fout",
+          "24": "Lokal Mqtt, Zendure App en BLE Fout"
         }
       },
       "so_h": {
@@ -166,6 +170,14 @@
           "2": "Ontladen"
         }
       },
+      "state": {
+        "name": "Status",
+        "state": {
+          "0": "Inactief",
+          "1": "Laden",
+          "2": "Ontladen"
+        }
+      },
       "pack_input_power": {
         "name": "Batterij Ontladen"
       },
@@ -210,7 +222,9 @@
         "state": {
           "off": "Uit",
           "manual": "Handmatig Vermogen",
-          "smart": "Slimme Matching"
+          "smart": "Slimme Matching",
+          "smartD": "Slimme ontlading",
+          "smartC": "Slimme opladen"
         }
       },
       "pass_mode": {
