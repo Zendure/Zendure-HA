@@ -264,8 +264,8 @@
           "off": "Aus",
           "manual": "Manuelle Leistungsregelung",
           "smart": "Smarte Leistungsregelung",
-          "smartD": "Smartes nur Entladen",
-          "smartC": "Smartes nur Laden"
+          "smart_d": "Smartes nur Entladen",
+          "smart_c": "Smartes nur Laden"
         }
       },
       "pass_mode": {
