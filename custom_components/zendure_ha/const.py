@@ -41,6 +41,8 @@ class SmartMode:
     NONE = 0
     MANUAL = 1
     MATCHING = 2
+    MATCHING_DISCHARGE = 3
+    MATCHING_CHARGE = 4
     FAST_UPDATE = 100
     MIN_POWER = 50
     START_POWER = 100
