@@ -171,7 +171,7 @@ class ZendureDevice(ZendureBase):
                         for b in batprops:
                             sn = b.pop("sn")
 
-                            if ((bat := ZendureBattery.batterydict.get(sn, None)) is None) and (not b):
+                            if ((bat := ZendureBattery.batterydict.get(sn, None)) is None):
                                 match sn[0]:
                                     case "A":
                                         if sn[3] == "3":
@@ -186,12 +186,16 @@ class ZendureDevice(ZendureBase):
                                         bat = ZendureBattery(self._hass, sn, "AB3000", sn, self.name, 2.88)
                                     case _:
                                         bat = ZendureBattery(self._hass, sn, "AB????", sn, self.name, 2.88)
-                                self.kwh += bat.kwh
-                                done = threading.Event()
-                                self._hass.loop.call_soon_threadsafe(bat.entitiesCreate, self.entitiesBattery, done)
-                                done.wait(10)
+                                try: 
+                                    self.kwh += bat.kwh
+                                    done = threading.Event()
+                                    self._hass.loop.call_soon_threadsafe(bat.entitiesCreate, self.entitiesBattery, done)
+                                    done.wait(10)
+                                except:
+                                    _LOGGER.info(f"Battery SN: {sn} not fully initialized!")
+                                    continue
 
-                            if (bat is not None) and bat.entities:
+                            if bat.entities:
                                 for key, value in b.items():
                                     bat.entityUpdate(key, value)
                     return True
