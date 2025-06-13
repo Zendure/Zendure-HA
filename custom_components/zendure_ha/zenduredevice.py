@@ -171,7 +171,7 @@ class ZendureDevice(ZendureBase):
                         for b in batprops:
                             sn = b.pop("sn")
 
-                            if ((bat := ZendureBattery.batterydict.get(sn, None)) is None):
+                            if (bat := ZendureBattery.batterydict.get(sn, None)) is None:
                                 match sn[0]:
                                     case "A":
                                         if sn[3] == "3":
