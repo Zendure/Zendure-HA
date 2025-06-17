@@ -142,6 +142,7 @@ class Hyper2000(ZendureDevice):
             ],
             "function": "deviceAutomation",
         })
+        self.powerAct += power
 
         # self.mqttInvoke({
         #     "arguments": [
