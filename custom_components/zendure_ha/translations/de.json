@@ -215,7 +215,7 @@
         "name": "Batterie Eingangsleistung"
       },
       "hyper_tmp": {
-        "name": "Hyper Temperatur"
+        "name": "Geräte Temperatur"
       },
       "strength": {
         "name": "WLAN-Signalstärke"
