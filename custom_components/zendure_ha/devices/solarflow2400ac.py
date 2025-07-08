@@ -62,8 +62,6 @@ class SolarFlow2400AC(ZendureDevice):
             self.sensor("electricLevel", None, "%", "battery"),
             self.sensor("energyPower", None, "W"),
             self.sensor("inverseMaxPower", None, "W"),
-            self.sensor("solarPower1", None, "W", "power", "measurement"),
-            self.sensor("solarPower2", None, "W", "power", "measurement"),
             self.sensor("gridInputPower", None, "W", "power", "measurement"),
             self.sensor("pass", None),
             self.sensor("strength", None),
