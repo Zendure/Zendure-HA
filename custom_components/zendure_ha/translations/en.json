@@ -212,7 +212,7 @@
         "name": "Battery Input"
       },
       "hyper_tmp": {
-        "name": "Hyper Temperature"
+        "name": "Device Temperature"
       },
       "strength": {
         "name": "Wifi Signal Strength"
