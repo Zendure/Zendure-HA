@@ -212,7 +212,7 @@
         "name": "Puissance d'entrée de la batterie"
       },
       "hyper_tmp": {
-        "name": "Température Hyper"
+        "name": "Température de l'appareil"
       },
       "strength": {
         "name": "Puissance du signal Wi-Fi"
