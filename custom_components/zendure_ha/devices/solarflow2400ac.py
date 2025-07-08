@@ -51,7 +51,6 @@ class SolarFlow2400AC(ZendureDevice):
 
         sensors = [
             self.sensor("hubState"),
-            self.sensor("solarInputPower", None, "W", "power", "measurement"),
             self.sensor("BatVolt", "{{ value | int / 100 | round(1)}}", "V", "voltage", "measurement"),
             self.sensor("packInputPower", None, "W", "power", "measurement"),
             self.sensor("outputPackPower", None, "W", "power", "measurement"),
