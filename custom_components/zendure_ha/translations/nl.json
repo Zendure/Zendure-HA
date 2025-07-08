@@ -185,7 +185,7 @@
         "name": "Batterij Laden"
       },
       "hyper_tmp": {
-        "name": "Hyper Temperatuur"
+        "name": "Apparaat Temperatuur"
       },
       "strength": {
         "name": "Wifi Signaalsterkte"
