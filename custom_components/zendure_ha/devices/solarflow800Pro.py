@@ -69,6 +69,7 @@ class SolarFlow800Pro(ZendureDevice):
             self.sensor("gridInputPower", None, "W", "power", "measurement"),
             self.sensor("pass", None),
             self.sensor("strength", None),
+            self.sensor("hyperTmp", "{{ (value | float - 2731) / 10 | round(1) }}", "°C", "temperature", "measurement"),
         ]
         ZendureSensor.add(sensors)
 
