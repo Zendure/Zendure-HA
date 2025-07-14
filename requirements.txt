@@ -1,7 +1,7 @@
 colorlog==6.9.0
 homeassistant==2025.4.0
 pip>=21.3.1
-ruff==0.12.2
+ruff==0.12.3
 aiohttp
 voluptuous
 paho.mqtt==2.1.0
