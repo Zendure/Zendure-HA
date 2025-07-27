@@ -91,6 +91,7 @@ class Device:
         self._hass = hass
         self.deviceId = deviceId
         self.name = name
+        self.isLegacy = False
         self.unique = "".join(self.name.split())
         self.entities: dict[str, Entity | None] = {}
         self.attr_device_info = DeviceInfo(
