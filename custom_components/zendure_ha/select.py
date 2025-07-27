@@ -32,6 +32,7 @@ class ZendureSelect(SelectEntity):
         self._attr_should_poll = False
         self.entity_description = SelectEntityDescription(key=uniqueid, name=uniqueid)
         self._attr_device_info = device.attr_device_info
+        self.legacy_mode = device.definition.get("isLegacy", False)
         self._attr_unique_id = f"{self._attr_device_info.get('name', None)}-{uniqueid}"
         self.entity_id = f"select.{self._attr_device_info.get('name', None)}-{snakecase(uniqueid)}"
         self._attr_translation_key = snakecase(uniqueid)
@@ -76,11 +77,20 @@ class ZendureSelect(SelectEntity):
             _LOGGER.error(f"Error {err} setting state: {self._attr_unique_id} => {value}")
 
     async def async_select_option(self, option: str) -> None:
-        """Update the current selected option."""
-        self._attr_current_option = option
-        self.async_write_ha_state()
-        if self.onchanged:
-            self.onchanged(self, option)
+        # """Update the current selected option."""
+        if self.legacy_mode:
+            for key, value in self._options.items():
+                if value == option:
+                    self._attr_current_option = option
+                    self.async_write_ha_state()
+                    if self._onchanged:
+                        self._onchanged(self, key)
+                    break
+        else:
+            self._attr_current_option = option
+            self.async_write_ha_state()
+            if self.onchanged:
+                self.onchanged(self, option)
 
     @property
     def value(self) -> Any:

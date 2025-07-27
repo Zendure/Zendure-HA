@@ -322,6 +322,7 @@ class ApiOld(Api):
                     "productKey": device["productKey"],
                     "snNumber": device["snNumber"],
                     "deviceKey": device["deviceKey"],
+                    "isLegacy": True,
                 })
 
             # create devices

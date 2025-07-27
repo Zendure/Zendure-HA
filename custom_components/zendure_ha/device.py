@@ -226,6 +226,7 @@ class ZendureDevice(Device):
         self.powerMax = 0
         self.powerMin = 0
         self.kWh = 0.0
+        self.isLegacy = definition.get("isLegacy", False)
 
         from .number import ZendureNumber
         from .select import ZendureRestoreSelect, ZendureSelect
