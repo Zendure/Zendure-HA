@@ -33,6 +33,7 @@ from .const import (
     CONF_MQTTUSER,
     CONF_WIFIPSW,
     CONF_WIFISSID,
+    CONF_MQTTLOG,
     DOMAIN,
 )
 from .device import ZendureDevice
@@ -86,6 +87,7 @@ class Api:
         url = mqtt["url"]
         Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
         self.mqttInit(self.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+        Api.mqttLogging = data.get(CONF_MQTTLOG, False)
 
         # Get wifi settings
         Api.wifissid = data.get(CONF_WIFISSID, "")
