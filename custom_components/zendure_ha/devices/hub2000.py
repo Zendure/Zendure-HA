@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.const import ManagerState
 from custom_components.zendure_ha.device import ZendureBattery, ZendureLegacy
+from custom_components.zendure_ha.select import ZendureRestoreSelect
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class Hub2000(ZendureLegacy):
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.powerMin = -800
         self.powerMax = 800
+        self.passMode = ZendureRestoreSelect(self, "passMode", {0: "auto", 2: "on", 1: "off"}, self.entityWrite, 1)
 
     def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:
         self.powerMin = -1800 if len(batteries) > 1 else -1200 if batteries[0].kWh > 1 else -800
