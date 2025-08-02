@@ -132,6 +132,9 @@ class ZendureDevice(EntityDevice):
                 case "chargeLimit":
                     self.powerMin = -value
                     self.limitInput.update_range(0, value)
+                case "chargeMaxLimit":
+                    self.powerMin = -value
+                    self.limitInput.update_range(0, value)
 
         return changed
 
