@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.const import ManagerState
 from custom_components.zendure_ha.device import ZendureLegacy
+from custom_components.zendure_ha.select import ZendureRestoreSelect
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class AIO2400(ZendureLegacy):
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.powerMin = -1200
         self.powerMax = 1200
+        self.passMode = ZendureRestoreSelect(self, "passMode", {0: "auto", 2: "on", 1: "off"}, self.entityWrite, 1)
 
     def power_set(self, state: ManagerState, power: int) -> int:
         """Set the power output/input."""
