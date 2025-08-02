@@ -129,6 +129,9 @@ class ZendureDevice(EntityDevice):
                 case "inverseMaxPower":
                     self.powerMax = value
                     self.limitOutput.update_range(0, value)
+                case "chargeLimit":
+                    self.powerMin = -value
+                    self.limitInput.update_range(0, value)
 
         return changed
 
