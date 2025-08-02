@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 from paho.mqtt import client as mqtt_client
+from sqlalchemy import case
 
 from .const import ManagerState, SmartMode
 from .entity import EntityDevice, EntityZendure
@@ -128,6 +129,9 @@ class ZendureDevice(EntityDevice):
                 case "inverseMaxPower":
                     self.powerMax = value
                     self.limitOutput.update_range(0, value)
+                case "chargeLimit" | "chargeMaxLimit":
+                    self.powerMin = -value
+                    self.limitInput.update_range(0, value)
 
         return changed
 
@@ -364,7 +368,7 @@ class ZendureZenSdk(ZendureDevice):
         """Initialize Device."""
         self.session = async_get_clientsession(hass, verify_ssl=False)
         super().__init__(hass, deviceId, name, model, definition, parent)
-        self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 1: "local", 2: "zenSDK"}, self.mqttSelect, 0)
+        self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
@@ -374,21 +378,13 @@ class ZendureZenSdk(ZendureDevice):
         self.mqtt = None
 
         match select.value:
-            case 1:
-                if config.get("server", "") != Api.localServer:
-                    cmd = {
-                        "sn": self.snNumber,
-                        "method": "HA.Mqtt.SetConfig",
-                        "params": {
-                            "config": {
-                                "enable": True,
-                                "server": f"mqtt://{Api.localServer}:{Api.localPort}",
-                                "username": Api.localUser,
-                                "password": Api.localPassword,
-                            }
-                        },
-                    }
-                    await self.httpPost("rpc", cmd)
+            case 0:
+                Api.mqttCloud.unsubscribe(f"/{self.prodkey}/{self.deviceId}/#")
+                Api.mqttCloud.unsubscribe(f"iot/{self.prodkey}/{self.deviceId}/#")
+
+            case 2:
+                Api.mqttCloud.unsubscribe(f"/{self.prodkey}/{self.deviceId}/#")
+                Api.mqttCloud.unsubscribe(f"iot/{self.prodkey}/{self.deviceId}/#")
 
         _LOGGER.debug(f"Mqtt selected {self.name}")
 
@@ -440,7 +436,7 @@ class ZendureZenSdk(ZendureDevice):
             payload = json.loads(await response.text())
             return payload if key is None else payload.get(key, {})
         except Exception as e:
-            _LOGGER.error(f"Unable to connect to Zendure {e}!")
+            _LOGGER.error(f"HttpGet error {self.name} {e}!")
         return {}
 
     async def httpPost(self, url: str, command: Any) -> None:
@@ -452,4 +448,4 @@ class ZendureZenSdk(ZendureDevice):
             response = await self.session.post(url, json=command, headers=CONST_HEADER)
             _LOGGER.debug(f"HTTP POST {self.ipAddress} => {response}")
         except Exception as e:
-            _LOGGER.error(f"Unable to connect to Zendure {e}!")
+            _LOGGER.error(f"HttpPost error {self.name} {e}!")

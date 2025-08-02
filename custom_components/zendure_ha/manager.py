@@ -258,27 +258,33 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         self.cluster.clear()
         for device in self.devices:
-            match device.cluster.state:
-                case "clusterowncircuit" | "cluster3600":
-                    cluster = Cluster(device, [], 3600, -3600)
-                case "cluster800":
-                    cluster = Cluster(device, [], 800, -1200)
-                case "cluster1200":
-                    cluster = Cluster(device, [], 1200, -1800)
-                case "cluster2400":
-                    cluster = Cluster(device, [], 2400, -3600)
-                case _:
-                    continue
-            cluster.devices.append(device)
-            self.cluster[device.deviceId] = cluster
+            try:
+                match device.cluster.state:
+                    case "clusterowncircuit" | "cluster3600":
+                        cluster = Cluster(device, [], 3600, -3600)
+                    case "cluster800":
+                        cluster = Cluster(device, [], 800, -1200)
+                    case "cluster1200":
+                        cluster = Cluster(device, [], 1200, -1800)
+                    case "cluster2400":
+                        cluster = Cluster(device, [], 2400, -3600)
+                    case _:
+                        continue
+                cluster.devices.append(device)
+                self.cluster[device.deviceId] = cluster
+            except:  # noqa: E722
+                _LOGGER.error(f"Unable to create cluster for device: {device.name} ({device.deviceId})")
 
         # Update the clusters and select optins for each device
         for device in self.devices:
-            clusters: dict[Any, str] = {0: "unused", 1: "clusterowncircuit", 2: "cluster800", 3: "cluster1200", 4: "cluster2400", 5: "cluster3600"}
-            for c in self.cluster.values():
-                if c.device.deviceId != device.deviceId:
-                    clusters[c.device.deviceId] = f"Part of {c.device.name} cluster"
-            device.cluster.setDict(clusters)
+            try:
+                clusters: dict[Any, str] = {0: "unused", 1: "clusterowncircuit", 2: "cluster800", 3: "cluster1200", 4: "cluster2400", 5: "cluster3600"}
+                for c in self.cluster.values():
+                    if c.device.deviceId != device.deviceId:
+                        clusters[c.device.deviceId] = f"Part of {c.device.name} cluster"
+                device.cluster.setDict(clusters)
+            except:  # noqa: E722
+                _LOGGER.error(f"Unable to create cluster for device: {device.name} ({device.deviceId})")
 
         # Add devices to clusters
         for device in self.devices:

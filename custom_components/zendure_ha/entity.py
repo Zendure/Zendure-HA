@@ -149,7 +149,11 @@ class EntityDevice:
                         factor = int(info[2]) if len(info) > CONST_FACTOR else 1
                         entity = ZendureSensor(self, key, None, "V", "voltage", "measurement", 1, factor)
                     case "%":
-                        entity = ZendureSensor(self, key, None, "%", "battery", "measurement", None)
+                        if info[1] == "battery":
+                            entity = ZendureSensor(self, key, None, "%", "battery", "measurement", None)
+                        else:
+                            tmpl = Template(info[2], self.hass) if len(info) > CONST_FACTOR else None
+                            entity = ZendureSensor(self, key, tmpl, "%", info[1], "measurement", None)
                     case "A":
                         factor = int(info[2]) if len(info) > CONST_FACTOR else 1
                         entity = ZendureSensor(self, key, None, "A", "current", "measurement", None, factor)

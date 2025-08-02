@@ -7,7 +7,6 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
@@ -15,7 +14,6 @@ from homeassistant.helpers import selector
 from .api import Api
 from .const import (
     CONF_APPTOKEN,
-    CONF_BETA,
     CONF_MQTTLOCAL,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -38,14 +36,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
     _input_data: dict[str, Any]
     data_schema = vol.Schema({
-        vol.Required(CONF_BETA): bool,
         vol.Optional(CONF_APPTOKEN): str,
-        vol.Optional(CONF_USERNAME): str,
-        vol.Optional(CONF_PASSWORD): selector.TextSelector(
-            selector.TextSelectorConfig(
-                type=selector.TextSelectorType.PASSWORD,
-            ),
-        ),
         vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): str,
         vol.Required(CONF_MQTTLOG): bool,
         vol.Required(CONF_MQTTLOCAL): bool,

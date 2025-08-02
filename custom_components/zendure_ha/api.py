@@ -12,7 +12,6 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any, Mapping
 
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -22,7 +21,6 @@ from paho.mqtt import enums as mqtt_enums
 
 from .const import (
     CONF_APPTOKEN,
-    CONF_BETA,
     CONF_HAKEY,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -81,9 +79,6 @@ class Api:
     wifipsw: str = ""
     wifissid: str = ""
 
-    def __init__(self) -> None:
-        """Initialize the API."""
-
     def Init(self, data: Mapping[str, Any], mqtt: Mapping[str, Any]) -> None:
         """Initialize Zendure Api."""
         Api.mqttLogging = data.get(CONF_MQTTLOG, False)
@@ -109,7 +104,7 @@ class Api:
     @staticmethod
     async def Connect(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
         """Connect to the Zendure API."""
-        devices = await Api.ApiHA(hass, data) if data.get(CONF_BETA, False) else await Api.ApiOld(hass, data)
+        devices = await Api.ApiHA(hass, data)
 
         # Open the storage
         store = Store(hass, ZENDURE_MANAGER_STORAGE_VERSION, f"{DOMAIN}.storage")
@@ -177,86 +172,6 @@ class Api:
             _LOGGER.error(f"Unable to connect to Zendure {e}!")
             _LOGGER.error(traceback.format_exc())
             return None
-
-    @staticmethod
-    async def ApiOld(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
-        if (username := data.get(CONF_USERNAME, "")) == "" or (password := data.get(CONF_PASSWORD, "")) == "":
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_user_password")
-
-        session = async_get_clientsession(hass)
-        headers = {
-            "Content-Type": "application/json",
-            "Accept-Language": "en-EN",
-            "appVersion": "4.3.1",
-            "User-Agent": "Zendure/4.3.1 (iPhone; iOS 14.4.2; Scale/3.00)",
-            "Accept": "*/*",
-            "Blade-Auth": "bearer (null)",
-        }
-        authBody = {
-            "password": password,
-            "account": username,
-            "appId": "121c83f761305d6cf7e",
-            "appType": "iOS",
-            "grantType": "password",
-            "tenantId": "",
-        }
-
-        try:
-            url = "https://app.zendure.tech/v2/auth/app/token"
-            response = await session.post(url=url, json=authBody, headers=headers)
-
-            if not response.ok:
-                return None
-
-            respJson = await response.json()
-            json = respJson["data"]
-            zen_api = json["serverNodeUrl"]
-            mqttUrl = json["iotUrl"]
-            if zen_api.endswith("eu"):
-                mqttinfo = "SDZzJGo5Q3ROYTBO"
-            else:
-                zen_api = "https://app.zendure.tech/v2"
-                mqttinfo = "b0sjUENneTZPWnhk"
-
-            token = json["accessToken"]
-            mqtt = {
-                "clientId": token,
-                "username": "zenApp",
-                "password": b64decode(mqttinfo.encode()).decode("latin-1"),
-                "url": mqttUrl + ":1883",
-            }
-
-            headers["Blade-Auth"] = f"bearer {token}"
-            _LOGGER.info(f"Connected to {zen_api} => Mqtt: {mqttUrl}")
-
-            url = f"{zen_api}/productModule/device/queryDeviceListByConsumerId"
-            response = await session.post(url=url, headers=headers)
-            if not response.ok:
-                return None
-            respJson = await response.json()
-            json = respJson["data"]
-
-            devices = list[Any]()
-            for device in json:
-                devices.append({
-                    "deviceName": device["name"],
-                    "productModel": device["productName"],
-                    "productKey": device["productKey"],
-                    "snNumber": device["snNumber"],
-                    "deviceKey": device["deviceKey"],
-                })
-
-            # create devices
-            result = {
-                "mqtt": mqtt,
-                "deviceList": devices,
-            }
-
-        except Exception as e:
-            _LOGGER.error(f"Unable to connect to Zendure {zen_api} {e}!")
-            return None
-        else:
-            return result
 
     def mqttInit(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:
         client.on_connect = self.mqttConnect
