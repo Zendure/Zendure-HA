@@ -291,7 +291,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             if clstr := self.cluster.get(device.cluster.value):
                 clstr.devices.append(device)
 
-    def update_operation(self, entity: ZendureSelect, _operation: Any) -> None:
+    async def update_operation(self, entity: ZendureSelect, _operation: Any) -> None:
         operation = int(entity.value)
         _LOGGER.info(f"Update operation: {operation} from: {self.operation}")
         self.operation = operation
@@ -300,8 +300,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 d.power_set(ManagerState.IDLE, 0)
         if self.operation != SmartMode.NONE and len(self.devices) > 0:
             for d in self.devices:
-                d.entityWrite(d.limitOutput, 0)
-                d.entityWrite(d.limitInput, 0)
+                await d.entityWrite(d.limitOutput, 0)
+                await d.entityWrite(d.limitInput, 0)
 
     def _update_manual_energy(self, _number: Any, power: float) -> None:
         try:
