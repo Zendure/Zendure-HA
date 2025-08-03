@@ -298,6 +298,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if self.operation != SmartMode.MATCHING and len(self.devices) > 0:
             for d in self.devices:
                 d.power_set(ManagerState.IDLE, 0)
+        if self.operation != SmartMode.NONE and len(self.devices) > 0:
+            for d in self.devices:
+                d.entityWrite(d.limitOutput, 0)
+                d.entityWrite(d.limitInput, 0)
 
     def _update_manual_energy(self, _number: Any, power: float) -> None:
         try:
