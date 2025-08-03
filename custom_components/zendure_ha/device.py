@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from bleak import BleakClient
@@ -15,8 +15,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 from paho.mqtt import client as mqtt_client
-from sqlalchemy import case
 
+from .binary_sensor import ZendureBinarySensor
 from .const import ManagerState, SmartMode
 from .entity import EntityDevice, EntityZendure
 from .number import ZendureNumber
@@ -97,12 +97,11 @@ class ZendureDevice(EntityDevice):
         self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
         self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
         self.socLimit = ZendureSensor(self, "socLimit")
-        self.online = ZendureBinarySensor(self, "online")
 
         clusters = {0: "unused", 1: "clusterowncircuit", 2: "cluster800", 3: "cluster1200", 4: "cluster2400", 5: "cluster3600"}
         self.cluster = ZendureRestoreSelect(self, "cluster", clusters, None)
         self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
-        self.gridReverse = ZendureSelect(self, "gridReverse", {0: "auto", 1: "on", 2: "off"}, self.entityWrite, 1)
+        # self.gridReverse = ZendureSelect(self, "gridReverse", {0: "auto", 1: "on", 2: "off"}, self.entityWrite, 1)
 
         self.chargeTotal = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.dischargeTotal = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
@@ -112,6 +111,7 @@ class ZendureDevice(EntityDevice):
         self.packInputPower = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
         self.outputPackPower = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
         self.solarInputPower = ZendureSensor(self, "solarInputPower", None, "W", "power", "measurement")
+        self.isOnline = ZendureBinarySensor(self, "online")
         self.connection: ZendureRestoreSelect
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
@@ -171,6 +171,10 @@ class ZendureDevice(EntityDevice):
             self.mqtt.publish(self.topic_function, payload)
 
     def mqttProperties(self, payload: Any) -> None:
+        if self.lastseen == datetime.min:
+            self.isOnline.update_value(True)
+        self.lastseen = datetime.now() + timedelta(minutes=3)
+
         if (properties := payload.get("properties", None)) and len(properties) > 0:
             for key, value in properties.items():
                 self.entityUpdate(key, value)
@@ -327,15 +331,11 @@ class ZendureDevice(EntityDevice):
 
     @property
     def online(self) -> bool:
-        value = self.lastseen > datetime.now()
-        self.entityUpdate("online", value)
-        return value
-
-    @online.setter
-    def online(self, new_value):
-        _LOGGER.info(f"Online old value {self.online} New Value {new_value}")
-        return self.lastseen > datetime.now()
-
+        result = self.lastseen > datetime.now()
+        if not result:
+            self.lastseen = datetime.min
+            self.isOnline.update_value(False)
+        return result
 
 class ZendureLegacy(ZendureDevice):
     """Zendure Legacy class for devices."""
@@ -354,7 +354,6 @@ class ZendureLegacy(ZendureDevice):
         from .api import Api
 
         """Refresh the device data."""
-
         if self.lastseen == datetime.min:
             Api.mqttCloud.publish(self.topic_read, '{"properties": ["getAll"]}')
             Api.mqttLocal.publish(self.topic_read, '{"properties": ["getAll"]}')
@@ -383,9 +382,7 @@ class ZendureZenSdk(ZendureDevice):
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
 
-        config = await self.httpGet("rpc?method=HA.Mqtt.GetConfig", "data")
         self.mqtt = None
-
         match select.value:
             case 0:
                 Api.mqttCloud.unsubscribe(f"/{self.prodkey}/{self.deviceId}/#")

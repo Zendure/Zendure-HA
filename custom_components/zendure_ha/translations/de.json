@@ -12,8 +12,7 @@
     "step": {
       "user": {
         "data": {
-          "username": "Zendure Benutzername",
-          "password": "Zendure Passwort",
+          "token": "Zendure Token",
           "p1meter": "P1 Sensor für Smart Matching",
           "mqttlog": "MQTT-Kommunikation loggen",
           "mqttlocal": "Lokalen MQTT verwenden",
@@ -23,8 +22,7 @@
       },
       "reconfigure": {
         "data": {
-          "username": "Zendure Benutzername",
-          "password": "Zendure Passwort",
+          "token": "Zendure Token",
           "p1meter": "P1 Sensor für Smart Matching",
           "mqttlog": "MQTT-Kommunikation loggen",
           "mqttlocal": "Lokalen Mosquitto MQTT AddOn verwenden",
@@ -38,7 +36,8 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Scan-Intervall in Sekunden"
+          "p1meter": "P1 Sensor für Smart Matching",
+          "mqttlog": "MQTT-Kommunikation loggen"
         },
         "description": "Optionen anpassen",
         "title": "Zendure Integrationsoptionen"
@@ -52,6 +51,12 @@
       },
       "wifi_state": {
         "name": "WLAN Status"
+      },
+      "pass": {
+        "name": "Bypass"
+      },
+      "heat_state": {
+        "name": "Batterieheizung"
       }
     },
     "number": {

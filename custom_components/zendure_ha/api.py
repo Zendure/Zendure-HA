@@ -9,7 +9,7 @@ import secrets
 import traceback
 from base64 import b64decode
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
@@ -215,10 +215,8 @@ class Api:
                 if self.mqttLogging:
                     _LOGGER.info(f"Topic: {msg.topic.replace(deviceId, device.name)} => {payload}")
 
-                if device.mqttMessage(topics[3], payload):
-                    if device.mqtt != client:
-                        device.mqtt = client
-                    device.lastseen = datetime.now() + timedelta(minutes=3)
+                if device.mqttMessage(topics[3], payload) and device.mqtt != client:
+                    device.mqtt = client
 
             else:
                 _LOGGER.info(f"Unknown device: {deviceId} => {msg.topic} => {msg.payload}")
@@ -252,7 +250,6 @@ class Api:
                 if device.mqttMessage(topics[3], payload):
                     if device.mqtt != client:
                         device.mqtt = client
-                    device.lastseen = datetime.now() + timedelta(minutes=3)
 
                     if device.zendure is None:
                         psw = hashlib.md5(device.deviceId.encode()).hexdigest().upper()[8:24]  # noqa: S324

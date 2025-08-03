@@ -12,28 +12,20 @@
     "step": {
       "user": {
         "data": {
-          "beta": "Use Beta API",
-          "old": "Old authentication (use only if you do not have a token!)",
-          "username": "Zendure Username",
-          "password": "Zendure Password",
+          "token": "Zendure Token",
           "p1meter": "P1 Sensor for smart matching",
           "mqttlocal": "Use local MQTT",
           "mqttlog": "Log MQTT communication",
-          "mqttextra": "Use Advanced MQTT features",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
         }
       },
       "reconfigure": {
         "data": {
-          "beta": "Use Beta API",
-          "old": "Old authentication (use only if you do not have a token!)",
-          "username": "Zendure Username",
-          "password": "Zendure Password",
+          "token": "Zendure Token",
           "p1meter": "P1 Sensor for smart matching",
           "mqttlocal": "Use local MQTT",
           "mqttlog": "Log MQTT communication",
-          "mqttextra": "Use Advanced MQTT features",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
         }
