@@ -52,6 +52,12 @@
       },
       "wifi_state": {
         "name": "WLAN Status"
+      },
+      "pass": {
+       "name": "Bypass"
+      },
+      "heat_state": {
+        "name": "Batterieheizung"
       }
     },
     "number": {
@@ -65,10 +71,10 @@
         "name": "Manuelle Leistung"
       },
       "min_soc": {
-        "name": "SOC Minimum"
+        "name": "SoC Minimum"
       },
       "soc_set": {
-        "name": "SOC Maximum"
+        "name": "SoC Maximum"
       }
     },
     "sensor": {
@@ -76,13 +82,13 @@
         "name": "Ambient Lichtfarbe"
       },
       "auto_model": {
-        "name": "Hyper Energy Programm",
+        "name": "Energieplan",
         "state": {
-          "0": "Kein",
-          "6": "Batterieprioritätsmodus",
-          "7": "Zeitliche Leistungsregelung",
-          "8": "Smart Leistungsregelung",
-          "9": "Smart CT Leistungsregelung",
+          "0": "Keiner",
+          "6": "Akkuprioritätsmodus",
+          "7": "Terminmodus",
+          "8": "Intelligenter Abgleichmodus",
+          "9": "Smart-CT-Modus",
           "10": "Strompreis"
         }
       },
@@ -118,11 +124,11 @@
           "26": "Lokal Mqtt, Zendure App und BLE Fehler"
         }
       },
-      "so_h": {
-        "name": "Gesundsheitszustand"
+      "soh": {
+        "name": "Gesundheitszustand"
       },
       "soc_status": {
-        "name": "SOC Status",
+        "name": "SoC Status",
         "state": {
           "0": "Aktiv",
           "1": "Auto-Kalibrierung"
@@ -131,8 +137,8 @@
       "hub_state": {
         "name": "Hub-Status",
         "state": {
-          "0": "Output stoppen und in Standby gehen",
-          "1": "Output stoppen und ausschalten"
+          "0": "Ausgabe stoppen und in Standby gehen",
+          "1": "Ausgabe stoppen und ausschalten"
         }
       },
       "pack_num": {
@@ -142,7 +148,7 @@
         "name": "Batteriespannung"
       },
       "electric_level": {
-        "name": "Batterie"
+        "name": "Batterieladezustand (SoC)"
       },
       "charging_mode": {
         "name": "Lademodus",
@@ -164,7 +170,7 @@
         "name": "Ladezeit"
       },
       "pack_state": {
-        "name": "Batterie Status",
+        "name": "Batteriestatus",
         "state": {
           "0": "Ruhezustand",
           "1": "Laden",
@@ -180,25 +186,28 @@
         }
       },
       "soc_level": {
-        "name": "Ladezustand"
+        "name": "Ladezustand (SoC)"
       },
       "max_temp": {
-        "name": "Temperatur"
+        "name": "Höchste Zelltemperatur"
       },
       "total_vol": {
-        "name": "Spannung"
+        "name": "Gesamtspannung"
       },
       "max_vol": {
-        "name": "Maximale Spannung"
+        "name": "Höchste Zellspannung"
       },
       "min_vol": {
-        "name": "Minimale Spannung"
+        "name": "Niedrigste Zellspannung"
       },
       "batcur": {
         "name": "Strom"
       },
       "pack_input_power": {
-        "name": "Batterie Ausgangsleistung"
+        "name": "Batterieausgangsleistung"
+      },
+      "power": {
+        "name": "Leistung"
       },
       "pass": {
         "name": "Bypass",
@@ -209,13 +218,25 @@
         }
       },
       "hyper_2000_pass": {
-        "name": "Bypass Status"
+        "name": "Bypass-Status"
       },
       "output_pack_power": {
-        "name": "Batterie Eingangsleistung"
+        "name": "Batterieeingangsleistung"
       },
+      "solar_input_power": {
+        "name": "Solarleistung"
+      },
+      "solar_power1": {
+        "name": "PV1 Solarleistung"
+      },
+      "solar_power2": {
+        "name": "PV2 Solarleistung"
+      },
+      "output_home_power": {
+        "name": "Ausgangsleistung"
+	    },
       "hyper_tmp": {
-        "name": "Geräte Temperatur"
+        "name": "Gerätetemperatur"
       },
       "strength": {
         "name": "WLAN-Signalstärke"
@@ -237,6 +258,19 @@
       },
       "masterhaer_version": {
         "name": "Hardware Version"
+      },
+      "pv_brand": {
+        "name": "Wechselrichtermarke",
+        "state": {
+          "1": "Hoymiles",
+          "2": "Enphase",
+          "3": "APsystems",
+          "4": "Anker",
+          "5": "Deye",
+          "6": "BossWerk",
+          "7": "TSun",
+          "8": "Sonstige"
+        }
       }
     },
     "select": {
@@ -255,7 +289,15 @@
           "cluster800": "Cluster max. 800 W",
           "cluster1200": "Cluster max. 1200 W",
           "cluster2400": "Cluster max. 2400 W",
-          "cluster3600": "Cluster max. 3600 W"
+          "cluster3600": "Cluster max. 3600 W",
+          "unused": "Nicht verwendet"
+        }
+      },
+      "connection": {
+        "name": "Verbindungsart",
+        "state": {
+          "local": "Lokal",
+          "cloud": "Cloud"
         }
       },
       "operation": {
@@ -288,6 +330,12 @@
     "switch": {
       "lamp_switch": {
         "name": "Led"
+      },
+      "buzzer_switch": {
+        "name": "Bestätigungston"
+      },
+      "auto_recover": {
+        "name": "Bypass-Modus zurücksetzen"
       }
     }
   }
