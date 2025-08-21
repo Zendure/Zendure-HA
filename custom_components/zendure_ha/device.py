@@ -386,7 +386,7 @@ class ZendureDevice(EntityDevice):
         self.powerAct = self.packInputPower.asInt - self.outputPackPower.asInt
         if self.powerAct != 0:
             self.powerAct += self.solarInputPower.asInt
-        elif self.powerAct == 0 and not self.outputHomePower.asInt is None:
+        elif self.powerAct == 0 and self.outputHomePower.asInt is not None:
             self.powerAct = self.outputHomePower.asInt
         return self.powerAct
 
@@ -491,7 +491,7 @@ class ZendureZenSdk(ZendureDevice):
         self.powerAct = self.packInputPower.asInt - self.outputPackPower.asInt
         if self.powerAct != 0:
             self.powerAct += self.solarInputPower.asInt
-        elif self.powerAct == 0 and not self.outputHomePower.asInt is None:
+        elif self.powerAct == 0 and self.outputHomePower.asInt is not None:
             self.powerAct = self.outputHomePower.asInt
         return self.powerAct
 
