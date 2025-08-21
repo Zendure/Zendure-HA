@@ -380,11 +380,9 @@ class ZendureDevice(EntityDevice):
 
     async def power_get(self) -> int:
         """Get the current power."""
-        if not self.online or self.packInputPower.state is None or self.outputPackPower.state is None:
+        if not self.online or self.outputHomePower.state is None or self.gridInputPower.state is None:
             return 0
-        self.powerAct = self.packInputPower.asInt - self.outputPackPower.asInt
-        if self.powerAct != 0:
-            self.powerAct += self.solarInputPower.asInt
+        self.powerAct = self.outputHomePower.asInt - self.gridInputPower.asInt
         return self.powerAct
 
     @property
