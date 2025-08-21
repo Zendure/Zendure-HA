@@ -114,6 +114,7 @@ class ZendureDevice(EntityDevice):
 
         self.electricLevel = ZendureSensor(self, "electricLevel", None, "%", "battery", "measurement")
         self.packInputPower = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
+        self.outputHomePower = ZendureSensor(self, "outputHomePower", None, "W", "power", "measurement")
         self.outputPackPower = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
         self.solarInputPower = ZendureSensor(self, "solarInputPower", None, "W", "power", "measurement")
         self.hemsState = ZendureBinarySensor(self, "hemsState")
