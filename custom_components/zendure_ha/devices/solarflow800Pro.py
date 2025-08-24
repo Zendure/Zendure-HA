@@ -19,9 +19,3 @@ class SolarFlow800Pro(ZendureZenSdk):
         self.powerMax = 2400
         self.gridOffPower = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
 
-    async def power_get(self) -> int:
-        """Get the current power."""
-        self.powerAct = await super().power_get()
-        if self.gridOffPower.state is not None:
-            self.powerAct -= self.gridOffPower.asInt
-        return self.powerAct
