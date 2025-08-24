@@ -291,6 +291,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if g is None:
                     continue
                 pwr = power * d.powerAvail / (maxPower if maxPower != 0 else 1)
+                # limit power to solar input if smart charge only is selected
+                if self.operation == SmartMode.MATCHING_CHARGE and d.solarInputPower.asNumber is not None:
+                    pwr = min(pwr, d.solarInputPower.asNumber)
 
                 # adjust the power for the fusegroup
                 pwr = int(max(g.powerAvail - g.powerUsed, pwr) if isCharging else min(g.powerAvail - g.powerUsed, pwr))
