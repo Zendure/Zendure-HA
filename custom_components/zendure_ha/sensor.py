@@ -61,8 +61,8 @@ class ZendureSensor(EntityZendure, SensorEntity):
             if self.factor != 1:
                 try:
                     # temporary fix for batcur
-                    if self.factor == CONS_BATCUR and int(new_value) > CONS_SIGN:
-                        new_value = ((value ^ 0x8000) - 0x8000) / self.factor
+                    if int(new_value) > CONS_SIGN:
+                        new_value = ((value ^ CONS_SIGN) - CONS_SIGN) / self.factor
                     else:
                         new_value = float(new_value) / self.factor
                 except ValueError:
