@@ -190,10 +190,10 @@ class ZendureDevice(EntityDevice):
 
         if power < 0:
             soc = self.socSet.asNumber
-            return 0 if level >= soc else self.kWh * 10 / -power * (soc - level)
+            return 0 if level >= soc else min(999, self.kWh * 10 / -power * (soc - level))
 
         soc = self.minSoc.asNumber
-        return 0 if level <= soc else self.kWh * 10 / power * (level - soc)
+        return 0 if level <= soc else min(999, self.kWh * 10 / power * (level - soc))
 
     async def entityWrite(self, entity: EntityZendure, value: Any) -> None:
         if entity.unique_id is None:
