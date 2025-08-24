@@ -103,7 +103,7 @@ class ZendureDevice(EntityDevice):
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
 
         self.fusegroup: FuseGroup | None = None
-        fuseGroups = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group1200", 4: "group2400", 5: "group3600"}
+        fuseGroups = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group1200", 4: "group2000", 5: "group2400", 6: "group3600"}
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", fuseGroups, None)
         self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
 
@@ -116,6 +116,7 @@ class ZendureDevice(EntityDevice):
         self.packInputPower = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
         self.outputPackPower = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
         self.solarInputPower = ZendureSensor(self, "solarInputPower", None, "W", "power", "measurement")
+        self.outputHomePower = ZendureSensor(self, "outputHomePower", None, "W", "power", "measurement")
         self.hemsState = ZendureBinarySensor(self, "hemsState")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
@@ -410,11 +411,10 @@ class ZendureDevice(EntityDevice):
 
     async def power_get(self) -> int:
         """Get the current power."""
-        if not self.online or self.packInputPower.state is None or self.outputPackPower.state is None:
+        # return zero if device is offline or states are unknown
+        if not self.online or self.outputHomePower.state is None:
             return 0
-        self.powerAct = self.packInputPower.asInt - self.outputPackPower.asInt
-        if self.powerAct != 0:
-            self.powerAct += self.solarInputPower.asInt
+        self.powerAct = self.outputHomePower.asInt if self.gridInputPower.state is None else self.outputHomePower.asInt - self.gridInputPower.asInt 
         return self.powerAct
 
     @property
@@ -509,12 +509,9 @@ class ZendureZenSdk(ZendureDevice):
             self.mqttProperties(json)
 
         # return zero if device is offline or states are unknown
-        if not self.online or self.packInputPower.state is None or self.outputPackPower.state is None:
+        if not self.online or self.outputHomePower.state is None:
             return 0
-
-        self.powerAct = self.packInputPower.asInt - self.outputPackPower.asInt
-        if self.powerAct != 0:
-            self.powerAct += self.solarInputPower.asInt
+        self.powerAct = self.outputHomePower.asInt if self.gridInputPower.state is None else self.outputHomePower.asInt - self.gridInputPower.asInt 
         return self.powerAct
 
     def power_set(self, state: ManagerState, power: int) -> int:
