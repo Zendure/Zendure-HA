@@ -240,8 +240,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.update_power(max(0, powerActual + p1), ManagerState.DISCHARGING)
 
                 case SmartMode.MATCHING_CHARGE:
-                    pwr = powerActual + p1 if powerActual < 0 else p1 if p1 < -SmartMode.MIN_POWER else 0
-                    self.update_power(min(0, pwr), ManagerState.CHARGING)
+                    # in update_power(), the upper limit for pwr is solarInputPower, if there is a need for power into the house grid (pwr > 0)
+                    # this is not a real "discharge", because no power go out of the battery, however, the device deliver power to the house
+                    # if pwr is negative (AC load), all the power goes into battery
+                    pwr = powerActual + p1
+                    self.update_power(pwr, ManagerState.CHARGING if pwr < 0 else ManagerState.DISCHARGING)
 
                 case SmartMode.MANUAL:
                     self.update_power(self.setpoint, ManagerState.DISCHARGING if self.setpoint >= 0 else ManagerState.CHARGING)
@@ -292,14 +295,17 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     continue
                 pwr = power * d.powerAvail / (maxPower if maxPower != 0 else 1)
                 # limit power to solar input if smart charge only is selected
-                if self.operation == SmartMode.MATCHING_CHARGE and d.solarInputPower.asNumber is not None:
-                    pwr = min(pwr, d.solarInputPower.asNumber)
 
                 # adjust the power for the fusegroup
                 pwr = int(max(g.powerAvail - g.powerUsed, pwr) if isCharging else min(g.powerAvail - g.powerUsed, pwr))
 
                 maxPower -= d.powerAvail
                 pwr = max(d.powerMin, pwr) if isCharging else min(d.powerMax, pwr)
+                # limit on smart charge the power to the solarInputPower, no power goes in or out of the battery
+                # if pwr is positive (no AC load) and solarInputPower < pwr
+                # in case of AC load, pwr is negative and the solarInputPower + pwr goes into battery
+                if self.operation == SmartMode.MATCHING_CHARGE and d.solarInputPower.asNumber is not None:
+                    pwr = min(pwr, d.solarInputPower.asNumber)
                 pwr = d.power_set(state, pwr)
 
                 # update the totals
