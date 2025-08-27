@@ -149,6 +149,10 @@ class ZendureDevice(EntityDevice):
 
         changed = super().entityUpdate(key, value)
         try:
+            match key:
+                # manual change of minSoc will keep changed == false and electricLevel could be longer time the same
+                case "electricLevel" | "minSoc" | "socLimit":
+                    self.availableKwh.update_value((self.electricLevel.asNumber - self.minSoc.asNumber) / 100 * self.kWh)
             if changed:
                 match key:
                     case "outputPackPower":
@@ -171,8 +175,6 @@ class ZendureDevice(EntityDevice):
                         self.limitInput.update_range(0, value)
                     case "hemsState":
                         self.setStatus()
-                    case "electricLevel" | "minSoc" | "socLimit":
-                        self.availableKwh.update_value((self.electricLevel.asNumber - self.minSoc.asNumber) / 100 * self.kWh)
         except Exception as e:
             _LOGGER.error(f"EntityUpdate error {self.name} {key} {e}!")
             _LOGGER.error(traceback.format_exc())
