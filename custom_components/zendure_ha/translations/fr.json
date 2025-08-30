@@ -66,7 +66,7 @@
         "name": "Dérivation ( bypass )"
       },
       "heat_state": {
-        "name": "État thermique"
+        "name": "Réchauffeur"
       },
       "hems_state": {
         "name": "État HEMS"
@@ -266,7 +266,7 @@
         "name": "Version du matériel"
       },
       "inverse_max_power": {
-        "name": "Puissance inverse maximale"
+        "name": "Puissance limite de sortie AC"
       },
       "grid_power": {
         "name": "Puissance du réseau électrique"
