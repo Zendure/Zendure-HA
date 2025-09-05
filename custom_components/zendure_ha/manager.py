@@ -325,7 +325,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 case DeviceState.IDLE:
                     d.power_discharge(0)
                 case DeviceState.STARTING:
-                    d.power_charge(d.maxCharge // 10)
+                    d.power_charge(max(power, d.maxCharge // 10))
                 case DeviceState.ACTIVE:
                     if active == 1:
                         pwr = power
@@ -384,7 +384,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 case DeviceState.IDLE:
                     d.power_discharge(0)
                 case DeviceState.STARTING:
-                    d.power_discharge(d.maxDischarge // 10)
+                    d.power_discharge(min(power, d.maxDischarge // 10))
                 case DeviceState.ACTIVE:
                     if active == 1:
                         pwr = power
