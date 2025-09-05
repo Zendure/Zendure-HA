@@ -26,6 +26,11 @@ class DummyByPass:
         self.is_on = is_on
 
 
+class DummySelect:
+    def __init__(self, value=0):
+        self.value = value
+
+
 class DummySensor:
     def __init__(self):
         self.value = None
@@ -43,13 +48,23 @@ class DummySensor:
 
 
 class DummyDevice:
-    def __init__(self, pack_in, output_pack, solar_in, avail_kwh=0, bypass=False, grid_reverse=True):
+    def __init__(
+        self,
+        pack_in,
+        output_pack,
+        solar_in,
+        avail_kwh=0,
+        bypass=False,
+        grid_reverse=1,
+        pass_mode=0,
+    ):
         self.packInputPower = DummyVal(pack_in)
         self.outputPackPower = DummyVal(output_pack)
         self.solarInputPower = DummyVal(solar_in)
         self.availableKwh = DummyVal(avail_kwh)
         self.byPass = DummyByPass(bypass)
-        self.gridReverse = DummyByPass(grid_reverse)
+        self.gridReverse = DummySelect(grid_reverse)
+        self.passMode = DummySelect(pass_mode)
         self.state = DeviceState.OFFLINE
 
     async def power_get(self):
