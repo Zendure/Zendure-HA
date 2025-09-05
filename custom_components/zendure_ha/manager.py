@@ -213,23 +213,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         availEnergy = 0
         for d in self.devices:
             if await d.power_get():
-                cur = d.packInputPower.asInt - d.outputPackPower.asInt + d.solarInputPower.asInt
-                powerActual += (
-                    0
-                    if (
-                        d.byPass.is_on
-                        and (d.gridReverse.value == 1 or d.passMode.value == 2)
-                    )
-                    else cur
-                )
-                powerSolar += (
-                    0
-                    if (
-                        d.byPass.is_on
-                        and (d.gridReverse.value == 1 or d.passMode.value == 2)
-                    )
-                    else d.solarInputPower.asInt
-                )
+                cur = d.outputHomePower.asInt - d.gridInputPower.asInt
+                powerActual += (0 if (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2)) else cur)
+                powerSolar += (0 if (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2)) else d.solarInputPower.asInt)
                 availEnergy += d.availableKwh.asNumber
                 d.state = DeviceState.ONLINE
             else:
@@ -278,10 +264,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if (
                     power > 0
                     and d.state != DeviceState.OFFLINE
-                    and not (
-                        d.byPass.is_on
-                        and (d.gridReverse.value == 1 or d.passMode.value == 2)
-                    )
+                    and not (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2))
                 ):
                     pwr = min(d.solarInputPower.asInt, power)
                     power -= d.power_discharge(pwr)
