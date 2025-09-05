@@ -299,8 +299,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 deviceMax = d.fusegroup.getPower(True, d.maxCharge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
-                if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCFULL and d.electricLevel.asInt < d.socSet.asNumber) and (
-                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) > total
+                if len(self.devices) == 1 or ((deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCFULL and d.electricLevel.asInt < d.socSet.asNumber) and (
+                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) > total)
                 ):
                     if deviceAct == 0:
                         d.state = DeviceState.STARTING if starting else DeviceState.IDLE
@@ -325,7 +325,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 case DeviceState.IDLE:
                     d.power_discharge(0)
                 case DeviceState.STARTING:
-                    d.power_charge(d.maxCharge // 10)
+                    d.power_charge(max(power, d.maxCharge // 10))
                 case DeviceState.ACTIVE:
                     if active == 1:
                         pwr = power
@@ -358,8 +358,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 deviceMax = d.fusegroup.getPower(False, d.maxDischarge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
-                if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
-                    (maxPwr == 0 and total < 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total
+                if len(self.devices) == 1 or ((deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
+                    (maxPwr == 0 and total < 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total)
                 ):
                     if deviceAct == 0:
                         d.state = DeviceState.STARTING if starting else DeviceState.IDLE
@@ -384,7 +384,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 case DeviceState.IDLE:
                     d.power_discharge(0)
                 case DeviceState.STARTING:
-                    d.power_discharge(d.maxDischarge // 10)
+                    d.power_discharge(min(power, d.maxDischarge // 10))
                 case DeviceState.ACTIVE:
                     if active == 1:
                         pwr = power
