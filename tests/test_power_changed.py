@@ -43,12 +43,13 @@ class DummySensor:
 
 
 class DummyDevice:
-    def __init__(self, pack_in, output_pack, solar_in, avail_kwh=0, bypass=False):
+    def __init__(self, pack_in, output_pack, solar_in, avail_kwh=0, bypass=False, grid_reverse=True):
         self.packInputPower = DummyVal(pack_in)
         self.outputPackPower = DummyVal(output_pack)
         self.solarInputPower = DummyVal(solar_in)
         self.availableKwh = DummyVal(avail_kwh)
         self.byPass = DummyByPass(bypass)
+        self.gridReverse = DummyByPass(grid_reverse)
         self.state = DeviceState.OFFLINE
 
     async def power_get(self):
