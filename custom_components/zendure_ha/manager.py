@@ -208,29 +208,24 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def powerChanged(self, p1: int, time: datetime) -> None:
         # get the current power
-        powerOut = 0
-        powerGrid = 0
+        powerActual = 0
         powerSolar = 0
         availEnergy = 0
         for d in self.devices:
             if await d.power_get():
-                powerOut += (out := d.packInputPower.asInt)
-                powerGrid += d.gridInputPower.asInt
-                if out > 0:
-                    powerOut += d.solarInputPower.asInt
-                else:
-                    powerSolar += 0 if d.byPass.is_on else d.solarInputPower.asInt
+                cur = d.packInputPower.asInt - d.outputPackPower.asInt + d.solarInputPower.asInt
+                powerActual += cur
+                powerSolar += 0 if d.byPass.is_on else d.solarInputPower.asInt
                 availEnergy += d.availableKwh.asNumber
                 d.state = DeviceState.ONLINE
             else:
                 d.state = DeviceState.OFFLINE
 
-        powerActual = powerOut - powerGrid
         self.power.update_value(powerActual)
         self.availableKwh.update_value(availEnergy)
 
         # Update the power the power distribution.
-        power = powerOut - powerGrid + p1
+        power = powerActual + p1
         match self.operation:
             case SmartMode.MATCHING:
                 if power > powerSolar:
