@@ -229,7 +229,8 @@ class Api:
             else:
                 _LOGGER.info(f"Unknown device: {deviceId} => {msg.topic} => {msg.payload}")
 
-        except:  # noqa: E722
+        except Exception as err:
+            _LOGGER.error(err)
             return
 
     def mqttMsgLocal(self, client: Any, _userdata: Any, msg: Any) -> None:
