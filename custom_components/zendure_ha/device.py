@@ -103,6 +103,8 @@ class ZendureDevice(EntityDevice):
         self.socStatus = ZendureSensor(self, "socStatus", state=0)
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
         self.byPass = ZendureBinarySensor(self, "pass")
+        self.gridReverse = ZendureSelect(self, "gridReverse", {0: "auto", 1: "on", 2: "off"}, self.entityWrite, 2)
+        self.passMode = ZendureSelect(self, "passMode", {0: "auto", 2: "on", 1: "off"}, self.entityWrite, 1)
 
         self.fusegroup: FuseGroup | None = None
         fuseGroups = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group1200", 4: "group2000", 5: "group2400", 6: "group3600"}
