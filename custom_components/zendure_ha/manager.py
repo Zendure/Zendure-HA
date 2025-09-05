@@ -428,8 +428,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
                 device.fusegroup = fusegroup
                 self.fuseGroup[device.deviceId] = fusegroup
-            except:  # noqa: E722
-                _LOGGER.error(f"Unable to create fusegroup for device: {device.name} ({device.deviceId})")
+            except Exception as err:
+                _LOGGER.error(
+                    "Unable to create fusegroup for device: %s (%s) - %s",
+                    device.name,
+                    device.deviceId,
+                    err,
+                )
 
         # Update the fusegroups and select optins for each device
         for device in self.devices:
@@ -447,8 +452,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if c.deviceId != device.deviceId:
                         fusegroups[c.deviceId] = f"Part of {c.name} fusegroup"
                 device.fuseGroup.setDict(fusegroups)
-            except:  # noqa: E722
-                _LOGGER.error(f"Unable to create fusegroup for device: {device.name} ({device.deviceId})")
+            except Exception as err:
+                _LOGGER.error(
+                    "Unable to create fusegroup for device: %s (%s) - %s",
+                    device.name,
+                    device.deviceId,
+                    err,
+                )
 
         # Add devices to fusegroups
         for device in self.devices:
