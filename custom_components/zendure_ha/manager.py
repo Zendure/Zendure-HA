@@ -299,7 +299,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 deviceMax = d.fusegroup.getPower(True, d.maxCharge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
-                if len(self.devices) == 1 or(deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCFULL and d.electricLevel.asInt < d.socSet.asNumber) and (
+                if len(self.devices) == 1 or ((deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCFULL and d.electricLevel.asInt < d.socSet.asNumber) and (
                     (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) > total)
                 ):
                     if deviceAct == 0:
@@ -358,7 +358,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 deviceMax = d.fusegroup.getPower(False, d.maxDischarge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
-                if len(self.devices) == 1 or(deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
+                if len(self.devices) == 1 or ((deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
                     (maxPwr == 0 and total < 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total)
                 ):
                     if deviceAct == 0:
