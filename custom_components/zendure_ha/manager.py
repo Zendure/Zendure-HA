@@ -291,15 +291,15 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         starting = True
 
         # scan which devices we need to use
-        for d in sorted(self.devices, key=lambda d: int(d.availableKwh.asNumber * 2), reverse=False):
+        for d in sorted(self.devices, key=lambda d: int(d.availableKwh.asNumber * 2), reverse=True):
             if d.fusegroup is not None and d.state != DeviceState.OFFLINE:
                 # get the maximum power for this device
-                deviceAct = d.gridInputPower.asInt
-                deviceMax = d.fusegroup.getPower(True, d.maxCharge) if d.fusegroup is not None else 0
+                deviceAct = d.outputHomePower.asInt
+                deviceMax = d.fusegroup.getPower(False, d.maxDischarge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
-                if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCFULL and d.electricLevel.asInt < d.socSet.asNumber) and (
-                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) > total
+                if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
+                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total 
                 ):
                     if deviceAct == 0:
                         d.state = DeviceState.STARTING if starting else DeviceState.IDLE
@@ -308,7 +308,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         active += 1
                         d.state = DeviceState.ACTIVE
                         kWh += d.availableKwh.asNumber
-                        d.fusegroup.updatePower(deviceMax, d.maxCharge, d.availableKwh.asNumber)
+                        d.fusegroup.updatePower(deviceMax, d.maxDischarge, d.availableKwh.asNumber)
                         maxPwr += deviceMax
                         total -= 0.28 * deviceMax
                 else:
