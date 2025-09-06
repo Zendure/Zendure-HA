@@ -266,8 +266,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     and d.state != DeviceState.OFFLINE
                     and not (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2))
                 ):
-                    pwr = min(d.solarInputPower.asInt, power)
-                    power -= d.power_discharge(pwr)
+                    pwr = power * d.solarInputPower.asInt / solar
+                    pwr = min(d.solarInputPower.asInt, pwr)
+                    d.power_discharge(pwr)
             return
 
         # int the fusegroups
@@ -370,13 +371,24 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         d.fusegroup.updatePower(deviceMax, d.maxDischarge, d.availableKwh.asNumber)
                         maxPwr += deviceMax
                         total -= 0.28 * deviceMax
+                elif d.socLimit.asInt == SmartMode.SOCEMPTY and d.solarInputPower.asInt > 0:
+                        d.state = DeviceState.SolarBypass
                 else:
                     d.state = DeviceState.IDLE
+
+        SolarBypassedEnergy = 0
+        TotalSolarBypassedEnergy = 0
+
+        for d in self.devices:
+            match d.state:
+                case DeviceState.SolarBypass:
+                    power -= (SolarBypassedEnergy := d.power_discharge(min(d.solarInputPower.asInt, power)))
+                    TotalSolarBypassedEnergy += SolarBypassedEnergy
 
         if maxPwr != 0:
             flexPwr = (1 - power / maxPwr) * power
             minPct = (power - flexPwr) / maxPwr if maxPwr != 0 else 0
-            _LOGGER.info(f"Power distribution => power: {power}, maxPwr: {maxPwr}, minPct: {minPct}, kWh: {kWh}, factKwh: {factKwh}")
+            _LOGGER.info(f"Power distribution => TotalSolarBypassedEnergy: {TotalSolarBypassedEnergy}, power: {power}, maxPwr: {maxPwr}, minPct: {minPct}, kWh: {kWh}, factKwh: {factKwh}")
 
         for d in self.devices:
             match d.state:
@@ -397,6 +409,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     power -= d.power_discharge(pwr)
                     kWh -= d.availableKwh.asNumber
                     active -= 1
+
         _LOGGER.info(f"Power distribution ready => {power} left")
 
     def update_fusegroups(self) -> None:
