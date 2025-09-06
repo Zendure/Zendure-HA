@@ -208,29 +208,24 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def powerChanged(self, p1: int, time: datetime) -> None:
         # get the current power
-        powerOut = 0
-        powerGrid = 0
+        powerActual = 0
         powerSolar = 0
         availEnergy = 0
         for d in self.devices:
             if await d.power_get():
-                powerOut += (out := d.packInputPower.asInt)
-                powerGrid += d.gridInputPower.asInt
-                if out > 0:
-                    powerOut += d.solarInputPower.asInt
-                else:
-                    powerSolar += 0 if d.byPass.is_on else d.solarInputPower.asInt
+                cur = d.outputHomePower.asInt - d.gridInputPower.asInt
+                powerActual += (0 if (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2)) else cur)
+                powerSolar += (0 if (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2)) else d.solarInputPower.asInt)
                 availEnergy += d.availableKwh.asNumber
                 d.state = DeviceState.ONLINE
             else:
                 d.state = DeviceState.OFFLINE
 
-        powerActual = powerOut - powerGrid
         self.power.update_value(powerActual)
         self.availableKwh.update_value(availEnergy)
 
         # Update the power the power distribution.
-        power = powerOut - powerGrid + p1
+        power = powerActual + p1
         match self.operation:
             case SmartMode.MATCHING:
                 if power > powerSolar:
@@ -263,12 +258,68 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def powerUpdate(self, power: int, solar: int) -> None:
         # Check for solar only adjustment
+        #if solar > 0 and solar >= abs(power):
+        #    _LOGGER.info(f"Power update => {power} with solar only")
+        #    for d in sorted(self.devices, key=lambda d: d.solarInputPower.asInt):
+        #        if (
+        #            power > 0
+        #            and d.state != DeviceState.OFFLINE
+        #            and not (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2))
+        #        ):
+        #        
+        #            pwr = power * d.solarInputPower.asInt / solar
+        #            pwr = min(d.solarInputPower.asInt, pwr)
+        #            d.power_discharge(pwr)
+        #    return
+
+        # Check for solar only adjustment, give power based by remeaning charging kwh and solarpower
         if solar > 0 and solar >= abs(power):
-            _LOGGER.info(f"Power update => {power} with solar only")
-            for d in sorted(self.devices, key=lambda d: d.solarInputPower.asInt):
-                if power > 0 and d.state != DeviceState.OFFLINE and not d.byPass.is_on:
-                    pwr = min(d.solarInputPower.asInt, power)
-                    power -= d.power_discharge(pwr)
+            devicess: list[tuple[ZendureDevice, float, float]] = []
+            total_weight = 0.0
+            for d in sorted(self.devices, key=lambda d: ((d.socLimit.asInt == SmartMode.SOCFULL), int(d.solarInputPower.asInt))):
+                if (
+                    power > 0
+                    and d.state != DeviceState.OFFLINE
+                    and d.solarInputPower.asInt > 0
+                    and not (d.byPass.is_on and (d.gridReverse.value == 1 or d.passMode.value == 2))
+                ):
+                    remaining_kwh = max(0, (d.socSet.asNumber - d.electricLevel.asNumber) / 100 * d.kWh)
+                    if remaining_kwh <= 0:
+                        continue
+                    weight = d.solarInputPower.asInt / max(remaining_kwh, 0)
+                    total_weight += weight
+                    devicess.append((d, weight, remaining_kwh))
+
+                    _LOGGER.info(
+                        "Solar weight %s: solar=%sW remaining=%.3fkWh weight=%.3f",
+                        d.name,
+                        d.solarInputPower.asInt,
+                        remaining_kwh,
+                        weight,
+                    )            
+                    _LOGGER.info(
+                        "Power update => %s with solar only (total_weight=%.3f)",
+                        power,
+                        total_weight,
+                    )
+
+            for d, weight, remaining_kwh in devicess:
+                pwr = (power * weight / total_weight) if (d.socLimit.asInt != SmartMode.SOCFULL or remaining_kwh != 0) else power
+                pwr = max(0, min(d.solarInputPower.asInt, pwr))
+                d.power_discharge(int(pwr))
+                if (d.socLimit.asInt == SmartMode.SOCFULL or remaining_kwh == 0) and pwr > 0:
+                    power -= pwr
+
+                _LOGGER.info(
+                    "  %s: solar=%sW remaining=%.3fkWh weight=%.3f assign=%sW kwh=%.3fkWh ",
+                    d.name,
+                    d.solarInputPower.asInt,
+                    remaining_kwh,
+                    weight,
+                    int(pwr),
+                    d.kWh,
+                )
+
             return
 
         # int the fusegroups
@@ -354,12 +405,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         for d in sorted(self.devices, key=lambda d: int(d.availableKwh.asNumber * 2), reverse=True):
             if d.fusegroup is not None and d.state != DeviceState.OFFLINE:
                 # get the maximum power for this device
-                deviceAct = d.packInputPower.asInt
+                deviceAct = d.outputHomePower.asInt
                 deviceMax = d.fusegroup.getPower(False, d.maxDischarge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
                 if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
-                    (maxPwr == 0 and total < 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total
+                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total 
                 ):
                     if deviceAct == 0:
                         d.state = DeviceState.STARTING if starting else DeviceState.IDLE
@@ -371,13 +422,24 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         d.fusegroup.updatePower(deviceMax, d.maxDischarge, d.availableKwh.asNumber)
                         maxPwr += deviceMax
                         total -= 0.28 * deviceMax
+                elif d.socLimit.asInt == SmartMode.SOCEMPTY and d.solarInputPower.asInt > 0:
+                        d.state = DeviceState.SolarBypass
                 else:
                     d.state = DeviceState.IDLE
+
+        SolarBypassedEnergy = 0
+        TotalSolarBypassedEnergy = 0
+
+        for d in self.devices:
+            match d.state:
+                case DeviceState.SolarBypass:
+                    power -= (SolarBypassedEnergy := d.power_discharge(min(d.solarInputPower.asInt, power)))
+                    TotalSolarBypassedEnergy += SolarBypassedEnergy
 
         if maxPwr != 0:
             flexPwr = (1 - power / maxPwr) * power
             minPct = (power - flexPwr) / maxPwr if maxPwr != 0 else 0
-            _LOGGER.info(f"Power distribution => power: {power}, maxPwr: {maxPwr}, minPct: {minPct}, kWh: {kWh}, factKwh: {factKwh}")
+            _LOGGER.info(f"Power distribution => TotalSolarBypassedEnergy: {TotalSolarBypassedEnergy}, power: {power}, maxPwr: {maxPwr}, minPct: {minPct}, kWh: {kWh}, factKwh: {factKwh}")
 
         for d in self.devices:
             match d.state:
@@ -398,6 +460,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     power -= d.power_discharge(pwr)
                     kWh -= d.availableKwh.asNumber
                     active -= 1
+
         _LOGGER.info(f"Power distribution ready => {power} left")
 
     def update_fusegroups(self) -> None:

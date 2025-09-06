@@ -1,7 +1,8 @@
+import logging
+import asyncio
+
 """Interfaces with the Zendure Integration number."""
 
-import asyncio
-import logging
 from collections.abc import Callable
 from typing import Any
 
