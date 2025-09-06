@@ -291,15 +291,15 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         starting = True
 
         # scan which devices we need to use
-        for d in sorted(self.devices, key=lambda d: int(d.availableKwh.asNumber * 2), reverse=True):
+        for d in sorted(self.devices, key=lambda d: int(d.availableKwh.asNumber * 2), reverse=False):
             if d.fusegroup is not None and d.state != DeviceState.OFFLINE:
                 # get the maximum power for this device
-                deviceAct = d.outputHomePower.asInt
-                deviceMax = d.fusegroup.getPower(False, d.maxDischarge) if d.fusegroup is not None else 0
+                deviceAct = d.gridInputPower.asInt
+                deviceMax = d.fusegroup.getPower(True, d.maxCharge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
-                if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
-                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total 
+                if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCFULL and d.electricLevel.asInt < d.socSet.asNumber) and (
+                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) > total
                 ):
                     if deviceAct == 0:
                         d.state = DeviceState.STARTING if starting else DeviceState.IDLE
@@ -308,7 +308,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         active += 1
                         d.state = DeviceState.ACTIVE
                         kWh += d.availableKwh.asNumber
-                        d.fusegroup.updatePower(deviceMax, d.maxDischarge, d.availableKwh.asNumber)
+                        d.fusegroup.updatePower(deviceMax, d.maxCharge, d.availableKwh.asNumber)
                         maxPwr += deviceMax
                         total -= 0.28 * deviceMax
                 else:
@@ -353,12 +353,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         for d in sorted(self.devices, key=lambda d: int(d.availableKwh.asNumber * 2), reverse=True):
             if d.fusegroup is not None and d.state != DeviceState.OFFLINE:
                 # get the maximum power for this device
-                deviceAct = d.packInputPower.asInt
+                deviceAct = d.outputHomePower.asInt
                 deviceMax = d.fusegroup.getPower(False, d.maxDischarge) if d.fusegroup is not None else 0
 
                 # check if we can use this device
                 if (deviceMax != 0 and d.socLimit.asInt != SmartMode.SOCEMPTY and d.electricLevel.asInt > d.minSoc.asNumber) and (
-                    (maxPwr == 0 and total < 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total
+                    (maxPwr == 0 and total > 0) or (deviceMax * 0.28 if deviceAct == 0 else 0.125) < total 
                 ):
                     if deviceAct == 0:
                         d.state = DeviceState.STARTING if starting else DeviceState.IDLE
@@ -428,13 +428,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
                 device.fusegroup = fusegroup
                 self.fuseGroup[device.deviceId] = fusegroup
-            except Exception as err:
-                _LOGGER.error(
-                    "Unable to create fusegroup for device: %s (%s) - %s",
-                    device.name,
-                    device.deviceId,
-                    err,
-                )
+            except:  # noqa: E722
+                _LOGGER.error(f"Unable to create fusegroup for device: {device.name} ({device.deviceId})")
 
         # Update the fusegroups and select optins for each device
         for device in self.devices:
@@ -452,13 +447,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if c.deviceId != device.deviceId:
                         fusegroups[c.deviceId] = f"Part of {c.name} fusegroup"
                 device.fuseGroup.setDict(fusegroups)
-            except Exception as err:
-                _LOGGER.error(
-                    "Unable to create fusegroup for device: %s (%s) - %s",
-                    device.name,
-                    device.deviceId,
-                    err,
-                )
+            except:  # noqa: E722
+                _LOGGER.error(f"Unable to create fusegroup for device: {device.name} ({device.deviceId})")
 
         # Add devices to fusegroups
         for device in self.devices:
