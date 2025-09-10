@@ -241,8 +241,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     elif self.state == ManagerState.IDLE:
                         if self.mode_idle < time and abs(p1) > SmartMode.MIN_POWER:
                             self.state = ManagerState.CHARGING
-                        else:
-                            power = -powerSolar
 
                 await self.powerUpdate(power, powerSolar)
 
