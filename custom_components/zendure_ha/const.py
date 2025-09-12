@@ -32,6 +32,7 @@ class DeviceState(Enum):
     INACTIVE = 3
     STARTING = 4
     ACTIVE = 5
+    MIN_SOC_CHARGE_WINDOW = 6
 
 
 class ManagerState(Enum):
@@ -61,5 +62,5 @@ class SmartMode:
     CONNECTED = 10
     SOCFULL = 1
     SOCEMPTY = 2
-    MIN_SOC_CHARGE_WINDOW = 2
+    MIN_SOC_CHARGE_WINDOW = 10
     KWHSTEP = 0.5
