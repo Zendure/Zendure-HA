@@ -27,8 +27,8 @@ class AcMode:
 
 class DeviceState(Enum):
     OFFLINE = 0
-    SOCFULL = 1
-    SOCEMPTY = 2
+    SOCEMPTY = 1
+    SOCFULL = 2
     INACTIVE = 3
     STARTING = 4
     ACTIVE = 5
@@ -61,4 +61,5 @@ class SmartMode:
     CONNECTED = 10
     SOCFULL = 1
     SOCEMPTY = 2
+    MIN_SOC_CHARGE_WINDOW = 2
     KWHSTEP = 0.5
