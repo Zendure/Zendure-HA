@@ -172,7 +172,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.p1meterEvent = async_track_state_change_event(self.hass, [p1meter], self._p1_changed)
         else:
             self.p1meterEvent = None
-
     @callback
     async def _p1_changed(self, event: Event[EventStateChangedData]) -> None:
         # update new entities
@@ -188,33 +187,30 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
 
         # calculate the standard deviation
-        avg = sum(self.zorder) / len(self.zorder) if len(self.zorder) > 1 else 0
+        avg = int(sum(self.zorder) / len(self.zorder)) if len(self.zorder) > 1 else p1
         stddev = min(50, sqrt(sum([pow(i - avg, 2) for i in self.zorder]) / len(self.zorder)))
-        if isFast := abs(p1 - avg) > SmartMode.Threshold * stddev:
+        if isFast := (len(self.zorder) > 1 and abs(p1 - avg) > SmartMode.Threshold * stddev):
             self.zorder.clear()
         self.zorder.append(p1)
 
         # check minimal time between updates
         time = datetime.now()
-        if time < self.zero_fast and (not isFast or time < self.zero_next):
-            return
+        if time > self.zero_fast and (isFast or time > self.zero_next):
+            try:
+                self.zero_next = time + timedelta(seconds=SmartMode.TIMEZERO)
+                self.zero_fast = time + timedelta(seconds=SmartMode.TIMEFAST)
 
-        self.zero_next = time + timedelta(seconds=SmartMode.TIMEZERO)
-        self.zero_fast = time + timedelta(seconds=SmartMode.TIMEFAST)
-
-        try:
-            self.active_count += 1
-            if self.active_count > 1:
-                _LOGGER.info("==========> Skip p1 meter event, already active")
-                return
-            _LOGGER.info(f"P1 meter changed => {p1}W, avg: {avg:.1f}W")
-            await self.powerChanged(p1, time)
-            _LOGGER.info(f"P1 meter changed => {p1}W, avg: {avg:.1f}W done")
-        except Exception as err:
-            _LOGGER.error(err)
-            _LOGGER.error(traceback.format_exc())
-        finally:
-            self.active_count -= 1
+                self.active_count += 1
+                if self.active_count > 1:
+                    _LOGGER.info("==========> Skip p1 meter event, already active")
+                    return
+                _LOGGER.info(f"P1 meter changed => {p1}W, avg: {avg:.1f}W fast: {isFast}, stddev: {stddev:.1f}W")
+                await self.powerChanged(p1, time)
+            except Exception as err:
+                _LOGGER.error(err)
+                _LOGGER.error(traceback.format_exc())
+            finally:
+                self.active_count -= 1
 
     async def powerChanged(self, p1: int, time: datetime) -> None:
         # get the current power
