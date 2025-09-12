@@ -27,8 +27,8 @@ class AcMode:
 
 class DeviceState(Enum):
     OFFLINE = 0
-    SOCEMPTY = 1
-    SOCFULL = 2
+    SOCFULL = 1
+    SOCEMPTY = 2
     INACTIVE = 3
     STARTING = 4
     ACTIVE = 5
