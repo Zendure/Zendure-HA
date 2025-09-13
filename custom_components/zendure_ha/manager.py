@@ -231,7 +231,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if d.state == DeviceState.STARTING:
                     _LOGGER.info(f"Starting device {d.name} for discharge")
 
-        powerActual = powerDischarge - powerCharge
+        powerActual = powerCharge + powerHome
         self.power.update_value(powerActual)
         self.availableKwh.update_value(availEnergy)
         _LOGGER.info(
@@ -239,7 +239,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         )
 
         # Update the power the power distribution.
-        power = powerDischarge - powerCharge + p1
+        power = powerActual + p1
         match self.operation:
             case SmartMode.MATCHING:
                 if power > powerSolar:
