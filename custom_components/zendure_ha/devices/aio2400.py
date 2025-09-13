@@ -56,8 +56,7 @@ class AIO2400(ZendureLegacy):
             return curPower
 
         _LOGGER.info(f"Power discharge {self.name} => power {curPower}")
-        sp = self.solarInputPower.asInt if self.useSolar else 0
-        power = max(0, min(self.maxDischarge - sp, power))
+        power = max(0, min(self.maxDischarge, power))
         self.mqttInvoke({
             "arguments": [
                 {
@@ -66,7 +65,7 @@ class AIO2400(ZendureLegacy):
                         "chargingType": 0,
                         "chargingPower": 0,
                         "freq": 0,
-                        "outPower": max(0, power + sp),
+                        "outPower": max(0, power),
                     },
                     "msgType": 1,
                     "autoModel": 8,
