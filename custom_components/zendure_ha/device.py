@@ -439,7 +439,6 @@ class ZendureDevice(EntityDevice):
 
         soc = self.electricLevel.asNumber
         min_soc = self.minSoc.asNumber
-        min_soc += 0
         upper = min_soc + SmartMode.MIN_SOC_CHARGE_WINDOW
 
         if self.socSet.asNumber == 0:
@@ -453,7 +452,7 @@ class ZendureDevice(EntityDevice):
     
         """True, wenn das Gerät im SoC-Window ist (zwischen minSoc und minSoc+SOC_WINDOW)."""
 
-        if not self.min_soc_charge_window_ready and soc <= min_soc:
+        if not self.min_soc_charge_window_ready and soc <= min_soc + 1:
             self.state = DeviceState.MIN_SOC_CHARGE_WINDOW
             self.min_soc_charge_window_ready = True
         elif self.min_soc_charge_window_ready and soc <= upper:
