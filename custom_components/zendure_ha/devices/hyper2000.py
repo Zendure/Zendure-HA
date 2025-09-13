@@ -58,8 +58,7 @@ class Hyper2000(ZendureLegacy):
         if delta <= SmartMode.IGNORE_DELTA:
             return curPower
 
-        sp = self.solarInputPower.asInt if self.useSolar else 0
-        power = max(0, min(self.maxDischarge - sp, power))
+        power = max(0, min(self.maxDischarge, power))
         self.mqttInvoke({
             "arguments": [
                 {
@@ -68,7 +67,7 @@ class Hyper2000(ZendureLegacy):
                         "chargingType": 0,
                         "chargingPower": 0,
                         "freq": 0,
-                        "outPower": power + sp,
+                        "outPower": power,
                     },
                     "msgType": 1,
                     "autoModel": 8,
