@@ -562,9 +562,8 @@ class ZendureZenSdk(ZendureDevice):
             # _LOGGER.info(f"Power discharge {self.name} => no action [power {curPower}]")
             return curPower
 
-        sp = self.solarInputPower.asInt if self.useSolar else 0
-        power = max(0, min(self.maxDischarge - sp, power))
-        self.doCommand({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 2, "outputLimit": power + sp}})
+        power = max(0, min(self.maxDischarge, power))
+        self.doCommand({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 2, "outputLimit": power}})
         return power
 
     def power_off(self) -> None:
