@@ -64,3 +64,4 @@ class SmartMode:
     SOCEMPTY = 2
     MIN_SOC_CHARGE_WINDOW = 10
     KWHSTEP = 0.5
+    STARTWATT = 40

@@ -420,13 +420,13 @@ class ZendureDevice(EntityDevice):
     def power_limits(self, charge: int, discharge: int) -> None:
         self.limitCharge = charge
         self.maxCharge = charge
-        self.startCharge = charge // 5
-        self.minCharge = charge // 10
+        self.startCharge = max(-200, charge // 5)
+        self.minCharge = max(-300, charge // 10)
 
         self.limitDischarge = discharge
         self.maxDischarge = discharge
-        self.startDischarge = discharge // 5
-        self.minDischarge = discharge // 10
+        self.startDischarge = min(300, discharge // 5)
+        self.minDischarge = min(200, discharge // 10)
 
     async def power_get(self) -> bool:
         if self.lastseen < datetime.now():
