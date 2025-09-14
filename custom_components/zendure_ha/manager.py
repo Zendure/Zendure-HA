@@ -231,7 +231,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if d.state == DeviceState.STARTING:
                     _LOGGER.info(f"Starting device {d.name} for discharge")
 
-        powerActual = powerCharge + powerHome
+        powerActual = powerHome - powerCharge
         self.power.update_value(powerActual)
         self.availableKwh.update_value(availEnergy)
         _LOGGER.info(
