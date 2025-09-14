@@ -428,7 +428,7 @@ class ZendureDevice(EntityDevice):
             self.lastseen = datetime.min
             self.setStatus()
 
-        self.actualWatt = self.packInputPower.asInt - self.gridInputPower.asInt
+        self.actualWatt = self.outputHomePower.asInt - self.gridInputPower.asInt
         self.actualKwh = self.availableKwh.asNumber
 
         if self.socSet.asNumber == 0:
