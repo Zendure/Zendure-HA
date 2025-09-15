@@ -440,7 +440,7 @@ class ZendureDevice(EntityDevice):
         min_soc = self.minSoc.asNumber
         min_soc += 0 #only for testing
         upper1 = min_soc + self.MSCW1.asNumber
-        upper2 = upper1 + self.MSCW1.asNumber
+        upper2 = upper1 + self.MSCW2.asNumber
 
         if self.socSet.asNumber == 0 or self.kWh == 0:
             self.state = DeviceState.OFFLINE
