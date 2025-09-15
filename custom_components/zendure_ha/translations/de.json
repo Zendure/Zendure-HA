@@ -65,6 +65,12 @@
       },
       "hems_state": {
         "name": "HEMS-Status"
+      },
+      "m_s_c_w1sensor": {
+        "name": "Batterie Lade Fenster 1"
+      },
+      "m_s_c_w2sensor": {
+        "name": "Batterie Lade Fenster 2"
       }
     },
     "number": {
@@ -82,6 +88,12 @@
       },
       "soc_set": {
         "name": "SoC-Maximum"
+      },
+      "m_s_c_w1": {
+        "name": "SoC-Minimum-Fenster-1"
+      },
+      "m_s_c_w2": {
+        "name": "SoC-Minimum-Fenster-2"
       }
     },
     "sensor": {
