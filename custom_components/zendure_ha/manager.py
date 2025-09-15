@@ -78,6 +78,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 10000, -10000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.power = ZendureSensor(self, "power", None, "W", "power", None, 0)
+        self.p1_avg = ZendureSensor(self, "p1_avg", None, "W", "power", None, 0)
+        self.p1_stddev = ZendureSensor(self, "p1_stddev", None, "W", "power", None, 0)
+        self.p1_powerAverage = ZendureSensor(self, "p1_powerAverage", None, "W", "power", None, 0)
 
         # load devices
         for dev in data["deviceList"]:
@@ -196,6 +199,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             stddev = min(50, sqrt(sum([pow(i - avg, 2) for i in self.p1_history]) / len(self.p1_history)))
             if isFast := abs(p1 - avg) > SmartMode.Threshold * stddev:
                 self.p1_history.clear()
+            self.p1_avg.update_value(avg)
+            self.p1_stddev.update_value(stddev)
         else:
             isFast = False
         self.p1_history.append(p1)
@@ -230,6 +235,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.power.update_value(power)
         self.availableKwh.update_value(availEnergy)
         powerAverage = sum(self.power_history) // len(self.power_history) if len(self.power_history) > 0 else 0
+        self.p1_powerAverage.update_value(powerAverage)
 
         # Callback to update power distribution
         async def powerUpdate(power: int, zero: bool = False) -> None:
@@ -330,6 +336,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         self.total = 0
         self.devices = sorted(self.devices, key=sortDevices, reverse=True)
+        self.devices = sorted(self.devices, key=lambda d: d.state == DeviceState.MIN_SOC_CHARGE_WINDOW) #put this devices at the end of sorting
 
         if self.total > SmartMode.START_POWER:
             _LOGGER.info(f"powerDischarge => {power}W average {average}W, total {self.total}W")
@@ -353,8 +360,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     starting -= d.startDischarge
 
             flexPwr = max(0, power - totalMin - solar)
+            maxsolpwr = sum(d.actualSolar for d in self.devices if d.state == DeviceState.MIN_SOC_CHARGE_WINDOW)
 
         for d in self.devices:
+            _LOGGER.info(f"State => {d.name}W average {d.state}W")
             match d.state:
                 case DeviceState.ACTIVE:
                     pwr = min(d.maxDischarge - d.minDischarge, int(flexPwr * (d.maxDischarge * d.actualKwh / totalWeight if totalWeight > 0 else 0)))
@@ -364,6 +373,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     power -= d.power_discharge(min(power, pwr) + d.actualSolar)
                 case DeviceState.STARTING:
                     d.power_discharge(SmartMode.STARTWATT + d.actualSolar)
+                case DeviceState.MIN_SOC_CHARGE_WINDOW:
+                    pwr = power * d.actualSolar / (maxsolpwr if maxsolpwr != 0 else 1)
+                    maxsolpwr -= d.actualSolar
+                    d.power_discharge(max(0, min(d.actualSolar, pwr)))
                 case DeviceState.OFFLINE:
                     continue
                 case _:
