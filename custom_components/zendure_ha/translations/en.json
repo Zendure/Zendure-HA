@@ -65,6 +65,12 @@
       },
       "hems_state": {
         "name": "HEMS State"
+      },
+      "m_s_c_w1sensor": {
+        "name": "Battery Charge Window 1"
+      },
+      "m_s_c_w2sensor": {
+        "name": "Battery Charge Window 2"
       }
     },
     "number": {
@@ -82,6 +88,12 @@
       },
       "soc_set": {
         "name": "SoC Maximum"
+      },
+      "m_s_c_w1": {
+        "name": "SoC-Minimum Window 1"
+      },
+      "m_s_c_w2": {
+        "name": "SoC-Minimum Window 2"
       }
     },
     "sensor": {
