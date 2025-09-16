@@ -590,7 +590,6 @@ class ZendureZenSdk(ZendureDevice):
             return curPower
 
         _LOGGER.info(f"Power charge {self.name} => {power}")
-        power = min(0, max(self.maxCharge, power))
         self.doCommand({"properties": {"smartMode": 1, "acMode": 1, "inputLimit": -power}})
         return power
 
