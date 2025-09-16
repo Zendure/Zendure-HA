@@ -332,7 +332,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         def sortDevices(d: ZendureDevice) -> float:
             d.maxDischarge = max(0, d.limitDischarge - d.actualSolar)
             self.total += d.maxDischarge
-            return (d.actualKwh + d.activeKwh) * d.maxDischarge
+            return d.actualKwh + d.activeKwh
 
         self.total = 0
         self.devices = sorted(self.devices, key=sortDevices, reverse=True)
