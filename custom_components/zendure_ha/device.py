@@ -21,7 +21,7 @@ from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
 from .const import DeviceState, SmartMode
 from .entity import EntityDevice, EntityZendure
-from .number import ZendureNumber
+from .number import ZendureRestoreNumber, ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureRestoreSensor, ZendureSensor
 
@@ -108,6 +108,7 @@ class ZendureDevice(EntityDevice):
         self.actualKwh: float = 0.0
         self.activeKwh: float = 0.0
         self.state: DeviceState = DeviceState.OFFLINE
+        self.min_soc_charge_window_ready = False
 
         self.create_entities()
 
@@ -115,12 +116,14 @@ class ZendureDevice(EntityDevice):
         """Create the device entities."""
         self.limitOutput = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
         self.limitInput = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", 1200, 0, NumberMode.SLIDER)
-        self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-        self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
+        self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10, icon="mdi:battery-10")
+        self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10, icon="mdi:battery")
         self.socStatus = ZendureSensor(self, "socStatus", state=0)
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
         self.byPass = ZendureBinarySensor(self, "pass")
         self.gridReverse = ZendureSelect(self, "gridReverse", {0: "disabled", 1: "allow", 2: "forbidden"}, self.entityWrite, 0)
+        self.MSCW1 = ZendureRestoreNumber(self, "MSCW1", self.entityWrite, None, "%", "soc", 20, 0, NumberMode.SLIDER, 10, icon="mdi:battery-10")
+        self.MSCW2 = ZendureRestoreNumber(self, "MSCW2", self.entityWrite, None, "%", "soc", 20, 0, NumberMode.SLIDER, 10, icon="mdi:battery-10")
 
         fuseGroups = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group1200", 4: "group2000", 5: "group2400", 6: "group3600"}
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", fuseGroups, None)
@@ -142,6 +145,8 @@ class ZendureDevice(EntityDevice):
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.connection: ZendureRestoreSelect
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
+        self.MSCW1sensor = ZendureBinarySensor(self, "MSCW1sensor")
+        self.MSCW2sensor = ZendureBinarySensor(self, "MSCW2sensor")
 
     def setStatus(self) -> None:
         from .api import Api
@@ -432,12 +437,41 @@ class ZendureDevice(EntityDevice):
             self.lastseen = datetime.min
             self.setStatus()
 
+        min_soc = self.minSoc.asNumber
+        min_soc += 0 #only for testing
+        upper1 = min_soc + self.MSCW1.asNumber
+        upper2 = upper1 + self.MSCW2.asNumber
+
         if self.socSet.asNumber == 0 or self.kWh == 0:
             self.state = DeviceState.OFFLINE
         elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber:
             self.state = DeviceState.SOCFULL
-        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber:
+
+        elif self.electricLevel.asInt <= min_soc or self.socLimit.asInt == SmartMode.SOCEMPTY and (self.MSCW1.asNumber > 0 or self.MSCW2.asNumber > 0) and not self.min_soc_charge_window_ready:
             self.state = DeviceState.SOCEMPTY
+            self.min_soc_charge_window_ready = True
+            self.MSCW1sensor.update_value(True)
+            self.MSCW2sensor.update_value(False)
+
+        elif self.electricLevel.asNumber <= upper1 and self.MSCW1.asNumber != 0 and self.min_soc_charge_window_ready:
+            self.state = DeviceState.SOCEMPTY
+            self.MSCW1sensor.update_value(True)
+            self.MSCW2sensor.update_value(False)
+
+        elif self.electricLevel.asNumber <= upper2 and self.MSCW2.asNumber != 0 and self.min_soc_charge_window_ready:
+            self.state = DeviceState.MIN_SOC_CHARGE_WINDOW
+            self.MSCW1sensor.update_value(False)
+            self.MSCW2sensor.update_value(True)
+
+        elif self.electricLevel.asNumber > upper2 and self.MSCW2.asNumber != 0 and self.min_soc_charge_window_ready:
+            self.state = DeviceState.INACTIVE
+            self.min_soc_charge_window_ready = False
+            self.MSCW1sensor.update_value(False)
+            self.MSCW2sensor.update_value(False)
+
+        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asNumber <= self.minSoc.asNumber:
+            self.state = DeviceState.SOCEMPTY
+
         else:
             self.state = DeviceState.INACTIVE if self.online else DeviceState.OFFLINE
 
