@@ -125,7 +125,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 break
         jump = p_now - p_then
         if abs(jump) >= thresh_w:
-            return int(-0.7 * jump)  # leicht unterkompensieren
+            return int(0.7 * jump)  # leicht unterkompensieren
         return 0
 
     def _apply_deadband_and_ramp(self, target: int) -> int:
