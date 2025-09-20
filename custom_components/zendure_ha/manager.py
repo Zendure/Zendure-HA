@@ -385,8 +385,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         availEnergy = 0
         for d in self.devices:
             if await d.power_get():
-                #if d.name == "SolarFlow 800":
-                #    d.actualSolar = 80
                 actualHome += d.actualHome
                 actualSolar += d.actualSolar
                 availEnergy += d.availableKwh.asNumber
@@ -441,6 +439,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         power_raw = actualHome + p1
         self.power.update_value(power_raw)
         self.availableKwh.update_value(availEnergy)
+        self.power_history.append(power_raw)
 
         powerAverage = sum(self.power_history) // len(self.power_history) if len(self.power_history) > 0 else 0
         self.p1_powerAverage.update_value(powerAverage)
@@ -470,7 +469,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             async def powerUpdateWrapper(zero: bool = False):
                 return await powerUpdate(control_power, zero)
 
-        _LOGGER.info(f"P1(pred) => hat:{p1_hat}W, slope:{slope:.1f}W/s, ff:{ff}W, -> ctrl:{control_power}W (raw:{power_raw}W)")
+        _LOGGER.info(f"P1(pred) => hat:{p1_hat}W, lead_s={self.lead_s:.2f}s, slope:{slope:.1f}W/s, ff:{ff}W, -> ctrl:{control_power}W (raw:{power_raw}W)")
 
         match self.operation:
             case SmartMode.MATCHING:
