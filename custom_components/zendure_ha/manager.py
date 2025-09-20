@@ -53,13 +53,150 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.zero_next = datetime.min
         self.zero_fast = datetime.min
         self.check_reset = datetime.min
-        self.p1_history: deque[int] = deque([25, -25], maxlen=8)
-        self.power_history: deque[int] = deque(maxlen=5)
         self.p1_stddev_history: deque[int] = deque(maxlen=25)
         self.p1meterEvent: Callable[[], None] | None = None
         self.api = Api()
         self.update_count = 0
         self.total = 0
+
+        # --- Look-ahead / Prädiktiv-Regler ---
+        self.lead_s = 1.0          # Auto-Tuning: gemessene Verzögerung [s]
+        self.plant_gain = 1.0      # Verhältnis Netzänderung / Soll-Änderung
+
+        # Messglättung & Puffer
+        self._p1_ema = None
+        self._alpha = 0.25         # EMA-Gewicht (0.15–0.35 üblich)
+        self._p1_buf = deque(maxlen=30)   # ~1.5 s Verlauf (bei ~20 Hz)
+
+        # Deadband & Rampenlimit
+        self.DEADBAND_W = 50       # Grundhysterese ±50 W
+        self.RAMP_STEP_W = 100     # max. Zieländerung pro Update
+        self._last_target = 0
+
+        # (empfohlen) History-Fenster etwas größer:
+        self.p1_history     = deque([25, -25], maxlen=20)   # statt 8
+        self.power_history  = deque(maxlen=12)             # statt 5
+
+        # --- Auto-Tuning ---
+        self.autotune_enabled = True
+        self.tune_interval = timedelta(hours=12)
+        self.last_tune = datetime.min
+        self._tune_capture = False
+        self._tune_samples = []     # list[(datetime, int)]
+
+    def _ema(self, x: int) -> int:
+        self._p1_ema = x if self._p1_ema is None else int(self._alpha * x + (1 - self._alpha) * self._p1_ema)
+        return self._p1_ema
+
+    def _is_quiet(self) -> bool:
+        if len(self.p1_stddev_history) < 10 or len(self.power_history) < 5:
+            return False
+        std = sum(self.p1_stddev_history) / len(self.p1_stddev_history)
+        avgabs = sum(abs(x) for x in self.power_history) / len(self.power_history)
+        return std < 20 and avgabs < 50
+
+    def _predict_p1(self) -> tuple[int | None, float]:
+        """Look-ahead: Trend auf lead_s Sekunden fortschreiben. 
+        Rückgabe: (p1_hat, slope[W/s])"""
+        if len(self._p1_buf) < 5:
+            return None, 0.0
+        t0 = self._p1_buf[0][0]
+        xs = [ (t - t0).total_seconds() for (t, _) in self._p1_buf ]
+        ys = [ p for (_, p) in self._p1_buf ]
+        n  = len(xs)
+        mx, my = sum(xs)/n, sum(ys)/n
+        num = sum((x - mx)*(y - my) for x, y in zip(xs, ys))
+        den = sum((x - mx)**2 for x in xs) or 1e-9
+        slope = num / den                            # W pro Sekunde
+        p_now = ys[-1]
+        p1_hat = int(p_now + slope * self.lead_s)    # Prognose in lead_s s
+        return p1_hat, slope
+
+    def _step_feedforward(self, horizon_s: float = 0.40, thresh_w: int = 120) -> int:
+        """Erkennt Lastsprung innerhalb ~0.4 s und gibt Gegenstufe zurück."""
+        if len(self._p1_buf) < 2:
+            return 0
+        t_now, p_now = self._p1_buf[-1]
+        # Wert ~horizon_s zuvor
+        p_then = p_now
+        for t, p in reversed(self._p1_buf):
+            if (t_now - t).total_seconds() >= horizon_s:
+                p_then = p
+                break
+        jump = p_now - p_then
+        if abs(jump) >= thresh_w:
+            return int(-0.7 * jump)  # leicht unterkompensieren
+        return 0
+
+    def _apply_deadband_and_ramp(self, target: int) -> int:
+        std = int(getattr(self, "p1_stddev", None).asNumber) if hasattr(self, "p1_stddev") else 0
+        band = max(self.DEADBAND_W, 2 * std)
+        # Deadband: innerhalb ±band nichts ändern
+        if abs(target) <= band:
+            return 0
+        # Rampenlimit:
+        delta = target - self._last_target
+        if   delta >  self.RAMP_STEP_W: target = self._last_target + self.RAMP_STEP_W
+        elif delta < -self.RAMP_STEP_W: target = self._last_target - self.RAMP_STEP_W
+        self._last_target = target
+        return target
+
+    async def run_autotune(self, step_w: int = 200, hold_s: float = 2.0) -> None:
+        if not self.autotune_enabled:
+            return
+        now = datetime.now()
+        if now - self.last_tune < self.tune_interval or not self._is_quiet():
+            return
+
+        prev_op = self.operation
+        prev_manual = int(self.manualpower.asNumber)
+
+        try:
+            # MANUAL und beruhigen
+            await self.update_operation(self.operationmode[0], SmartMode.MANUAL)
+            self.manualpower.update_value(0)
+            await asyncio.sleep(1.0)
+
+            self._tune_samples.clear(); self._tune_capture = True
+            await asyncio.sleep(0.5)
+
+            # Step setzen (Entladen -> Netz sinkt)
+            self.manualpower.update_value(step_w)
+            t_step = datetime.now()
+
+            await asyncio.sleep(hold_s)
+            self.manualpower.update_value(0)
+            await asyncio.sleep(0.8)
+
+        finally:
+            self._tune_capture = False
+            self.last_tune = datetime.now()
+            # Ausgangszustand
+            self.manualpower.update_value(prev_manual)
+            await self.update_operation(self.operationmode[0], prev_op)
+
+        # Auswertung
+        if len(self._tune_samples) < 5:
+            return
+        pre  = [p for (t, p) in self._tune_samples if t <= t_step]
+        p0   = sum(pre[-5:]) / max(1, len(pre[-5:]))
+        post = [p for (t, p) in self._tune_samples if t >= t_step]
+        p_end = sum(post[-10:]) / max(1, len(post[-10:]))
+
+        delta = p_end - p0
+        gain  = abs(delta) / max(1, abs(step_w))
+        target = p0 + 0.5 * (p_end - p0)
+        t50 = None
+        for t, p in post:
+            if (p0 <= p_end and p >= target) or (p0 > p_end and p <= target):
+                t50 = t; break
+
+        if t50:
+            self.lead_s = max(0.3, min(2.5, (t50 - t_step).total_seconds()))
+        if gain > 0:
+            self.plant_gain = max(0.5, min(1.5, gain))
+
+        _LOGGER.info(f"Autotune => lead_s={self.lead_s:.2f}s, gain={self.plant_gain:.2f}, delta={delta:.1f}W @ step={step_w}W")
 
     async def loadDevices(self) -> None:
         if self.config_entry is None or (data := await Api.Connect(self.hass, dict(self.config_entry.data), True)) is None:
@@ -168,6 +305,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # Manually update the timer
         if self.hass and self.hass.loop.is_running():
             self._schedule_refresh()
+        
+        asyncio.create_task(self.run_autotune())
 
     def update_p1meter(self, p1meter: str | None) -> None:
         """Update the P1 meter sensor."""
@@ -193,8 +332,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         except ValueError:
             return
 
-        # Check for fast delay
+        if self._tune_capture:
+            self._tune_samples.append((time, p1))
+
         time = datetime.now()
+
+        # >>> NEU: Puffer & EMA aktualisieren
+        self._p1_buf.append((time, p1))
+        p1_ema = self._ema(p1)
+
+        # Check for fast delay
         if time < self.zero_fast:
             self.p1_history.append(p1)
             return
@@ -243,74 +390,72 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 actualSolar += d.actualSolar
                 availEnergy += d.availableKwh.asNumber
 
-        # Update the power entities
-        power = actualHome + p1
-        self.power.update_value(power)
-        self.availableKwh.update_value(availEnergy)
-        powerAverage = sum(self.power_history) // len(self.power_history) if len(self.power_history) > 0 else 0
-        self.p1_powerAverage.update_value(powerAverage)
-
         # Callback to update power distribution
         async def powerUpdate(power: int, zero: bool = False) -> None:
             _LOGGER.info(f"Update power distribution => {0 if zero else power}W average {powerAverage}W")
-            self.power_history.append(power)
             if power == 0 or zero:
-
-                self.solardischarge.update_value(False)
-                self.batterydischarge.update_value(False)
-                self.batterycharge.update_value(False)
-
                 for d in self.devices:
                     await d.power_discharge(0)
             elif power < -SmartMode.START_POWER:
-
-                self.solardischarge.update_value(False)
-                self.batterydischarge.update_value(False)
-                self.batterycharge.update_value(True)
-
                 await self.powerCharge(powerAverage, power)
             elif power <= actualSolar:
-
-                self.solardischarge.update_value(True)
-                self.batterydischarge.update_value(False)
-                self.batterycharge.update_value(False)
-
-                for d in self.devices:
-                    d.deivicestate_active.update_value(False)
-                    d.deivicestate_inaktive.update_value(False)
-                    d.deivicestate_offline.update_value(False)
-                    d.deivicestate_starting.update_value(False)
-                    d.deivicestate_socfull.update_value(False)
-
                 # excess solar power, only discharge
                 _LOGGER.info(f"powerSolar => {power}W average {powerAverage}W")
                 for d in sorted(self.devices, key=lambda d: d.actualKwh + d.activeKwh, reverse=True):
-                    if d.online:
+                    if d.online and d.state != DeviceState.SOCFULL:
                         d.activeKwh = 0.5 if power > 0 else 0
                         pwr = min(d.actualSolar, max(0, power))
                         power -= await d.power_discharge(pwr)
             else:
-
-                self.solardischarge.update_value(False)
-                self.batterydischarge.update_value(True)
-                self.batterycharge.update_value(False)
-
                 await self.powerDischarge(powerAverage, power, actualSolar)
 
-        # Update power distribution.
-        _LOGGER.info(f"P1 ======> p1:{p1} isFast:{isFast}, home:{actualHome}W, solar:{actualSolar}W")
+        # Update the power entities (Ist-Wert)
+        power_raw = actualHome + p1
+        self.power.update_value(power_raw)
+        self.availableKwh.update_value(availEnergy)
+
+        powerAverage = sum(self.power_history) // len(self.power_history) if len(self.power_history) > 0 else 0
+        self.p1_powerAverage.update_value(powerAverage)
+
+        # ===== Look-ahead / Feed-forward =====
+        # 1) Prognose des P1 in lead_s Sekunden
+        p1_hat, slope = self._predict_p1()
+        if p1_hat is None:
+            # Fallback: EMA statt Prognose
+            p1_hat = self._p1_ema if self._p1_ema is not None else p1
+
+        # 2) Sofortige Gegenstufe bei erkannten Sprüngen
+        ff = self._step_feedforward()  # kann 0 sein
+
+        # 3) Ziel: Netz=0 -> wir regeln gegen (Ist+Prognose + FF)
+        #    (Vorzeichen-Logik bleibt wie bisher)
+        control_power = actualHome + p1_hat + ff
+
+        # 4) Deadband & Rampenbeschränkung
+        control_power = self._apply_deadband_and_ramp(control_power)
+
+        # Kleine Qualitätsregel: wenn wir innerhalb der Hysterese sind, wirklich "0" fahren
+        if control_power == 0:
+            async def powerUpdateWrapper(zero: bool = True):
+                return await powerUpdate(0, zero)
+        else:
+            async def powerUpdateWrapper(zero: bool = False):
+                return await powerUpdate(control_power, zero)
+
+        _LOGGER.info(f"P1(pred) => hat:{p1_hat}W, slope:{slope:.1f}W/s, ff:{ff}W, -> ctrl:{control_power}W (raw:{power_raw}W)")
+
         match self.operation:
             case SmartMode.MATCHING:
-                if (powerAverage > 0 and power >= 0) or (powerAverage < 0 and power <= 0):
-                    await powerUpdate(power)
+                if (powerAverage > 0 and control_power >= 0) or (powerAverage < 0 and control_power <= 0):
+                    await powerUpdateWrapper(False)
                 else:
-                    await powerUpdate(power, True)
+                    await powerUpdateWrapper(True)
 
             case SmartMode.MATCHING_DISCHARGE:
-                await powerUpdate(max(actualSolar, power))
+                await powerUpdateWrapper(False)  # wir geben ctrl direkt rein
 
             case SmartMode.MATCHING_CHARGE:
-                await powerUpdate(min(actualSolar, power))
+                await powerUpdateWrapper(False)
 
             case SmartMode.MANUAL:
                 await powerUpdate(int(self.manualpower.asNumber))
