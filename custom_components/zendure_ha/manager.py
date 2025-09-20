@@ -332,10 +332,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         except ValueError:
             return
 
+        time = datetime.now()
+        
         if self._tune_capture:
             self._tune_samples.append((time, p1))
-
-        time = datetime.now()
 
         # >>> NEU: Puffer & EMA aktualisieren
         self._p1_buf.append((time, p1))
