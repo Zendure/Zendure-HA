@@ -456,7 +456,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # 3) Ziel: Netz=0 -> wir regeln gegen (Ist+Prognose + FF)
         #    (Vorzeichen-Logik bleibt wie bisher)
-        control_power = actualHome + p1_hat + ff
+        net_error = p1_hat + ff
+        if self.plant_gain:
+            net_error = int(round(net_error / self.plant_gain))
+        control_power = actualHome + net_error
 
         # 4) Deadband & Rampenbeschränkung
         control_power = self._apply_deadband_and_ramp(control_power)
@@ -469,8 +472,18 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             async def powerUpdateWrapper(zero: bool = False):
                 return await powerUpdate(control_power, zero)
 
-        _LOGGER.info(f"P1(pred) => hat:{p1_hat}W, lead_s={self.lead_s:.2f}s, slope:{slope:.1f}W/s, ff:{ff}W, -> ctrl:{control_power}W (raw:{power_raw}W)")
-
+        _LOGGER.info(
+            "P1(pred) => hat:%sW, lead_s=%.2fs, slope:%.1fW/s, ff:%sW, net:%sW, gain:%.2f -> ctrl:%sW (raw:%sW)",
+            p1_hat,
+            self.lead_s,
+            slope,
+            ff,
+            net_error,
+            self.plant_gain,
+            control_power,
+            power_raw,
+        )
+        
         match self.operation:
             case SmartMode.MATCHING:
                 if (powerAverage > 0 and control_power >= 0) or (powerAverage < 0 and control_power <= 0):
