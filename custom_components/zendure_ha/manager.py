@@ -54,7 +54,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.zero_fast = datetime.min
         self.check_reset = datetime.min
         self.p1_history: deque[int] = deque([25, -25], maxlen=8)
-        self.power_history: deque[int] = deque(maxlen=15)
+        self.power_history: deque[int] = deque(maxlen=5)
+        self.p1_stddev_history: deque[int] = deque(maxlen=25)
         self.p1meterEvent: Callable[[], None] | None = None
         self.api = Api()
         self.update_count = 0
@@ -203,6 +204,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             avg = int(sum(self.p1_history) / len(self.p1_history))
             self.p1_avg.update_value(avg)
             stddev = min(50, sqrt(sum([pow(i - avg, 2) for i in self.p1_history]) / len(self.p1_history)))
+
+            self.p1_stddev_history.append(stddev)
+
             self.p1_stddev.update_value(stddev)
             self.isfast.update_value(False)
             if isFast := abs(p1 - avg) > SmartMode.Threshold * stddev:
