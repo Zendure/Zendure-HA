@@ -89,10 +89,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         return self._p1_ema
 
     def _is_quiet(self) -> bool:
-        if len(self.p1_stddev_history) < 10 or len(self.power_history) < 5:
+        if len(self.p1_stddev_history) < 10 or len(self.p1_history) < 5:
             return False
         std = sum(self.p1_stddev_history) / len(self.p1_stddev_history)
-        avgabs = sum(abs(x) for x in self.power_history) / len(self.power_history)
+        avgabs = sum(abs(x) for x in self.p1_history) / len(self.p1_history)
         return std < 20 and avgabs < 50
 
     def _predict_p1(self) -> tuple[int | None, float]:
