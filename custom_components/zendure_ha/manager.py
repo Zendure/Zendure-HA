@@ -133,6 +133,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         band = max(self.DEADBAND_W, 2 * std)
         # Deadband: innerhalb ±band nichts ändern
         if abs(target) <= band:
+            self._last_target = 0
             return 0
         # Rampenlimit:
         delta = target - self._last_target
@@ -333,7 +334,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
 
         time = datetime.now()
-        
+
         if self._tune_capture:
             self._tune_samples.append((time, p1))
 
@@ -394,11 +395,33 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         async def powerUpdate(power: int, zero: bool = False) -> None:
             _LOGGER.info(f"Update power distribution => {0 if zero else power}W average {powerAverage}W")
             if power == 0 or zero:
+
+                self.solardischarge.update_value(False)
+                self.batterydischarge.update_value(False)
+                self.batterycharge.update_value(False)
+
                 for d in self.devices:
                     await d.power_discharge(0)
             elif power < -SmartMode.START_POWER:
+
+                self.solardischarge.update_value(False)
+                self.batterydischarge.update_value(False)
+                self.batterycharge.update_value(True)
+
                 await self.powerCharge(powerAverage, power)
             elif power <= actualSolar:
+
+                self.solardischarge.update_value(True)
+                self.batterydischarge.update_value(False)
+                self.batterycharge.update_value(False)
+
+                for d in self.devices:
+                    d.deivicestate_active.update_value(False)
+                    d.deivicestate_inaktive.update_value(False)
+                    d.deivicestate_offline.update_value(False)
+                    d.deivicestate_starting.update_value(False)
+                    d.deivicestate_socfull.update_value(False)
+
                 # excess solar power, only discharge
                 _LOGGER.info(f"powerSolar => {power}W average {powerAverage}W")
                 for d in sorted(self.devices, key=lambda d: d.actualKwh + d.activeKwh, reverse=True):
@@ -407,6 +430,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         pwr = min(d.actualSolar, max(0, power))
                         power -= await d.power_discharge(pwr)
             else:
+
+                self.solardischarge.update_value(False)
+                self.batterydischarge.update_value(True)
+                self.batterycharge.update_value(False)
+
                 await self.powerDischarge(powerAverage, power, actualSolar)
 
         # Update the power entities (Ist-Wert)
