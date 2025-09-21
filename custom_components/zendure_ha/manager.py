@@ -264,7 +264,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         d.pwr_start = d.limitCharge // (10 if d.pwr_active else 5)
         d.pwr_load = d.limitCharge // 6 if d.electricLevel.asInt > SmartMode.SOCMIN_OPTIMAL else int(d.limitCharge * 0.8)
         d.pwr_max = max(d.limitCharge, d.fuseGrp.maxCharge())
-        self.pwr_load += d.limitCharge // 6
+        self.pwr_load += d.limitCharge // 8
         self.pwr_max += d.pwr_max
         d.pwr_weight = int(100 * (d.actualKwh - (0.5 if d.pwr_active else 0)))
         return d.pwr_weight
@@ -275,7 +275,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return 0
         d.state = DeviceState.INACTIVE
         d.pwr_start = min(solar, d.limitDischarge // (10 if d.pwr_active else 5))
-        d.pwr_load = min(solar, d.limitDischarge // 6)
+        d.pwr_load = min(solar, d.limitDischarge // 8)
         d.pwr_max = min(solar, d.fuseGrp.maxDischarge())
         self.pwr_load += d.pwr_load
         self.pwr_max += d.pwr_max
@@ -337,10 +337,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         totalPower = 0
         totalWeight = 0
         fixedPower = 0
-        p1_starting = p1_avg
+        totalSolar = 0
+        p1_starting = p1_set
         for d in devices:
             d.pwr_active = False
-            if d.pwr_start != 0 and (count == 0 or (d.pwr_start > p1_avg if isCharging else d.pwr_start < p1_avg)):
+            if (d.pwr_start != 0 and (count == 0 or (0 > p1_avg if isCharging else 0 < p1_avg))) or (totalSolar < p1_set):
                 if d.pwr_home < 0 if isCharging else d.pwr_home > 0:
                     d.state = DeviceState.ACTIVE
                     d.pwr_active = True
@@ -348,15 +349,23 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     totalWeight += d.pwr_weight * d.pwr_max
                     p1_avg -= d.pwr_load
                     fixedPower += d.pwr_load
+                    totalSolar += d.solarInput.asInt
                     count += 1
-                elif count == 0 or d.pwr_start > p1_starting if isCharging else d.pwr_start < p1_starting:
+                elif (count == 0 or 0 > p1_starting if isCharging else 0 < p1_starting): # and (totalSolar < p1_set):
                     d.state = DeviceState.STARTING
                     d.pwr_active = True
+                    totalSolar += d.solarInput.asInt
                 p1_starting -= d.pwr_load
 
         # update the power of the devices
         flexPower = min(0, p1_set - fixedPower) if isCharging else max(0, p1_set - fixedPower)
+        #First run all starting devices
         for d in devices:
+            match d.state:
+                case DeviceState.STARTING:
+                    p1_set -= d.power_charge(-SmartMode.STARTWATT) if isCharging else d.power_discharge(SmartMode.STARTWATT)
+
+        for d in sorted(devices, key=lambda d: d.pwr_home, reverse=True):
             match d.state:
                 case DeviceState.ACTIVE:
                     pwr = distribute(d, count, flexPower, totalWeight)
@@ -365,7 +374,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     totalWeight -= d.pwr_weight * d.pwr_max
                     count -= 1
                 case DeviceState.STARTING:
-                    await d.power_charge(-SmartMode.STARTWATT) if isCharging else await d.power_discharge(SmartMode.STARTWATT)
+                    #do nothing
+                    p1_set += 0
                 case _:
                     await d.power_discharge(0)
 
