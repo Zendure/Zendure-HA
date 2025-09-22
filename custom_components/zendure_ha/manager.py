@@ -363,7 +363,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         for d in devices:
             match d.state:
                 case DeviceState.STARTING:
-                    p1_set -= d.power_charge(-SmartMode.STARTWATT) if isCharging else d.power_discharge(SmartMode.STARTWATT)
+                    p1_set -= await d.power_charge(-SmartMode.STARTWATT) if isCharging else await d.power_discharge(SmartMode.STARTWATT)
 
         for d in sorted(devices, key=lambda d: d.pwr_home, reverse=True):
             match d.state:
