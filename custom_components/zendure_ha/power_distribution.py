@@ -84,7 +84,7 @@ def handle_bypass(devices: List[Any], soc_release: int = 90) -> Dict[Any, int]:
     has_non_full = any(d.state != DeviceState.SOCFULL for d in devices)
 
     # Wenn alle voll → Lock setzen
-    if not has_non_full:
+    if not has_non_full and not _bypass_lock:
         if not _bypass_lock:
             _LOGGER.info("Alle Geräte voll → Bypass-Lock gesetzt.")
         _bypass_lock = True
@@ -295,13 +295,13 @@ def distribute_power(devices: List[Any], power_to_devide: int, main_state: MainS
 
     # Charge
     if main_state == MainState.GRID_CHARGE:
-        candidates = [d for d in devices if d.state != DeviceState.SOCFULL or not d.is_bypass]
-        candidates_full = [d for d in devices if d.state == DeviceState.SOCFULL and not d.is_bypass]
+        candidates = [d for d in devices if d.state != DeviceState.SOCFULL and not d.is_bypass and not d.is_hand_bypass]
+        candidates_full = [d for d in devices if d.state == DeviceState.SOCFULL and not d.is_bypass and not d.is_hand_bypass]
         for d in candidates_full:
             allocation[d] = 0
 
     else:  # DISCHARGE
-        candidates = [d for d in devices if (d.state != DeviceState.SOCEMPTY or solar_helper(d)) and not d.is_bypass]
+        candidates = [d for d in devices if (d.state != DeviceState.SOCEMPTY or solar_helper(d)) and not d.is_bypass and not d.is_hand_bypass]
         #candidates_empty = [d for d in devices if d.state == DeviceState.SOCEMPTY and not solar_helper(d)]
         #for d in candidates_empty:
         #    allocation[d] = 0
