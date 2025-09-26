@@ -84,13 +84,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 10000, -10000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.power = ZendureSensor(self, "power", None, "W", "power", None, 0)
-        self.p1_avg = ZendureSensor(self, "p1_avg", None, "W", "power", None, 0)
-        self.p1_stddev = ZendureSensor(self, "p1_stddev", None, "W", "power", None, 0)
-        self.powerAverage = ZendureSensor(self, "powerAverage", None, "W", "power", None, 0)
-        self.solardischarge = ZendureBinarySensor(self, "solardischarge")
-        self.batterydischarge = ZendureBinarySensor(self, "batterydischarge")
-        self.batterycharge = ZendureBinarySensor(self, "batterycharge")
-        self.isfast = ZendureBinarySensor(self, "isfast")
 
         # load devices
         for dev in data["deviceList"]:
@@ -207,15 +200,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if len(self.p1_history) > 1:
             avg = int(sum(self.p1_history) / len(self.p1_history))
             stddev = min(50, sqrt(sum([pow(i - avg, 2) for i in self.p1_history]) / len(self.p1_history)))
-            self.p1_avg.update_value(avg)
-            self.p1_stddev.update_value(stddev)
             if isFast := abs(p1 - avg) > SmartMode.Threshold * stddev:
                 self.p1_history.clear()
         else:
             isFast = False
         self.p1_history.append(p1)
 
-        self.isfast.update_value(isFast)
 
         # check minimal time between updates
         if isFast or time > self.zero_next:
@@ -254,7 +244,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         pwr_setpoint = pwr_home + p1
         self.power_history.append(pwr_setpoint)
         p1_average = sum(self.power_history) // len(self.power_history)
-        self.powerAverage.update_value(pwr_home)
 
         # Update power distribution.
         match self.operation:
