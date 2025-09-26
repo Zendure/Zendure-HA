@@ -88,20 +88,24 @@ class ZendureDevice(EntityDevice):
         self.topic_read = f"iot/{self.prodkey}/{self.deviceId}/properties/read"
         self.topic_write = f"iot/{self.prodkey}/{self.deviceId}/properties/write"
         self.topic_function = f"iot/{self.prodkey}/{self.deviceId}/function/invoke"
+
         self.batteries: dict[str, ZendureBattery | None] = {}
         self.lastseen = datetime.min
         self._messageid = 0
         self.capacity = 0
         self.kWh = 0.0
+
         self.limitCharge: int = 0
         self.limitDischarge: int = 0
         self.maxSolar = 0
+
         self.pwr_setpoint: int = 0
         self.pwr_home_out: int = 0
         self.pwr_home_in: int = 0
         self.pwr_battery_in: int = 0
         self.pwr_battery_out: int = 0
         self.pwr_solar: int = 0
+
         self.pwr_max: int = 0
         self.pwr_start: int = 0
         self.pwr_load: int = 0
@@ -111,10 +115,12 @@ class ZendureDevice(EntityDevice):
         self.soc_lvl: int = 0
         self.pvaktiv: int = 0
         self.pwr_active: bool = False 
+
         self.last_energy_kwh = 0.0
         self.energy_diff_kwh = 0.0
         self._last_pv_on: datetime | None = None
         self.is_bypass: bool = False #'Bypass On Off'
+        
         self.minCharge: int = 0
         self.minDischarge: int = 0
         self.actualKwh: float = 0.0
