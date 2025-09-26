@@ -64,7 +64,7 @@ def decide_substate(device, mainstate: MainState) -> SubState:
     ]):
         return SubState.IDLE
 
-    return SubState.IDL
+    return SubState.IDLE
 
 
 _bypass_lock = False
@@ -360,7 +360,7 @@ def distribute_power(devices: List[Any], power_to_devide: int, main_state: MainS
     _last_active_count = active_count
 
     # prüfen und rotieren
-    ROTATION_THRESHOLD = 0.01  # 5 % Energie differenz dann rotieren
+    ROTATION_THRESHOLD = 0.10  # 10 % Energie differenz dann rotieren
     if candidates:
         first = candidates[0]
         should_rotate = any(
