@@ -439,6 +439,7 @@ class ZendureDevice(EntityDevice):
         except Exception as err:
             _LOGGER.warning(f"BLE error: {err}")
 
+    @property
     def pv_on(self) -> bool:
         """PV gilt als aktiv, wenn Status==1 oder in den letzten 120s ==1 war."""
         now = datetime.now()
