@@ -443,7 +443,7 @@ class ZendureDevice(EntityDevice):
             _LOGGER.warning(f"BLE error: {err}")
 
     def pv_on(self) -> bool:
-        """PV gilt als aktiv, wenn Status==1 oder in den letzten 60s ==1 war."""
+        """PV gilt als aktiv, wenn Status==1 oder in den letzten 120s ==1 war."""
         now = datetime.now()
         if self.pvStatus.asNumber == 1 and self.solarInputPower.asNumber > 50:
             self._last_pv_on = now
@@ -481,7 +481,7 @@ class ZendureDevice(EntityDevice):
         elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber: 
             self.state = DeviceState.SOCEMPTY
         else:
-            self.state = DeviceState.INACTIVE  # <— irgend ein „normal/online“-Zustand deiner Enum
+            self.state = DeviceState.INACTIVE
 
         return self.state != DeviceState.OFFLINE
 
