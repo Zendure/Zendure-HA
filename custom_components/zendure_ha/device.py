@@ -120,7 +120,7 @@ class ZendureDevice(EntityDevice):
         self.energy_diff_kwh = 0.0
         self._last_pv_on: datetime | None = None
         self.is_bypass: bool = False #'Bypass On Off'
-        
+
         self.minCharge: int = 0
         self.minDischarge: int = 0
         self.actualKwh: float = 0.0
@@ -478,6 +478,8 @@ class ZendureDevice(EntityDevice):
             self.state = DeviceState.SOCEMPTY
         else:
             self.state = DeviceState.INACTIVE
+
+        self.is_bypass = self.gridReverse.value == 1 and self.state == DeviceState.SOCFULL and self.pwr_battery_out == 0 and self.pwr_solar > 0
 
         return self.state != DeviceState.OFFLINE
 
