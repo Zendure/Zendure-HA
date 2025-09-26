@@ -9,9 +9,11 @@ _LOGGER = logging.getLogger(__name__)
 
 _last_active_count = 1  
 
+
 class MainState(Enum):
     GRID_CHARGE = 5
     GRID_DISCHARGE = 6
+
 
 class SubState(Enum):
     IDLE = 1
@@ -20,6 +22,7 @@ class SubState(Enum):
     BYPASS = 8
     STARTING = 9
 
+
 class DeviceStateMachine:
     def __init__(self):
         self.main = MainState.GRID_CHARGE
@@ -27,6 +30,7 @@ class DeviceStateMachine:
 
     def __repr__(self):
         return f"<State main={self.main.name} sub={self.sub.name}>"
+
 
 def decide_substate(device, mainstate: MainState) -> SubState:
     """Bestimme den SubState eines Geräts anhand der Sensordaten."""
@@ -134,6 +138,7 @@ def handle_bypass(devices: List[Any], soc_release: int = 90) -> Dict[Any, int]:
 
     return bypass_alloc
 
+
 _soc_protection_active = False
 
 def handle_soc_protect(
@@ -196,6 +201,7 @@ def handle_soc_protect(
 
     return protect_alloc
 
+
 def solar_helper(dev, solar_threshold_on=55, solar_threshold_off=35):
     """
     Prüft pro Gerät ob es trotz SOCEMPTY durch Solarleistung aktiviert werden darf.
@@ -216,6 +222,7 @@ def solar_helper(dev, solar_threshold_on=55, solar_threshold_off=35):
 
     return dev.helper_active
 
+
 _helper_mode_active = False  
 
 def should_use_helpers(needed: int) -> bool:
@@ -235,6 +242,7 @@ def should_use_helpers(needed: int) -> bool:
 
     return _helper_mode_active
 
+
 def update_extra_candidate(dev, on_threshold=50, off_threshold=30):
     """
     Aktiviert ein Gerät als extra_candidate nur, wenn genug PV-Leistung da ist.
@@ -253,6 +261,7 @@ def update_extra_candidate(dev, on_threshold=50, off_threshold=30):
         dev.extra_candidate_active = False
 
     return dev.extra_candidate_active
+
 
 _last_active_count = 0
 _last_order: List[Any] = []
