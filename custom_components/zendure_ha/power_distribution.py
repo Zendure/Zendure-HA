@@ -189,6 +189,7 @@ def handle_soc_protect(
                     d.soc_helper_active = True
                 elif allowed < discharge_off:
                     if d.soc_helper_active:
+                        protect_alloc[d] = 0
                         _LOGGER.info(f"SOC-Helfer AUS für {d.name}: {allowed}W < {discharge_off}W")
                     d.soc_helper_active = False
 
