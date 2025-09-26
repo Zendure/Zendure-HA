@@ -21,9 +21,10 @@ from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
 from .const import DeviceState, SmartMode
 from .entity import EntityDevice, EntityZendure
-from .number import ZendureNumber
+from .number import ZendureRestoreNumber, ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureRestoreSensor, ZendureSensor
+from .power_distribution import DeviceStateMachine
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,20 +100,35 @@ class ZendureDevice(EntityDevice):
         self.maxSolar = 0
 
         self.pwr_setpoint: int = 0
-        self.pwr_home: int = 0
-        self.pwr_battery: int = 0
+        self.pwr_home_out: int = 0
+        self.pwr_home_in: int = 0
+        self.pwr_battery_in: int = 0
+        self.pwr_battery_out: int = 0
         self.pwr_solar: int = 0
         self.pwr_max: int = 0
         self.pwr_start: int = 0
         self.pwr_load: int = 0
         self.pwr_weight: int = 0
-        self.pwr_active: bool = False
+        self.min_soc: int = 0
+        self.max_soc: int = 0
+        self.soc_lvl: int = 0
+        self.pvaktiv: int = 0
+        self.pwr_active: bool = False 
+
+        self.last_energy_kwh = 0.0
+        self.energy_diff_kwh = 0.0
+        self._last_pv_on: datetime | None = None
+        self.is_bypass: bool = False #'Bypass On Off'
 
         self.minCharge: int = 0
         self.minDischarge: int = 0
 
         self.actualKwh: float = 0.0
+        self.last_actual_kwh: float = 0.0
+        
         self.state: DeviceState = DeviceState.OFFLINE
+
+        self.state_machine = DeviceStateMachine()
 
         self.create_entities()
 
@@ -120,8 +136,8 @@ class ZendureDevice(EntityDevice):
         """Create the device entities."""
         self.limitOutput = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
         self.limitInput = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", 1200, 0, NumberMode.SLIDER)
-        self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-        self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
+        self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10, icon="mdi:battery-10")
+        self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10, icon="mdi:battery")
         self.socStatus = ZendureSensor(self, "socStatus", state=0)
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
         self.byPass = ZendureBinarySensor(self, "pass")
@@ -143,10 +159,12 @@ class ZendureDevice(EntityDevice):
         self.batteryOutput = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
         self.homeOutput = ZendureSensor(self, "outputHomePower", None, "W", "power", "measurement")
         self.hemsState = ZendureBinarySensor(self, "hemsState")
+        self.pvStatus = ZendureSensor(self, "pvStatus", None)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.connection: ZendureRestoreSelect
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
+
 
     def setStatus(self) -> None:
         from .api import Api
@@ -179,6 +197,9 @@ class ZendureDevice(EntityDevice):
         try:
             if changed:
                 match key:
+                    case "pvStatus":
+                        if value == 1 and self.solarInput.asInt > 50:
+                            self._last_pv_on = datetime.now()
                     case "outputPackPower":
                         if value == 0:
                             self.switchCount.update_value(1 + self.switchCount.asNumber)
@@ -421,24 +442,46 @@ class ZendureDevice(EntityDevice):
         except Exception as err:
             _LOGGER.warning(f"BLE error: {err}")
 
+    def pv_on(self) -> bool:
+        """PV gilt als aktiv, wenn Status==1 oder in den letzten 60s ==1 war."""
+        now = datetime.now()
+        if self.pvStatus.asNumber == 1 and self.solarInputPower.asNumber > 50:
+            self._last_pv_on = now
+            return True
+        if self._last_pv_on and now - self._last_pv_on <= timedelta(seconds=120):
+            return True
+        return False
+
     async def power_get(self) -> bool:
         if self.lastseen < datetime.now():
             self.lastseen = datetime.min
             self.setStatus()
 
-        self.pwr_home = self.homeOutput.asInt - self.homeInput.asInt
-        self.pwr_battery = self.batteryInput.asInt - self.batteryOutput.asInt
+        self.pwr_home_out = self.homeOutput.asInt
+        self.pwr_home_in = self.homeInput.asInt
+        self.pwr_battery_in = self.batteryInput.asInt
+        self.pwr_battery_out = self.batteryOutput.asInt
         self.pwr_solar = self.solarInput.asInt
         self.actualKwh = self.availableKwh.asNumber
+        self.max_soc = self.socSet.asNumber
+        self.min_soc = self.minSoc.asNumber
+        self.soc_lvl = self.electricLevel.asInt
+        self.pvaktiv = self.pv_on
 
-        if not self.online or self.socSet.asNumber == 0 or self.kWh == 0:
+        #energie differenz merken
+        if self.last_actual_kwh is not None:
+            delta = self.actualKwh - self.last_actual_kwh
+            self.energy_diff_kwh += delta
+        self.last_actual_kwh = self.actualKwh
+
+        if self.socSet.asNumber == 0 or self.kWh == 0: 
             self.state = DeviceState.OFFLINE
-        elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber:
+        elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber: 
             self.state = DeviceState.SOCFULL
-        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber:
+        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber: 
             self.state = DeviceState.SOCEMPTY
         else:
-            self.state = DeviceState.INACTIVE
+            self.state = DeviceState.INACTIVE  # <— irgend ein „normal/online“-Zustand deiner Enum
 
         return self.state != DeviceState.OFFLINE
 
@@ -549,7 +592,7 @@ class ZendureZenSdk(ZendureDevice):
 
     async def power_charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
-        if abs(power - self.pwr_home) <= 1:
+        if abs(power - (self.pwr_home_out - self.pwr_home_in)) <= 1:
             _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
             return power
 
@@ -560,7 +603,7 @@ class ZendureZenSdk(ZendureDevice):
 
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
-        if abs(power - self.pwr_home) <= 1:
+        if abs(power - (self.pwr_home_out - self.pwr_home_in)) <= 1:
             _LOGGER.info(f"Power discharge {self.name} => no action [power {power}]")
             return power
 

@@ -38,6 +38,7 @@ class ZendureNumber(EntityZendure, NumberEntity):
         mode: NumberMode = NumberMode.AUTO,
         factor: int = 1,
         doupdate: bool = False,
+        icon: str | None = None,
     ) -> None:
         """Initialize a number entity."""
         super().__init__(device, uniqueid, "number")
@@ -46,6 +47,7 @@ class ZendureNumber(EntityZendure, NumberEntity):
             name=uniqueid,
             native_unit_of_measurement=uom,
             device_class=deviceclass,
+            icon=icon,
         )
 
         self._value_template: Template | None = template
@@ -117,9 +119,10 @@ class ZendureRestoreNumber(ZendureNumber, RestoreEntity):
         minimum: int = 0,
         mode: NumberMode = NumberMode.AUTO,
         doupdate: bool = False,
+        icon: str | None = None,
     ) -> None:
         """Initialize a number entity."""
-        super().__init__(device, uniqueid, onwrite, template, uom, deviceclass, maximum, minimum, mode, 1, doupdate)
+        super().__init__(device, uniqueid, onwrite, template, uom, deviceclass, maximum, minimum, mode, 1, doupdate, icon=icon)
         self._attr_native_value = 0
 
     async def async_added_to_hass(self) -> None:
