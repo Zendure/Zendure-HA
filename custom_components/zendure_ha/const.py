@@ -32,7 +32,6 @@ class DeviceState(Enum):
     INACTIVE = 3
     STARTING = 4
     ACTIVE = 5
-    BYPASS = 6
 
 
 class ManagerState(Enum):
@@ -51,8 +50,8 @@ class SmartMode:
     FAST_UPDATE = 100
     MIN_POWER = 50
     START_POWER = 100
-    TIMEFAST = 2
-    TIMEZERO = 1
+    TIMEFAST = 2.2
+    TIMEZERO = 4
     TIMEIDLE = 10
     TIMERESET = 150
     Threshold = 3.5
