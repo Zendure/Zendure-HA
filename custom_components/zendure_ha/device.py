@@ -84,21 +84,18 @@ class ZendureDevice(EntityDevice):
         self.ipAddress = (
             definition.get("ip", "") if definition.get("ip", "") != "" else f"zendure-{definition['productModel'].replace(' ', '')}-{self.snNumber}.local"
         )
-
+    
         self.topic_read = f"iot/{self.prodkey}/{self.deviceId}/properties/read"
         self.topic_write = f"iot/{self.prodkey}/{self.deviceId}/properties/write"
         self.topic_function = f"iot/{self.prodkey}/{self.deviceId}/function/invoke"
-
         self.batteries: dict[str, ZendureBattery | None] = {}
         self.lastseen = datetime.min
         self._messageid = 0
         self.capacity = 0
         self.kWh = 0.0
-
         self.limitCharge: int = 0
         self.limitDischarge: int = 0
         self.maxSolar = 0
-
         self.pwr_setpoint: int = 0
         self.pwr_home_out: int = 0
         self.pwr_home_in: int = 0
@@ -114,22 +111,16 @@ class ZendureDevice(EntityDevice):
         self.soc_lvl: int = 0
         self.pvaktiv: int = 0
         self.pwr_active: bool = False 
-
         self.last_energy_kwh = 0.0
         self.energy_diff_kwh = 0.0
         self._last_pv_on: datetime | None = None
         self.is_bypass: bool = False #'Bypass On Off'
-
         self.minCharge: int = 0
         self.minDischarge: int = 0
-
         self.actualKwh: float = 0.0
         self.last_actual_kwh: float = 0.0
-        
         self.state: DeviceState = DeviceState.OFFLINE
-
         self.state_machine = DeviceStateMachine()
-
         self.create_entities()
 
     def create_entities(self) -> None:
@@ -164,7 +155,6 @@ class ZendureDevice(EntityDevice):
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.connection: ZendureRestoreSelect
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
-
 
     def setStatus(self) -> None:
         from .api import Api
@@ -476,9 +466,9 @@ class ZendureDevice(EntityDevice):
 
         if self.socSet.asNumber == 0 or self.kWh == 0: 
             self.state = DeviceState.OFFLINE
-        elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber: 
+        elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber:
             self.state = DeviceState.SOCFULL
-        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber: 
+        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber:
             self.state = DeviceState.SOCEMPTY
         else:
             self.state = DeviceState.INACTIVE
