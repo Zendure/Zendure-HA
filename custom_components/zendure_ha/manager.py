@@ -236,6 +236,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.power.update_value(pwr_home)
         self.availableKwh.update_value(availEnergy)
         pwr_setpoint = pwr_home + p1 - pwr_bypass
+        if all(d.socLimit.asInt == 2 for d in self.devices):
+            self.power_history.clear()
         self.power_history.append(pwr_setpoint)
         p1_average = sum(self.power_history) // len(self.power_history)
 
