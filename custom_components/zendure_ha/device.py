@@ -193,11 +193,15 @@ class ZendureDevice(EntityDevice):
                     case "outputHomePower":
                         self.outputHomeTotal.aggregate(dt_util.now(), value)
                     case "inverseMaxPower":
-                        self.limitDischarge = value
+                        self.limitDischarge = min(value,self.limitDischarge)
                         self.limitOutput.update_range(0, value)
                     case "chargeLimit" | "chargeMaxLimit":
-                        self.limitCharge = -value
+                        self.limitCharge = max(-value,self.limitCharge)
                         self.limitInput.update_range(0, value)
+                    case "outputLimit":
+                        self.limitDischarge = value
+                    case "inputLimit":
+                        self.limitCharge = -value
                     case "hemsState" | "socStatus":
                         self.setStatus()
                     case "electricLevel" | "minSoc" | "socLimit":
