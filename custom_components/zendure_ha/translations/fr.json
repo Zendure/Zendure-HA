@@ -334,6 +334,14 @@
           "on": "Toujours activé"
         }
       },
+      "grid_off_mode": {
+        "name": "Mode Hors-Réseau",
+        "state": {
+          "normal": "Normal",
+          "eco": "Économique",
+          "off": "Désactivé"
+        }
+      },
       "grid_reverse": {
         "name": "Exportation d'énergie",
         "state": {

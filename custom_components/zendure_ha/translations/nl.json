@@ -244,6 +244,14 @@
           "on": "Altijd Aan"
         }
       },
+      "grid_off_mode": {
+        "name": "Off-Grid Modus",
+        "state": {
+          "normal": "Normaal",
+          "eco": "Economisch",
+          "off": "Uit"
+        }
+      },
       "grid_reverse": {
         "name": "Energie-export",
         "state": {

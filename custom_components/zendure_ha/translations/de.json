@@ -341,6 +341,14 @@
           "on": "Immer an"
         }
       },
+      "grid_off_mode": {
+        "name": "Off-Grid-Modus",
+        "state": {
+          "normal": "Normal",
+          "eco": "Ökonomisch",
+          "off": "Aus"
+        }
+      },
       "grid_reverse": {
         "name": "Energie Export",
         "state": {
