@@ -62,6 +62,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.pwr_avg = 0
         self.pwr_count = 0
         self.pwr_update = 0
+        # Track mode changes to prevent oscillation
+        self.last_mode: str = "idle"  # "idle", "charging", "discharging"
+        self.last_mode_change: datetime = datetime.min
         self.p1meterEvent: Callable[[], None] | None = None
         self.update_count = 0
 
@@ -145,6 +148,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if device.fuseGroup.onchanged is None:
                     device.fuseGroup.onchanged = updateFuseGroup
 
+                fg: FuseGroup | None = None
                 match device.fuseGroup.state:
                     case "owncircuit" | "group3600":
                         fg = FuseGroup(device.name, 3600, -3600)
@@ -157,12 +161,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     case "group2400":
                         fg = FuseGroup(device.name, 2400, -2400)
                     case _:
+                        _LOGGER.debug("Device %s has unsupported fuseGroup state: %s", device.name, device.fuseGroup.state)
                         continue
 
-                fg.devices.append(device)
-                fuseGroups[device.deviceId] = fg
-            except:  # noqa: E722
-                _LOGGER.error(f"Unable to create fusegroup for device: {device.name} ({device.deviceId})")
+                if fg is not None:
+                    fg.devices.append(device)
+                    fuseGroups[device.deviceId] = fg
+            except AttributeError as err:
+                _LOGGER.error("Device %s missing fuseGroup attribute: %s", device.name, err)
+            except Exception as err:
+                _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", device.name, device.deviceId, err, exc_info=True)
 
         # Update the fusegroups and select optins for each device
         for device in self.devices:
@@ -180,8 +188,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if deviceId != device.deviceId:
                         fusegroups[deviceId] = f"Part of {fg.name} fusegroup"
                 device.fuseGroup.setDict(fusegroups)
-            except:  # noqa: E722
-                _LOGGER.error(f"Unable to create fusegroup for device: {device.name} ({device.deviceId})")
+            except AttributeError as err:
+                _LOGGER.error("Device %s missing fuseGroup attribute: %s", device.name, err)
+            except Exception as err:
+                _LOGGER.error("Unable to update fusegroup options for device %s (%s): %s", device.name, device.deviceId, err, exc_info=True)
 
         # Add devices to fusegroups
         for device in self.devices:
@@ -310,7 +320,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         await EntityDevice.add_entities()
 
         # exit if there is nothing to do
-        if not self.hass.is_running or not self.hass.is_running or (new_state := event.data["new_state"]) is None:
+        if not self.hass.is_running or (new_state := event.data["new_state"]) is None:
             return
 
         try:  # convert the state to a float
@@ -331,7 +341,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # calculate the standard deviation
         if len(self.p1_history) > 1:
             avg = int(sum(self.p1_history) / len(self.p1_history))
-            stddev = SmartMode.Threshold * max(15, sqrt(sum([pow(i - avg, 2) for i in self.p1_history]) / len(self.p1_history)))
+            stddev = SmartMode.Threshold * max(SmartMode.MAX_STDDEV_THRESHOLD, sqrt(sum([pow(i - avg, 2) for i in self.p1_history]) / len(self.p1_history)))
             if isFast := abs(p1 - avg) > stddev or abs(p1 - self.p1_history[0]) > stddev:
                 self.p1_history.clear()
         else:
@@ -385,12 +395,38 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             if avg > 0 and pwr_setpoint < 0:
                 self.power_history.clear()
             else:
-                stddev = SmartMode.ThresholdAvg * max(20, sqrt(sum([pow(i - avg, 2) for i in self.power_history]) / len(self.power_history)))
+                stddev = SmartMode.ThresholdAvg * max(SmartMode.MAX_STDDEV_THRESHOLD_AVG, sqrt(sum([pow(i - avg, 2) for i in self.power_history]) / len(self.power_history)))
                 if abs(pwr_setpoint - avg) > stddev or abs(pwr_setpoint - self.power_history[0]) > stddev:
                     self.power_history.clear()
 
         self.power_history.append(pwr_setpoint)
         p1_average = sum(self.power_history) // len(self.power_history)
+
+        # Determine target mode to detect mode changes
+        current_mode = "idle"
+        if pwr_setpoint > SmartMode.IGNORE_DELTA:
+            current_mode = "discharging"
+        elif pwr_setpoint < -SmartMode.IGNORE_DELTA:
+            current_mode = "charging"
+
+        # Hysteresis: prevent rapid mode switching
+        time_since_last_change = (time - self.last_mode_change).total_seconds()
+        if current_mode != self.last_mode and time_since_last_change < SmartMode.MIN_SWITCH_INTERVAL:
+            _LOGGER.info(
+                "Preventing mode switch from %s to %s (only %d seconds since last change, minimum is %d)",
+                self.last_mode,
+                current_mode,
+                int(time_since_last_change),
+                SmartMode.MIN_SWITCH_INTERVAL,
+            )
+            # Stay in current mode - don't update devices
+            return
+
+        # Track mode changes
+        if current_mode != self.last_mode:
+            _LOGGER.info("Mode changed from %s to %s", self.last_mode, current_mode)
+            self.last_mode = current_mode
+            self.last_mode_change = time
 
         # Update power distribution.
         _LOGGER.info(f"P1 ======> p1:{p1} isFast:{isFast}, setpoint:{pwr_setpoint}W produced:{pwr_produced}W")
