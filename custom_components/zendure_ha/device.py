@@ -556,7 +556,7 @@ class ZendureZenSdk(ZendureDevice):
 
     async def power_charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
-        if abs(power - self.pwr_home) <= 1:
+        if abs(power - self.pwr_home) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
             return power
 
@@ -566,7 +566,7 @@ class ZendureZenSdk(ZendureDevice):
 
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
-        if abs(power - self.pwr_home) <= 1:
+        if abs(power - self.pwr_home) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.info(f"Power discharge {self.name} => no action [power {power}]")
             return power
 

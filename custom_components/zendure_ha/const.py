@@ -51,14 +51,26 @@ class SmartMode:
     FAST_UPDATE = 100
     MIN_POWER = 50
     START_POWER = 100
-    TIMEFAST = 2.2
-    TIMEZERO = 4
-    TIMEIDLE = 10
-    TIMERESET = 150
-    Threshold = 3.5
-    ThresholdAvg = 3.5
+    
+    # Timing constants (in seconds)
+    TIMEFAST = 2.2  # Fast update interval after significant change
+    TIMEZERO = 4  # Normal update interval
+    TIMEIDLE = 10  # Idle time
+    TIMERESET = 150  # Reset time
+    MIN_SWITCH_INTERVAL = 30  # Minimum seconds between mode changes to prevent oscillation
+    
+    # Standard deviation thresholds for detecting significant changes
+    Threshold = 3.5  # Multiplier for P1 meter stddev calculation
+    ThresholdAvg = 3.5  # Multiplier for power average stddev calculation
+    MAX_STDDEV_THRESHOLD = 15  # Minimum stddev value for P1 changes (watts)
+    MAX_STDDEV_THRESHOLD_AVG = 20  # Minimum stddev value for power average (watts)
+    
     P1_MIN_UPDATE = timedelta(milliseconds=400)
-    IGNORE_DELTA = 3
+    
+    # Power delta thresholds to prevent rapid switching
+    IGNORE_DELTA = 10  # Minimum power change (W) to trigger device update (was 3)
+    POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating (was 1)
+    
     ZENSDK = 2
     CONNECTED = 10
     SOCMIN_OPTIMAL = 22
