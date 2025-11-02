@@ -66,6 +66,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.last_mode: str = "idle"  # "idle", "charging", "discharging"
         self.last_mode_change: datetime = datetime.min
         self.p1meterEvent: Callable[[], None] | None = None
+        self.p1_unit_logged: bool = False  # Track if we've logged the P1 meter unit
         self.update_count = 0
 
     async def loadDevices(self) -> None:
@@ -324,9 +325,27 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
 
         try:  # convert the state to a float
-            p1 = int(float(new_state.state))
+            p1_raw = float(new_state.state)
         except ValueError:
             return
+
+        # Get unit of measurement and convert to Watts if necessary
+        unit = new_state.attributes.get("unit_of_measurement", "W")
+        
+        # Log the unit once for debugging
+        if not self.p1_unit_logged:
+            _LOGGER.info("P1 meter unit detected: %s (sensor: %s)", unit, new_state.entity_id)
+            self.p1_unit_logged = True
+        
+        # Convert to Watts based on unit
+        if unit in ("kW", "kilowatt", "kilowatts"):
+            p1 = int(p1_raw * 1000)  # Convert kW to W
+            _LOGGER.debug("Converted P1 from %.3f kW to %d W", p1_raw, p1)
+        elif unit in ("W", "watt", "watts", ""):
+            p1 = int(p1_raw)  # Already in Watts
+        else:
+            _LOGGER.warning("Unknown P1 meter unit '%s', assuming Watts. Please check your P1 sensor configuration.", unit)
+            p1 = int(p1_raw)
 
         # Get time & update simulation
         time = datetime.now()
