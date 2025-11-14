@@ -513,7 +513,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         setpoint = max(0, (min(solar, setpoint) if solarOnly else setpoint) - total)
         for d in devices:
             if d.state == DeviceState.ACTIVE:
-                pwr = 0 if setpoint == 0 else int(setpoint * ((d.dischargeLimit - d.pwr) * d.electricLevel.asInt) / weight)
+                #need to limit on dischargeLimit, otherwise a pretty large setpoint will power the first device in a fusegroup too much
+                pwr = 0 if setpoint == 0 else int(min(setpoint, d.dischargeLimit) * ((d.dischargeLimit - d.pwr) * d.electricLevel.asInt) / weight)
                 weight -= (d.dischargeLimit - d.pwr) * d.electricLevel.asInt
                 setpoint -= d.fuseGrp.dischargePower(d, pwr, solarOnly)
                 await d.power_discharge(d.pwr)
