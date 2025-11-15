@@ -68,7 +68,7 @@ class FuseGroup:
         """Return the discharge power for a device."""
         solarOnly |= d.state == DeviceState.SOCEMPTY
         if solarOnly:
-            pwr = min(-d.pwr_produced, pwr)
+            pwr = min(-d.pwr_produced, pwr + d.pwr) - d.pwr
 
         if len(self.devices) == 1:
             pwr = min(pwr, self.maxpower, d.dischargeLimit)
