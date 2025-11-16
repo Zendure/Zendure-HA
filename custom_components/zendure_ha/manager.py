@@ -499,9 +499,14 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 weight += (d.dischargeLimit - d.pwr) * d.electricLevel.asInt
                 if d.state != DeviceState.SOCEMPTY:
                     d.state = DeviceState.ACTIVE
+                else:
+                    # set power to 0 if device is empty. There is a change that minSoc was changed and homeOutput still > 0 
+                    await d.power_discharge(0)
             elif (average >= load or total == 0) and average != 0 and load > 0:
-                await d.power_discharge(SmartMode.POWER_START)
-                total += 1
+                # no discharge if devices is empty
+                if d.state != DeviceState.SOCEMPTY:
+                    await d.power_discharge(SmartMode.POWER_START)
+                    total += 1
             else:
                 await d.power_discharge(0)
                 if d.state == DeviceState.SOCFULL:
@@ -513,7 +518,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         setpoint = max(0, (min(solar, setpoint) if solarOnly else setpoint) - total)
         for d in devices:
             if d.state == DeviceState.ACTIVE:
-                pwr = 0 if setpoint == 0 else int(setpoint * ((d.dischargeLimit - d.pwr) * d.electricLevel.asInt) / weight)
+                #need to limit on dischargeLimit, otherwise a pretty large setpoint will power the first device in a fusegroup too much
+                pwr = 0 if setpoint == 0 else int(min(setpoint, d.dischargeLimit) * ((d.dischargeLimit - d.pwr) * d.electricLevel.asInt) / weight)
                 weight -= (d.dischargeLimit - d.pwr) * d.electricLevel.asInt
                 setpoint -= d.fuseGrp.dischargePower(d, pwr, solarOnly)
                 await d.power_discharge(d.pwr)

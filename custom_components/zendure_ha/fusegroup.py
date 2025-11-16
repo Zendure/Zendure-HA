@@ -71,9 +71,10 @@ class FuseGroup:
             pwr = min(-d.pwr_produced, pwr + d.pwr) - d.pwr
 
         if len(self.devices) == 1:
-            pwr = min(d.pwr + pwr, self.maxpower, d.dischargeLimit) - d.pwr
+            pwr = min(pwr, self.maxpower, d.dischargeLimit)
         else:
             used = sum(fd.pwr for fd in self.devices if fd.state in [DeviceState.ACTIVE, DeviceState.SOCFULL])
-            pwr = min(d.pwr + pwr, self.maxpower - used, d.dischargeLimit) - d.pwr
+            pwr = min(pwr, self.maxpower - used, d.dischargeLimit)
         d.pwr += pwr
         return pwr
+
