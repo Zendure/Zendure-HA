@@ -300,6 +300,10 @@ class ZendureDevice(EntityDevice):
                 case "properties/report":
                     self.mqttProperties(payload)
 
+                case "properties/energy":
+                    #properties/energy is an indicator that HEMS is ON
+                    self.connectionStatus.update_value(2)
+                    
                 case "register/replay":
                     _LOGGER.info(f"Register replay for {self.name} => {payload}")
                     if self.mqtt is not None:
