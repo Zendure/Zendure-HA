@@ -233,6 +233,10 @@ class Api:
 
                 if "isHA" in payload:
                     return
+                    
+                if "energy" in msg.topic:
+                    device.connectionStatus.update_value(2)
+                    return
 
                 if self.mqttLogging:
                     _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
