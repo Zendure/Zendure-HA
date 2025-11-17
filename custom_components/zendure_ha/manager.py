@@ -449,7 +449,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         isFirst = True
         setpoint = max(setpoint, self.pwr_total)
         for d in devices:
-            if d.state == DeviceState.SOCFULL:
+            gridReverse = d.entities.get("gridReverse")
+            if d.state == DeviceState.SOCFULL and (not gridReverse or gridReverse.state == 1):
                 # battery in bypass, should automatically supply the remainging solar power to the house
                 await d.power_discharge(0)
             else:
