@@ -9,7 +9,7 @@ import secrets
 import traceback
 from base64 import b64decode
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
@@ -231,9 +231,14 @@ class Api:
                     _LOGGER.error("Failed to decode payload encoding from device %s: %s", deviceId, err)
                     return
 
+                if "energy" in msg.topic:
+                    device.hemsOn = datetime.now() + timedelta(seconds=10)
+                    if device.connectionStatus != 2:
+                        device.setStatus()
+
                 if "isHA" in payload:
                     return
-
+                    
                 if self.mqttLogging:
                     _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
 
