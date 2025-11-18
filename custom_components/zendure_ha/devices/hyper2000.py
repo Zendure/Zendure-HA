@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from custom_components.zendure_ha.const import SmartMode
 from custom_components.zendure_ha.device import ZendureLegacy
 from custom_components.zendure_ha.sensor import ZendureRestoreSensor, ZendureSensor
+from custom_components.zendure_ha.select import ZendureSelect
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class Hyper2000(ZendureLegacy):
         self.maxSolar = -1600
         self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
         self.aggrOffGrid = ZendureRestoreSensor(self, "aggrGridOffPowerTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.hems_State = ZendureSelect(self, "hemsState", {0: "OFF", 1: "ON"}, self.entityWrite, 1)
 
     @property
     def pwr_offgrid(self) -> int:
