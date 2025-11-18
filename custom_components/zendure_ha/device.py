@@ -430,9 +430,9 @@ class ZendureDevice(EntityDevice):
             self.lastseen = datetime.min
             self.setStatus()
 
-        self.pwr_home = self.homeOutput.asInt - self.homeInput.asInt
+        self.pwr_home = self.homeOutput.asInt - self.homeInput.asInt + max(0, self.offGrid.asInt if self.socLimit.asInt == SmartMode.SOCEMPTY else 0)
         self.pwr_battery = self.batteryOutput.asInt - self.batteryInput.asInt
-        self.pwr_produced = -self.solarInput.asInt
+        self.pwr_produced = -self.solarInput.asInt + min(0, self.offGrid.asInt)
         self.actualKwh = self.availableKwh.asNumber
 
         if not self.online or self.socSet.asNumber == 0 or self.kWh == 0:
