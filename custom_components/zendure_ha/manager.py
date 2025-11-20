@@ -460,7 +460,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             # )
             # Treat missing gridReverse as allowed; otherwise rely on its string state ("disabled", "allow", "forbidden").
             if d.state == DeviceState.SOCFULL and (grid_state is None or grid_state == "allow"):
-                # battery in bypass, should automatically supply the remainging solar power to the house
+                # battery in bypass, should automatically supply the remaining solar power to the house
                 await d.power_discharge(0)
             else:
                 if (d.homeOutput.asInt > 0 or d.batteryInput.asInt > 0) and setpoint < 0:
