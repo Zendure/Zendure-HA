@@ -90,8 +90,10 @@ class ZendureDevice(EntityDevice):
 
         self.batteries: dict[str, ZendureBattery | None] = {}
         self.lastseen = datetime.min
+        self.firstZero = datetime.min
         self.hemsOn = datetime.min
         self.hemsState = 0
+        self.lastConnectionStatus = 0
         self._messageid = 0
         self.capacity = 0
         self.kWh = 0.0
@@ -133,7 +135,6 @@ class ZendureDevice(EntityDevice):
         self.batteryInput = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
         self.batteryOutput = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
         self.homeOutput = ZendureSensor(self, "outputHomePower", None, "W", "power", "measurement")
-#        self.hemsState = ZendureBinarySensor(self, "hemsState")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.connection: ZendureRestoreSelect
@@ -155,7 +156,10 @@ class ZendureDevice(EntityDevice):
             elif self.socStatus.asInt == 1:
                 self.connectionStatus.update_value(1)
             elif self.hemsOn >= datetime.now():
-                self.connectionStatus.update_value(2)
+                if self.connectionStatus.asInt != 2:
+                    msg = f"Device {self.name} switched to HEMS. Control via Zendure Manager has been discontinued."
+                    #have not yet found a way to use translation for the notification
+                    persistent_notification.create(self.hass, (msg), "Zendure", "zendure_ha")
             elif self.fuseGroup.value == 0:
                 self.connectionStatus.update_value(3)
             elif self.connection.value == SmartMode.ZENSDK:
@@ -166,6 +170,13 @@ class ZendureDevice(EntityDevice):
                 self.connectionStatus.update_value(10)
         except Exception:
             self.connectionStatus.update_value(0)
+
+        if self.lastConnectionStatus == 2 and self.connectionStatus.asInt >= 10:
+            msg = f"Device {self.name} released from HEMS. Control via Zendure Manager has been established."
+            #have not yet found a way to use translation for the notification
+            persistent_notification.create(self.hass, (msg), "Zendure", "zendure_ha")
+        
+        self.lastConnectionStatus = self.connectionStatus.asInt
 
     def entityUpdate(self, key: Any, value: Any) -> bool:
         # update entity state
@@ -305,8 +316,8 @@ class ZendureDevice(EntityDevice):
                 case "properties/energy":
                     #properties/energy is an indicator that HEMS is ON
                     self.hemsOn = datetime.now() + timedelta(seconds=10)
-                    if self.connectionStatus != 2:
-                        self.connectionStatus.update_value(2)
+                    if self.connectionStatus.asInt != 2:
+                        self.setStatus()
                     
                 case "register/replay":
                     _LOGGER.info(f"Register replay for {self.name} => {payload}")
