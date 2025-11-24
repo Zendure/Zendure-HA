@@ -62,9 +62,6 @@
       },
       "heat_state": {
         "name": "Batterieheizung"
-      },
-      "hems_state": {
-        "name": "HEMS-Status"
       }
     },
     "number": {
@@ -302,6 +299,20 @@
         "state": {
           "input": "AC-Eingangsmodus",
           "output": "AC-Ausgangsmodus"
+        }
+      },
+      "hems_state": {
+        "name": "HEMS-Status",
+        "state": {
+          "off": "Deaktiviert",
+          "on": "Aktiviert"
+        }
+      },
+      "auto_heat": {
+        "name": "autom. Batterieheizung",
+        "state": {
+          "off": "Deaktiviert",
+          "on": "Aktiviert"
         }
       },
       "fuse_group": {
