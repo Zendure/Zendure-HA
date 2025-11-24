@@ -61,10 +61,7 @@
         "name": "Bypass"
       },
       "heat_state": {
-        "name": "Heat State"
-      },
-      "hems_state": {
-        "name": "HEMS State"
+        "name": "Battery heating""
       }
     },
     "number": {
@@ -302,6 +299,20 @@
         "state": {
           "input": "AC Input Mode",
           "output": "AC Output Mode"
+        }
+      },
+      "hems_state": {
+        "name": "HEMS State",
+        "state": {
+          "off": "deactivated",
+          "on": "activated"
+        }
+      },
+      "auto_heat": {
+        "name": "autom. Battery heating",
+        "state": {
+          "off": "deactivated",
+          "on": "activated"
         }
       },
       "fuse_group": {
