@@ -66,10 +66,7 @@
         "name": "Dérivation ( bypass )"
       },
       "heat_state": {
-        "name": "Réchauffeur"
-      },
-      "hems_state": {
-        "name": "État HEMS"
+        "name": "chauffage de batterie"
       }
     },
     "number": {
@@ -295,6 +292,20 @@
         "state": {
           "input": "Mode entrée AC",
           "output": "Mode sortie AC"
+        }
+      },
+      "hems_state": {
+        "name": "État HEMS",
+        "state": {
+          "off": "désactivé",
+          "on": "activé"
+        }
+      },
+      "auto_heat": {
+        "name": "Chauffage automatique de la batterie",
+        "state": {
+          "off": "désactivé",
+          "on": "activé"
         }
       },
       "fuse_group": {
