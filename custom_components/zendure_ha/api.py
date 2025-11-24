@@ -233,7 +233,7 @@ class Api:
 
                 if "energy" in msg.topic:
                     device.hemsOn = datetime.now() + timedelta(seconds=10)
-                    if device.connectionStatus != 2:
+                    if device.connectionStatus.asInt != 2:
                         device.setStatus()
 
                 if "isHA" in payload:
