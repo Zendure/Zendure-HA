@@ -499,7 +499,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         total = 0
         solar = 0
         for d in devices:
-            # gridReverse = d.entities.get("gridReverse")
+            gridReverse = d.entities.get("gridReverse")
+            grid_state = getattr(gridReverse, "state", None)
             # _LOGGER.info(
             #     "powerDischarge: device=%s state=%s soc=%s pwr_home=%s pwr=%s gridReverse_present=%s gridReverse_state=%s",
             #     d.name,
@@ -508,8 +509,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             #     d.pwr_home,
             #     d.pwr,
             #     bool(gridReverse),
-            #     getattr(gridReverse, "state", None),
+            #     grid_state,
             # )
+            
+            # If battery is full and gridReverse is allowed, let it bypass naturally
+            if d.state == DeviceState.SOCFULL and (grid_state is None or grid_state == "allow"):
+                await d.power_discharge(0)
+                total += -d.pwr_produced
+                solar += -d.pwr_produced
+                continue
+            
             load = d.fuseGrp.dischargeLimit(d, solarOnly)
             if d.homeOutput.asInt > 0 and start > 0 and d.pwr > 0:
                 if total == 0 and d.pwr > start:
