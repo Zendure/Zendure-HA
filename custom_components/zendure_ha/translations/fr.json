@@ -313,7 +313,8 @@
         "state": {
           "unused": "Aucun (appareil NON-utilisé en couplage intelligent)",
           "owncircuit": "L'appareil a son propre circuit ou phase",
-          "group800": "groupe de fusible max. 800 W",
+          "group800": "groupe de fusible max. 800 W / 1200 W charge",
+          "group800_2400": "groupe de fusible max. 800 W / 2400 W charge",
           "group1200": "groupe de fusible max. 1200 W",
           "group2000": "groupe de fusible max. 2000 W",
           "group2400": "groupe de fusible max. 2400 W",
