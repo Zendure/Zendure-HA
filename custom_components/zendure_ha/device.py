@@ -146,7 +146,7 @@ class ZendureDevice(EntityDevice):
         self.charge_optimal = charge // 4
         self.charge_start = charge // 10
         if self.hass.is_running:
-            self.limitInput.update_range(charge, 0)
+            self.limitInput.update_range(0, abs(charge))
 
         self.discharge_limit = discharge
         self.discharge_optimal = discharge // 4
