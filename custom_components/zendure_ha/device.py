@@ -315,6 +315,7 @@ class ZendureDevice(EntityDevice):
                 case "properties/energy":
                     self.hemsState.update_value(1)
                     self.hemsStateUpdated = datetime.now()
+                    self.setStatus()
                     return True
 
                 # case "firmware/report":
@@ -564,9 +565,6 @@ class ZendureZenSdk(ZendureDevice):
         if update_count == 0 and not self.online:
             json = await self.httpGet("properties/report")
             self.mqttProperties(json)
-        json = await self.httpGet("properties/energy", reset=False)
-        self.hemsState.update_value(1 if len(json) > 0 else 0)
-        self.hemsStateUpdated = datetime.now()
 
     async def power_get(self) -> bool:
         """Get the current power."""
@@ -597,7 +595,7 @@ class ZendureZenSdk(ZendureDevice):
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)
 
-    async def httpGet(self, url: str, key: str | None = None, reset: bool = True) -> dict[str, Any]:
+    async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
             url = f"http://{self.ipAddress}/{url}"
             response = await self.session.get(url, headers=CONST_HEADER)
@@ -606,8 +604,7 @@ class ZendureZenSdk(ZendureDevice):
             return payload if key is None else payload.get(key, {})
         except Exception as e:
             _LOGGER.error(f"HttpGet error {self.name} {e}!")
-            if reset:
-                self.lastseen = datetime.min
+            self.lastseen = datetime.min
         return {}
 
     async def httpPost(self, url: str, command: Any) -> bool:
