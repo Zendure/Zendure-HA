@@ -286,7 +286,8 @@ class ZendureDevice(EntityDevice):
         # update the battery properties
         if batprops := payload.get("packData", None):
             for b in batprops:
-                sn = b.pop("sn")
+                if (sn := b.get("sn", None)) is None:
+                    continue
 
                 if (bat := self.batteries.get(sn, None)) is None:
                     self.batteries[sn] = ZendureBattery(self.hass, sn, self)
@@ -295,7 +296,8 @@ class ZendureDevice(EntityDevice):
 
                 elif bat and b:
                     for key, value in b.items():
-                        bat.entityUpdate(key, value)
+                        if key != "sn":
+                            bat.entityUpdate(key, value)
 
     def mqttMessage(self, topic: str, payload: Any) -> bool:
         try:
@@ -316,6 +318,12 @@ class ZendureDevice(EntityDevice):
                     self.hemsStateUpdated = datetime.now()
                     self.setStatus()
                     return True
+
+                case "event/device" | "event/error":
+                    return True
+
+                case "properties/read" | "function/invoke/reply" | "properties/read/reply" | "config" | "log" | "function/invoke":
+                    return False
 
                 # case "firmware/report":
                 #     _LOGGER.info(f"Firmware report for {self.name} => {payload}")

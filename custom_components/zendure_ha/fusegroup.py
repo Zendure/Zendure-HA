@@ -29,16 +29,21 @@ class FuseGroup:
             if len(self.devices) == 1:
                 d.pwr_max = max(self.minpower, d.charge_limit)
             else:
-                used = 0
+                limit = 0
                 weight = 0
                 for fd in self.devices:
                     if fd.homeInput.asInt > 0:
-                        used += fd.charge_start
-                        weight += (100 - fd.electricLevel.asInt) * fd.actualKwh
-                used = min(0, self.minpower - used)
+                        limit += fd.charge_limit
+                        weight += (100 - fd.electricLevel.asInt) * fd.charge_limit
+                avail = min(self.minpower, limit)
                 for fd in self.devices:
                     if fd.homeInput.asInt > 0:
-                        fd.pwr_max = fd.charge_start + int(used * ((100 - fd.electricLevel.asInt) * fd.actualKwh) / weight) if weight > 0 else fd.charge_start
+                        fd.pwr_max = int(avail * ((100 - fd.electricLevel.asInt) * fd.charge_limit) / weight) if weight < 0 else fd.charge_start
+                        limit -= fd.charge_limit
+                        if limit > avail - fd.pwr_max:
+                            fd.pwr_max = max(avail - limit, avail)
+                        fd.pwr_max = max(fd.pwr_max, fd.charge_limit)
+                        avail -= fd.pwr_max
 
         return d.pwr_max
 
@@ -49,15 +54,20 @@ class FuseGroup:
             if len(self.devices) == 1:
                 d.pwr_max = min(self.maxpower, d.discharge_limit)
             else:
-                used = 0
+                limit = 0
                 weight = 0
                 for fd in self.devices:
-                    if fd.homeOutput.asInt > 0 and fd.state != DeviceState.SOCEMPTY:
-                        used += fd.discharge_start
-                        weight += fd.electricLevel.asInt * fd.actualKwh
-                used = max(0, self.maxpower - used)
+                    if fd.homeOutput.asInt > 0:
+                        limit += fd.discharge_limit
+                        weight += fd.electricLevel.asInt * fd.discharge_limit
+                avail = min(self.maxpower, limit)
                 for fd in self.devices:
-                    if fd.homeOutput.asInt > 0 and fd.state != DeviceState.SOCEMPTY:
-                        fd.pwr_max = fd.discharge_start + int(used * (fd.electricLevel.asInt * fd.actualKwh) / weight) if weight > 0 else fd.discharge_start
+                    if fd.homeOutput.asInt > 0:
+                        fd.pwr_max = int(avail * (fd.electricLevel.asInt * fd.discharge_limit) / weight) if weight > 0 else fd.discharge_start
+                        limit -= fd.discharge_limit
+                        if limit < avail - fd.pwr_max:
+                            fd.pwr_max = min(avail - limit, avail)
+                        fd.pwr_max = min(fd.pwr_max, fd.discharge_limit)
+                        avail -= fd.pwr_max
 
         return d.pwr_max
