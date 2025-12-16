@@ -36,7 +36,7 @@ from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureSensor
 
 SCAN_INTERVAL = timedelta(seconds=60)
-ENDPOINTS = ["/status", "/properties/report", "/rpc/Shelly.GetStatus"]
+ENDPOINTS = ["/status", "/properties/report", "/rpc/Shelly.GetStatus?id=0"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -309,9 +309,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if "total_power" in data:
             return float(data["total_power"])
         # --- Shelly 3EM Pro ---
-        if "total_act_power" in data["em:0"]:
+        if "em:0" in data and "total_act_power" in data["em:0"]:
             return float(data["em:0"]["total_act_power"])
         for k, v in data.items():
+            if isinstance(v, dict) and "total_act_power" in v:
+                return float(v["total_act_power"])
             if "total" in k and "power" in k:
                 return float(v)
 
