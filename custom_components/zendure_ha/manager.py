@@ -416,7 +416,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if (prod := min(0, d.batteryOutput.asInt + d.homeInput.asInt - d.batteryInput.asInt - d.homeOutput.asInt)) < 0:
                     d.pwr_produced = prod
                     self.produced -= prod
-
+                else:
+                    d.pwr_produced = 0
+                    
                 if (home := -d.homeInput.asInt + d.pwr_offgrid) < 0:
                     self.charge.append(d)
                     self.charge_limit += d.fuseGrp.charge_limit(d)
@@ -543,7 +545,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         setpoint = min(limit, setpoint)
         for i, d in enumerate(sorted(self.discharge, key=lambda d: d.electricLevel.asInt, reverse=False)):
             # calculate power to discharge
-            if (pwr := int(setpoint * (d.pwr_max * d.electricLevel.asInt) / self.discharge_weight)) < -d.pwr_produced and d.state == DeviceState.SOCFULL:
+            if (pwr := int(setpoint * (d.pwr_max * d.electricLevel.asInt) / self.discharge_weight)) > -d.pwr_produced and d.state == DeviceState.SOCFULL:
                 pwr = -d.pwr_produced
             self.discharge_weight -= d.pwr_max * d.electricLevel.asInt
 
