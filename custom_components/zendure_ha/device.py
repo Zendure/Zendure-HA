@@ -145,14 +145,12 @@ class ZendureDevice(EntityDevice):
         self.charge_limit = charge
         self.charge_optimal = charge // 4
         self.charge_start = charge // 10
-        if self.hass.is_running:
-            self.limitInput.update_range(0, abs(charge))
+        self.limitInput.update_range(0, abs(charge))
 
         self.discharge_limit = discharge
         self.discharge_optimal = discharge // 4
         self.discharge_start = discharge // 10
-        if self.hass.is_running:
-            self.limitOutput.update_range(0, discharge)
+        self.limitOutput.update_range(0, discharge)
 
     def setStatus(self) -> None:
         from .api import Api
