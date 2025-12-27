@@ -112,6 +112,13 @@
       "aggr_solar_total": {
         "name": "Totale Zonne-energie"
       },
+      "plug_state": {
+        "name": "Off-grid stekkerdoos",
+        "state": {
+          "0": "niet beschikbaar",
+          "1": "aangesloten"
+        }
+      },
       "connection_status": {
         "name": "Connectie Status",
         "state": {
