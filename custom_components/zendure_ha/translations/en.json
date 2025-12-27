@@ -310,6 +310,13 @@
           "output": "AC Output Mode"
         }
       },
+      "dc_switch": {
+        "name": "DC port",
+        "state": {
+          "on": "On/Output",
+          "off": "Off/Input"
+        }
+      },
       "hems_state": {
         "name": "HEMS State",
         "state": {
@@ -390,6 +397,9 @@
     "switch": {
       "lamp_switch": {
         "name": "LED"
+      },
+      "ac_switch": {
+        "name": "AC outlet"
       },
       "buzzer_switch": {
         "name": "Buzzer"
