@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFl
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import Api
 from .const import (
@@ -139,6 +140,12 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
+        """Handle a flow initialized by zeroconf discovery."""
+        await self.async_set_unique_id("Zendure", raise_on_progress=False)
+
+        return await self.async_step_confirm()
 
     @staticmethod
     @callback
