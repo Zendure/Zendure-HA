@@ -5,6 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 python3 -m pip install --requirement requirements.txt
+pip3 install --upgrade "pycares==4.3.0"
 
 curl -sfSL https://get.hacs.xyz | bash -
 hass --script ensure_config -c config

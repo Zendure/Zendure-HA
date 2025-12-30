@@ -567,9 +567,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         for d in self.devices:
             if await d.power_get():
                 # get power production
-                if (prod := min(0, d.batteryOutput.asInt + d.homeInput.asInt - d.batteryInput.asInt - d.homeOutput.asInt)) < 0:
-                    d.pwr_produced = prod
-                    self.produced -= prod
+                d.pwr_produced = min(0, d.batteryOutput.asInt + d.homeInput.asInt - d.batteryInput.asInt - d.homeOutput.asInt)
+                self.produced -= d.pwr_produced
 
                 if (home := -d.homeInput.asInt + d.pwr_offgrid) < 0:
                     self.charge.append(d)
@@ -593,7 +592,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.idle_lvlmin = min(self.idle_lvlmin, d.electricLevel.asInt if d.state != DeviceState.SOCFULL else 100)
 
                 availableKwh += d.actualKwh
-                power += d.pwr_offgrid + home + prod
+                power += d.pwr_offgrid + home + d.pwr_produced
 
         # Update the power entities
         self.power.update_value(power)
@@ -615,8 +614,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 await self.power_discharge(max(0, setpoint))
 
             case ManagerMode.MATCHING_CHARGE:
-                # Only charge, do nothing if setpoint is positive
-                await self.power_charge(min(0, setpoint), time)
+                # Allow discharge of produced power, otherwise only charge
+                # d.pwr_produced is negative, but self.produced is positive
+                if setpoint > 0 and self.produced > SmartMode.POWER_START:
+                    await self.power_discharge(min(self.produced, setpoint))
+                else:
+                    await self.power_charge(min(0, setpoint), time)
 
             case ManagerMode.MANUAL:
                 # Manual power into or from home

@@ -104,7 +104,7 @@ class EntityDevice:
         "reverseState": ("binary"),
         "pass": ("binary"),
         "lowTemperature": ("binary"),
-        "autoHeat": ("select", {0: "off", 1: "on"}),
+        "autoHeat": ("select", {0: "off", 1: "on"},1),
         "localState": ("binary"),
         "ctOff": ("binary"),
         "lampSwitch": ("switch"),
@@ -231,7 +231,8 @@ class EntityDevice:
                     case "select":
                         if isinstance(info[1], dict):
                             options: Any = info[1]
-                            entity = ZendureSelect(self, key, options, self.entityWrite, 0)
+                            default: Any = 0 if len(info) == 2 else info[2]
+                            entity = ZendureSelect(self, key, options, self.entityWrite, default)
                     case "template":
                         tmpl = Template(info[1], self.hass)
                         entity = ZendureSensor(self, key, tmpl, info[2], info[3], "measurement", None)

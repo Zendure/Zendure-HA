@@ -303,6 +303,13 @@
           "output": "Mode sortie AC"
         }
       },
+      "dc_switch": {
+        "name": "Port CC",
+        "state": {
+          "on": "Arrêt/Sortie",
+          "off": "Marche/Entrée"
+        }
+      },
       "hems_state": {
         "name": "État HEMS",
         "state": {
@@ -383,6 +390,9 @@
     "switch": {
       "lamp_switch": {
         "name": "LED"
+      },
+      "ac_switch": {
+        "name": "prise secteur"
       },
       "buzzer_switch": {
         "name": "Buzzer"
