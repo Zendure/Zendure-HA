@@ -7,6 +7,8 @@ import hashlib
 import json
 import logging
 import traceback
+import re
+import aiohttp
 from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -20,7 +22,7 @@ from homeassistant.components import bluetooth, persistent_notification
 from homeassistant.components.number import NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_state_change, async_track_time_interval
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
@@ -34,11 +36,11 @@ from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureSensor
 
 SCAN_INTERVAL = timedelta(seconds=60)
+ENDPOINTS = ["/status", "/properties/report", "/rpc/Shelly.GetStatus"]
 
 _LOGGER = logging.getLogger(__name__)
 
 type ZendureConfigEntry = ConfigEntry[ZendureManager]
-
 
 class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
     """Class to regular update devices."""
@@ -99,6 +101,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
+        self.p1meter = ZendureSensor(self, "p1Meter", None, "W", "power", "measurement", 0)
 
         # load devices
         for dev in data["deviceList"]:
@@ -146,7 +149,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # initialize the api & p1 meter
         await EntityDevice.add_entities()
         self.api.Init(self.config_entry.data, mqtt)
-        self.update_p1meter(self.config_entry.data.get(CONF_P1METER, "sensor.power_actual"))
+        await self.update_p1meter(self.config_entry.data.get(CONF_P1METER, "sensor.power_actual"))
         await asyncio.sleep(1)  # allow other tasks to run
         await self.update_fusegroups()
         Api.mqttLogging = True
@@ -286,17 +289,83 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if self.hass and self.hass.loop.is_running():
             self._schedule_refresh()
 
-    def update_p1meter(self, p1meter: str | None) -> None:
+    async def fetch_power_value(self, hass, ip: str, endpoint: str):
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(f"http://{ip}{endpoint}") as resp:
+                    try:
+                        data = await resp.json()
+                    except Exception:
+                        data = await resp.text()
+                        data = json.loads(data)
+                    return self.parse_power(data)
+            except Exception as e:
+                _LOGGER.warning(f"Fetch error from {ip}{endpoint}: {e}")
+                return None
+
+    def parse_power(self, data: dict):
+        # --- Generische Suche ---
+        # --- Shelly 3EM / Zendure 3CT ---
+        if "total_power" in data:
+            return float(data["total_power"])
+        # --- Shelly 3EM Pro ---
+        if "total_act_power" in data["em:0"]:
+            return float(data["em:0"]["total_act_power"])
+        for k, v in data.items():
+            if "total" in k and "power" in k:
+                return float(v)
+
+    async def update_p1meter(self, p1meter: str | None) -> None:
         """Update the P1 meter sensor."""
         _LOGGER.debug("Updating P1 meter to: %s", p1meter)
+
+        interval = SmartMode.P1_HTTP_UPDATE
+
+        if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", p1meter) is not None:
+            # Endpunkt einmalig bestimmen
+            endpoint = await self.detect_endpoint(p1meter)
+            if not endpoint:
+                _LOGGER.error(f"No valid endpoint found for {p1meter}")
+                return
+
+            async def poll_http(now):
+                value = await self.fetch_power_value(self.hass, p1meter, endpoint)
+                if value is not None:
+                    self.p1meter.update_value(value)
+
+            async_track_time_interval(self.hass, poll_http, timedelta(seconds=interval))
+        else:
+            async def sensor_changed(entity_id, old_state, new_state):
+                if new_state and new_state.state not in (None, "", "unknown", "unavailable"):
+                    try:
+                        value = float(new_state.state)
+                        self.p1meter.update_value(value)
+                    except ValueError:
+                        pass
+
+            async_track_state_change(self.hass, p1meter, sensor_changed)
+
+
         if self.p1meterEvent:
             self.p1meterEvent()
         if p1meter:
-            self.p1meterEvent = async_track_state_change_event(self.hass, [p1meter], self._p1_changed)
+            self.p1meterEvent = async_track_state_change_event(self.hass, [self.p1meter.entity_id], self._p1_changed)
             if (entity := self.hass.states.get(p1meter)) is not None and entity.attributes.get("unit_of_measurement", "W") in ("kW", "kilowatt", "kilowatts"):
                 self.p1_factor = 1000
         else:
             self.p1meterEvent = None
+
+    async def detect_endpoint(self, ip: str) -> str | None:
+        async with aiohttp.ClientSession() as session:
+            for endpoint in ENDPOINTS:
+                try:
+                    async with session.get(f"http://{ip}{endpoint}") as resp:
+                        if resp.status == 200:
+                            return endpoint
+                except Exception as e:
+                    _LOGGER.warning(f"Fetch error from {ip}{endpoint}: {e}")
+                    continue
+        return None
 
     def writeSimulation(self, time: datetime, p1: int) -> None:
         if Path("simulation.csv").exists() is False:
