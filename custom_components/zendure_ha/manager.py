@@ -42,6 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 
 type ZendureConfigEntry = ConfigEntry[ZendureManager]
 
+
 class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
     """Class to regular update devices."""
 
@@ -62,7 +63,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.p1_history: deque[int] = deque([25, -25], maxlen=8)
         self.p1_factor = 1
         self.update_count = 0
-
+        self._p1_last_value = None
+        self._p1_pending_value = None
+        self._p1_pending_since = None
+        self._p1_peak_filter_duration = timedelta(seconds=3)
+        
         self.charge: list[ZendureDevice] = []
         self.charge_limit = 0
         self.charge_optimal = 0
@@ -345,13 +350,34 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     except ValueError:
                         pass
 
-            async_track_state_change(self.hass, p1meter, sensor_changed)
+            async def _sensor_changed_event_wrapper(event):
+                """Wrapper für async_track_state_change_event: extrahiert old/new state."""
+                data = event.data
+                entity_id = data.get("entity_id")
+                old_state = data.get("old_state")
+                new_state = data.get("new_state")
 
+                await sensor_changed(entity_id, old_state, new_state)
 
-        if self.p1meterEvent:
-            self.p1meterEvent()
+            async_track_state_change_event(self.hass, p1meter, _sensor_changed_event_wrapper)
+
+        # alte Listener deregistrieren 
+        if self.p1meterEvent: 
+            for unsub in self.p1meterEvent: 
+                unsub()
         if p1meter:
-            self.p1meterEvent = async_track_state_change_event(self.hass, [self.p1meter.entity_id], self._p1_changed)
+            self.p1meterEvent = [
+                async_track_state_change_event(
+                    self.hass,
+                    [p1meter],
+                    self._p1_event_wrapper
+                ),            
+                async_track_state_change_event(
+                    self.hass,
+                    [self.p1meter.entity_id],
+                    self._p1_event_wrapper
+                )
+            ]            
             if (entity := self.hass.states.get(p1meter)) is not None and entity.attributes.get("unit_of_measurement", "W") in ("kW", "kilowatt", "kilowatts"):
                 self.p1_factor = 1000
         else:
@@ -368,6 +394,59 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     _LOGGER.warning(f"Fetch error from {ip}{endpoint}: {e}")
                     continue
         return None
+
+    async def _p1_event_wrapper(self, event):
+        """Wrapper für async_track_state_change_event: extrahiert old/new state."""
+        data = event.data
+        entity_id = data.get("entity_id")
+        old_state = data.get("old_state")
+        new_state = data.get("new_state")
+
+        await self._p1_changed_filtered(entity_id, old_state, new_state)
+    
+    async def _p1_changed_filtered(self, entity_id, old_state, new_state):
+        """Filtert 3s-Peaks heraus, bevor _p1_changed aufgerufen wird."""
+
+        if not new_state or new_state.state in (None, "", "unknown", "unavailable"):
+            return
+
+        try:
+            value = float(new_state.state)
+        except ValueError:
+            return
+
+        now = datetime.now()
+
+        # Erster Wert → direkt übernehmen
+        if self._p1_last_value is None:
+            self._p1_last_value = value
+            await self._p1_changed(entity_id, old_state, new_state)
+            return
+
+        # Wenn Wert nahe am letzten Wert → kein Peak
+        if abs(value - self._p1_last_value) < 100:
+            self._p1_last_value = value
+            await self._p1_changed(entity_id, old_state, new_state)
+            self._p1_pending_value = None
+            return
+
+        # Wert unterscheidet sich deutlich → könnte Peak sein
+        if self._p1_pending_value is None:
+            # Peak-Kandidat merken
+            self._p1_pending_value = value
+            self._p1_pending_since = now
+            return
+
+        # Prüfen, ob der Peak 3 Sekunden stabil blieb
+        if now - self._p1_pending_since >= self._p1_peak_filter_duration:
+            # Peak ist echt → weitergeben
+            self._p1_last_value = self._p1_pending_value
+            await self._p1_changed(entity_id, old_state, new_state)
+            self._p1_pending_value = None
+            self._p1_pending_since = None
+        else:
+            # Peak noch nicht bestätigt → nichts tun
+            return
 
     def writeSimulation(self, time: datetime, p1: int) -> None:
         if Path("simulation.csv").exists() is False:
@@ -412,12 +491,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             f.write(f"{time};{p1};{self.operation};{tbattery};{tsolar};{thome};{self.manualpower.asNumber};" + data + "\n")
 
     @callback
-    async def _p1_changed(self, event: Event[EventStateChangedData]) -> None:
+    async def _p1_changed(self, entity_id, old_state, new_state) -> None:
         # update new entities
         await EntityDevice.add_entities()
 
         # exit if there is nothing to do
-        if not self.hass.is_running or not self.hass.is_running or (new_state := event.data["new_state"]) is None:
+        if (
+            not self.hass.is_running
+            or new_state is None
+            or new_state.state in (None, "", "unknown", "unavailable")
+        ):
             return
 
         try:  # convert the state to a float
