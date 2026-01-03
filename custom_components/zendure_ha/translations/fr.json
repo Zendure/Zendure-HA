@@ -84,6 +84,12 @@
       },
       "soc_set": {
         "name": "SOC maximum"
+      },
+      "solar_grid_input_start": {
+        "name": "Début injection solaire réseau"
+      },
+      "solar_grid_input_tolerance": {
+        "name": "Tolérance injection solaire réseau"
       }
     },
     "sensor": {
