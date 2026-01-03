@@ -97,6 +97,14 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.operationmode = (ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging"}, self.update_operation),)
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
+        self.solar_grid_input_start = ZendureRestoreNumber(self, "solar_grid_input_start", self.update_power_start, None, "W", "power", 5000, 25, NumberMode.BOX, True)
+        self.solar_grid_input_tolerance = ZendureRestoreNumber(
+            self, "solar_grid_input_tolerance", self.update_power_tolerance, None, "W", "power", SmartMode.POWER_START - 10, 5, NumberMode.BOX, True
+        )
+        self.solar_grid_input_start._attr_native_value = SmartMode.POWER_START
+        self.solar_grid_input_tolerance._attr_native_value = SmartMode.POWER_TOLERANCE
+        self.update_power_start(self.solar_grid_input_start, SmartMode.POWER_START)
+        self.update_power_tolerance(self.solar_grid_input_tolerance, SmartMode.POWER_TOLERANCE)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
 
@@ -249,6 +257,47 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if len(self.devices) > 0:
                         for d in self.devices:
                             await d.power_off()
+
+    def update_power_start(self, entity: Any, value: int) -> None:
+        """Update SmartMode.POWER_START from HA number entity."""
+        start = max(25, min(int(value), 5000))
+
+        # keep entity state consistent with clamp
+        if entity is not None and int(value) != start:
+            entity._attr_native_value = start  # noqa: SLF001
+            if self.hass and self.hass.loop.is_running():
+                entity.schedule_update_ha_state()
+
+        SmartMode.POWER_START = start
+
+        # tolerance must be: 5 .. (start - 10)
+        tol_max = max(5, start - 10)
+
+        if getattr(self, "solar_grid_input_tolerance", None) is not None:
+            self.solar_grid_input_tolerance.update_range(5, tol_max)
+
+            current_tol = int(self.solar_grid_input_tolerance.asNumber)
+            if current_tol > tol_max:
+                SmartMode.POWER_TOLERANCE = tol_max
+                self.solar_grid_input_tolerance._attr_native_value = tol_max  # noqa: SLF001
+                if self.hass and self.hass.loop.is_running():
+                    self.solar_grid_input_tolerance.schedule_update_ha_state()
+
+        _LOGGER.info("Updated SmartMode.POWER_START => %sW (tolerance max => %sW)", SmartMode.POWER_START, tol_max)
+
+    def update_power_tolerance(self, entity: Any, value: int) -> None:
+        """Update SmartMode.POWER_TOLERANCE from HA number entity."""
+        tol_max = max(5, SmartMode.POWER_START - 10)
+        tol = max(5, min(int(value), tol_max))
+        SmartMode.POWER_TOLERANCE = tol
+
+        # keep entity state consistent with clamp
+        if int(value) != tol:
+            entity._attr_native_value = tol  # noqa: SLF001
+            if self.hass and self.hass.loop.is_running():
+                entity.schedule_update_ha_state()
+
+        _LOGGER.info("Updated SmartMode.POWER_TOLERANCE => %sW (max %sW)", SmartMode.POWER_TOLERANCE, tol_max)
 
     async def _async_update_data(self) -> None:
         _LOGGER.debug("Updating Zendure data")

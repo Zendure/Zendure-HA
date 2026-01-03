@@ -80,6 +80,12 @@
       },
       "soc_set": {
         "name": "SOC Maximaal"
+      },
+      "solar_grid_input_start": {
+        "name": "Start zonne-invoer net"
+      },
+      "solar_grid_input_tolerance": {
+        "name": "Tolerantie zonne-invoer net"
       }
     },
     "sensor": {

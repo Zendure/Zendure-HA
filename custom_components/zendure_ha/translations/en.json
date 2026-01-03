@@ -79,6 +79,12 @@
       },
       "soc_set": {
         "name": "SoC Maximum"
+      },
+      "solar_grid_input_start": {
+        "name": "Solar GridInput Start"
+      },
+      "solar_grid_input_tolerance": {
+        "name": "Solar GridInput Tolerance"
       }
     },
     "sensor": {
