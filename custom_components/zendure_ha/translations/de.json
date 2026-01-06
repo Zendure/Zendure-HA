@@ -79,6 +79,12 @@
       },
       "soc_set": {
         "name": "SoC-Maximum"
+      },
+      "power_start": {
+        "name": "Startleistung"
+      },
+      "power_tolerance": {
+        "name": "Leistungstoleranz"
       }
     },
     "sensor": {

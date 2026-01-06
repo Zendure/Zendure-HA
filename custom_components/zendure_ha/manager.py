@@ -25,11 +25,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
 from .api import Api
-from .const import CONF_P1METER, DOMAIN, DeviceState, ManagerMode, ManagerState, SmartMode
+from .const import CONF_P1METER, CONF_POWER_START, CONF_POWER_TOLERANCE, DOMAIN, DeviceState, ManagerMode, ManagerState, SmartMode
 from .device import DeviceSettings, ZendureDevice, ZendureLegacy
 from .entity import EntityDevice
 from .fusegroup import FuseGroup
-from .number import ZendureRestoreNumber
+from .number import ZendureNumber, ZendureRestoreNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureSensor
 
@@ -81,6 +81,47 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.produced = 0
         self.pwr_low = 0
 
+        self.power_start: ZendureNumber | None = None
+        self.power_tolerance: ZendureNumber | None = None
+
+    @staticmethod
+    def _coerce_int(value: object, default: int) -> int:
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _max_power_tolerance(power_start: int) -> int:
+        return max(5, power_start - 10)
+
+    def _persist_power_thresholds(self, power_start: int, power_tolerance: int) -> None:
+        if self.config_entry is None:
+            return
+        options = dict(self.config_entry.options)
+        changed = False
+        if options.get(CONF_POWER_START) != power_start:
+            options[CONF_POWER_START] = power_start
+            changed = True
+        if options.get(CONF_POWER_TOLERANCE) != power_tolerance:
+            options[CONF_POWER_TOLERANCE] = power_tolerance
+            changed = True
+        if changed:
+            self.hass.config_entries.async_update_entry(self.config_entry, options=options)
+
+    def _load_power_thresholds(self) -> None:
+        if self.config_entry is None:
+            return
+        start_raw = self.config_entry.options.get(CONF_POWER_START, SmartMode.POWER_START)
+        tol_raw = self.config_entry.options.get(CONF_POWER_TOLERANCE, SmartMode.POWER_TOLERANCE)
+        power_start = max(50, min(self._coerce_int(start_raw, SmartMode.POWER_START), 5000))
+        tol_max = self._max_power_tolerance(power_start)
+        power_tolerance = max(5, min(self._coerce_int(tol_raw, SmartMode.POWER_TOLERANCE), tol_max))
+        SmartMode.POWER_START = power_start
+        SmartMode.POWER_TOLERANCE = power_tolerance
+        self._persist_power_thresholds(power_start, power_tolerance)
+
+
     async def loadDevices(self) -> None:
         if self.config_entry is None or (data := await Api.Connect(self.hass, dict(self.config_entry.data), True)) is None:
             return
@@ -94,9 +135,43 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
         self.attr_device_info["sw_version"] = integration.manifest.get("version", "unknown")
 
+        self._load_power_thresholds()
+
         self.operationmode = (ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging"}, self.update_operation),)
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
+        tol_max = self._max_power_tolerance(SmartMode.POWER_START)
+
+        self.power_start = ZendureNumber(
+            self,
+            "power_start",
+            self.update_power_start,
+            None,
+            "W",
+            "power",
+            5000,
+            50,
+            NumberMode.BOX,
+            1,
+            True,
+        )
+        self.power_start._attr_native_value = SmartMode.POWER_START
+
+        self.power_tolerance = ZendureNumber(
+            self,
+            "power_tolerance",
+            self.update_power_tolerance,
+            None,
+            "W",
+            "power",
+            tol_max,
+            5,
+            NumberMode.BOX,
+            1,
+            True,
+        )
+        self.power_tolerance._attr_native_value = SmartMode.POWER_TOLERANCE
+
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
 
@@ -285,6 +360,44 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # Manually update the timer
         if self.hass and self.hass.loop.is_running():
             self._schedule_refresh()
+
+    async def update_power_start(self, entity: ZendureNumber, value: Any) -> None:
+        power_start = max(50, min(self._coerce_int(value, SmartMode.POWER_START), 5000))
+        SmartMode.POWER_START = power_start
+
+        tol_max = self._max_power_tolerance(power_start)
+        if SmartMode.POWER_TOLERANCE > tol_max:
+            _LOGGER.warning(
+                "POWER_TOLERANCE (%s) > max (%s) after POWER_START update; clamping",
+                SmartMode.POWER_TOLERANCE,
+                tol_max,
+            )
+            SmartMode.POWER_TOLERANCE = tol_max
+
+        self._persist_power_thresholds(SmartMode.POWER_START, SmartMode.POWER_TOLERANCE)
+
+        # reflect clamp in UI
+        entity._attr_native_value = SmartMode.POWER_START
+        entity.schedule_update_ha_state()
+        if self.power_tolerance is not None:
+            self.power_tolerance.update_range(5, tol_max)
+            self.power_tolerance._attr_native_value = SmartMode.POWER_TOLERANCE
+            self.power_tolerance.schedule_update_ha_state()
+
+    async def update_power_tolerance(self, entity: ZendureNumber, value: Any) -> None:
+        tol_max = self._max_power_tolerance(SmartMode.POWER_START)
+        requested = self._coerce_int(value, SmartMode.POWER_TOLERANCE)
+        power_tolerance = max(5, min(requested, tol_max))
+        if power_tolerance != requested:
+            _LOGGER.warning("POWER_TOLERANCE clamped from %s to %s", requested, power_tolerance)
+
+        SmartMode.POWER_TOLERANCE = power_tolerance
+        self._persist_power_thresholds(SmartMode.POWER_START, power_tolerance)
+
+        entity.update_range(5, tol_max)
+        entity._attr_native_value = power_tolerance
+        entity.schedule_update_ha_state()
+
 
     def update_p1meter(self, p1meter: str | None) -> None:
         """Update the P1 meter sensor."""

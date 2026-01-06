@@ -84,6 +84,12 @@
       },
       "soc_set": {
         "name": "SOC maximum"
+      },
+      "power_start": {
+        "name": "Puissance de démarrage"
+      },
+      "power_tolerance": {
+        "name": "Tolérance de puissance"
       }
     },
     "sensor": {

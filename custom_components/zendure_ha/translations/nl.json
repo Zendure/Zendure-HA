@@ -80,6 +80,12 @@
       },
       "soc_set": {
         "name": "SOC Maximaal"
+      },
+      "power_start": {
+        "name": "Startvermogen"
+      },
+      "power_tolerance": {
+        "name": "Vermogenstolerantie"
       }
     },
     "sensor": {
