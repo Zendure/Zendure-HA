@@ -21,3 +21,6 @@ config/*
 # Home Assistant configuration
 custom_components/*
 !custom_components/zendure_ha
+
+# macOS
+.DS_Store
