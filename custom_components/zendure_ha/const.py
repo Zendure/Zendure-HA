@@ -26,14 +26,6 @@ class AcMode:
     OUTPUT = 2
 
 
-class DeviceState(Enum):
-    OFFLINE = 0
-    SOCEMPTY = 1
-    INACTIVE = 2
-    SOCFULL = 3
-    ACTIVE = 4
-
-
 class ManagerMode(Enum):
     OFF = 0
     MANUAL = 1

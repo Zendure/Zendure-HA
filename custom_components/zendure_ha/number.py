@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.template import Template
 
-from .entity import EntityDevice, EntityZendure
+from .entity import ZendureEntities, ZendureEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,12 +22,12 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, as
     ZendureNumber.add = async_add_entities
 
 
-class ZendureNumber(EntityZendure, NumberEntity):
+class ZendureNumber(ZendureEntity, NumberEntity):
     add: AddEntitiesCallback
 
     def __init__(
         self,
-        device: EntityDevice,
+        device: ZendureEntities,
         uniqueid: str,
         onwrite: Callable | None,
         template: Template | None = None,
@@ -55,14 +55,11 @@ class ZendureNumber(EntityZendure, NumberEntity):
         self._attr_mode = mode
         self.factor = factor
         self.doupdate = doupdate
-        device.add_entity(self.add, self)
+        self.add([self])
 
     def update_value(self, value: Any) -> bool:
         try:
-            new_value = (
-                int(float(self._value_template.async_render_with_possible_json_value(value, None)) if self._value_template is not None else float(value))
-                / self.factor
-            )
+            new_value = int(float(self._value_template.async_render_with_possible_json_value(value, None)) if self._value_template is not None else float(value)) / self.factor
 
             if self._attr_native_value == new_value:
                 return False
@@ -107,7 +104,7 @@ class ZendureRestoreNumber(ZendureNumber, RestoreEntity):
 
     def __init__(
         self,
-        device: EntityDevice,
+        device: ZendureEntities,
         uniqueid: str,
         onwrite: Callable | None,
         template: Template | None = None,

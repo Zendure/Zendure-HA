@@ -6,15 +6,15 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.const import SmartMode
-from custom_components.zendure_ha.device import ZendureLegacy
+from custom_components.zendure_ha.device import ZendureDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class AIO2400(ZendureLegacy):
-    def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
+class AIO2400(ZendureDevice):
+    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialise AIO2400."""
-        super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
+        super().__init__(hass, name, device_id, device_sn, model, model_id)
         self.setLimits(-1200, 1200)
         self.maxSolar = -1200
 

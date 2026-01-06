@@ -7,83 +7,26 @@ from enum import Enum
 from typing import Any
 
 from homeassistant.components import mqtt
-from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
-from paho.mqtt import client as mqtt_client
 
 from .battery import ZendureBattery
-from .binary_sensor import ZendureBinarySensor
 from .entity import ZendureEntities, ZendureEntity
-from .number import ZendureNumber
-from .select import ZendureRestoreSelect, ZendureSelect
-from .sensor import ZendureRestoreSensor, ZendureSensor
+from .sensor import ZendureSensor
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class DeviceState(Enum):
-    CREATED = 0
-    OFFLINE = 1
-    NOFUSEGROUP = 2
-    ACTIVE = 3
-    CALIBRATE = 4
-    HEMS = 5
+class ZendureSmartMeter(ZendureEntities):
+    """Representation of a Zendure smart meter."""
 
-
-class ZendureDevice(ZendureEntities):
-    """Representation of a Zendure device."""
-
-    fuseGroups: dict[Any, str] = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group800_2400", 4: "group1200", 5: "group2000", 6: "group2400", 7: "group3600"}
-
-    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None = None) -> None:
-        """Initialize the Zendure device."""
-        from .fusegroup import FuseGroup
-
-        super().__init__(hass, name, model, device_id, device_sn, model_id, parent)
-        self.mqttcloud: mqtt_client.Client
-        self.batteries: dict[str, ZendureBattery | None] = {}
-        self.kWh = 0.0
-        self.discharge_limit = 0
-        self.discharge_optimal = 0
-        self.discharge_start = 0
-        self.charge_limit = 0
-        self.charge_optimal = 0
-        self.charge_start = 0
-        self.fuseGrp: FuseGroup | None = None
+    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str) -> None:
+        """Initialize the smart meter device."""
+        super().__init__(hass, name, model, device_id, device_sn, model_id)
         self.entityCreate()
 
     def entityCreate(self) -> None:
         """Create the device entities."""
-        self.electricLevel = ZendureSensor(self, "electricLevel", None, "%", "battery", "measurement")
-        self.gridInputPower = ZendureSensor(self, "gridInputPower", None, "W", "power", "measurement")
-        self.solarInputPower = ZendureSensor(self, "solarInputPower", None, "W", "power", "measurement", icon="mdi:solar-panel")
-        self.outputPackPower = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
-        self.packInputPower = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
-        self.outputHomePower = ZendureSensor(self, "outputHomePower", None, "W", "power", "measurement")
-        self.socStatus = ZendureSensor(self, "socStatus", state=0)
-        self.socLimit = ZendureSensor(self, "socLimit", state=0)
-        self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
-        self.connectionStatus = ZendureSensor(self, "connectionStatus")
-        self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
-        self.remainingTime.hidden = True
-
-        self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.discharge_limit, 0, NumberMode.SLIDER)
-        self.inputLimit = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.charge_limit, 0, NumberMode.SLIDER)
-        self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-        self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-
-        self.byPass = ZendureBinarySensor(self, "pass")
-        self.hemsState = ZendureBinarySensor(self, "hemsState")
-
-        self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", self.fuseGroups, None)
-        self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
-
-        self.aggrCharge = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrHomeInput = ZendureRestoreSensor(self, "aggrGridInputPowerTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrHomeOut = ZendureRestoreSensor(self, "aggrOutputHomeTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrSolar = ZendureRestoreSensor(self, "aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0)
+        self.electricLevel = ZendureSensor(self, "power", None, "W", "power", "measurement")
 
     def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
@@ -116,24 +59,6 @@ class ZendureDevice(ZendureEntities):
         property_name = entity.unique_id[(len(self.name) + 1) :]
         _LOGGER.info(f"Writing property {self.name} {property_name} => {value}")
         self.mqttPublish(f"iot/{self.prodKey}/{self.deviceId}/properties/write", {"properties": {property_name: value}})
-
-    def mqttPublish(self, topic: str, command: Any) -> None:
-        self._messageid += 1
-        command["messageId"] = self._messageid
-        command["deviceId"] = self.deviceId
-        command["timestamp"] = int(datetime.now().timestamp())
-        payload = json.dumps(command, default=lambda o: o.__dict__)
-        mqtt.publish(self.hass, topic, payload=payload)
-
-    def mqttInvoke(self, command: Any) -> None:
-        self.mqttPublish(self.topic_function, command)
-
-    def mqttRegister(self, payload: dict) -> None:
-        """Handle device registration."""
-        if (params := payload.get("params")) is not None and (token := params.get("token")) is not None:
-            self.mqttPublish(f"iot/{self.prodKey}/{self.deviceId}/register/replay", {"token": token, "result": 0})
-        else:
-            _LOGGER.warning(f"MQTT register failed for device {self.name}: no token in payload")
 
     def setStatus(self) -> None:
         """Set the device connection status."""

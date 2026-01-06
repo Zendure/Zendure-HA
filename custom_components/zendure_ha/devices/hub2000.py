@@ -1,19 +1,19 @@
 """Module for the Hyper2000 device integration in Home Assistant."""
 
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.zendure_ha.device import ZendureBattery, ZendureLegacy
+from custom_components.zendure_ha.battery import ZendureBattery
+from custom_components.zendure_ha.device import ZendureDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class Hub2000(ZendureLegacy):
-    def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
+class Hub2000(ZendureDevice):
+    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialise Hub2000."""
-        super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
+        super().__init__(hass, name, device_id, device_sn, model, model_id)
         self.setLimits(-800, 800)
         self.maxSolar = -800
 

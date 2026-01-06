@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.zendure_ha.device import ZendureLegacy
+from custom_components.zendure_ha.device import ZendureDevice
 from custom_components.zendure_ha.sensor import ZendureRestoreSensor, ZendureSensor
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class Hyper2000(ZendureLegacy):
-    def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
+class Hyper2000(ZendureDevice):
+    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialise Hyper2000."""
-        super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
+        super().__init__(hass, name, device_id, device_sn, model, model_id)
         self.setLimits(-1200, 1200)
         self.maxSolar = -1600
         self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")

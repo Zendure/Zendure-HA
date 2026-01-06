@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.template import Template
 
-from .entity import EntityDevice, EntityZendure
+from .entity import ZendureEntities, ZendureEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,12 +23,12 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, as
     ZendureSwitch.add = async_add_entities
 
 
-class ZendureSwitch(EntityZendure, SwitchEntity):
+class ZendureSwitch(ZendureEntity, SwitchEntity):
     add: AddEntitiesCallback
 
     def __init__(
         self,
-        device: EntityDevice,
+        device: ZendureEntities,
         uniqueid: str,
         onwrite: Callable,
         template: Template | None = None,
@@ -38,24 +38,19 @@ class ZendureSwitch(EntityZendure, SwitchEntity):
         """Initialize a switch entity."""
         super().__init__(device, uniqueid, "switch")
         self.entity_description = SwitchEntityDescription(key=uniqueid, name=uniqueid, device_class=deviceclass)
-
         self._attr_available = True
         self._value_template: Template | None = template
         self._onwrite = onwrite
         if value is not None:
             self._attr_is_on = value
-        device.add_entity(self.add, self)
+        self.add([self])
 
     def update_value(self, value: Any) -> bool:
         try:
-            is_on = bool(
-                int(self._value_template.async_render_with_possible_json_value(value, None)) != 0 if self._value_template is not None else int(value) != 0
-            )
+            is_on = bool(int(self._value_template.async_render_with_possible_json_value(value, None)) != 0 if self._value_template is not None else int(value) != 0)
 
             if self._attr_is_on == is_on:
                 return False
-
-            _LOGGER.info(f"Update switch: {self._attr_unique_id} => {is_on}")
 
             self._attr_is_on = is_on
             if self.hass and self.hass.loop.is_running():

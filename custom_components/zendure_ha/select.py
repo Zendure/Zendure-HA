@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .entity import EntityDevice, EntityZendure
+from .entity import ZendureEntities, ZendureEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,12 +21,12 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, as
     ZendureSelect.add = async_add_entities
 
 
-class ZendureSelect(EntityZendure, SelectEntity):
+class ZendureSelect(ZendureEntity, SelectEntity):
     """Representation of a Zendure select entity."""
 
     add: AddEntitiesCallback
 
-    def __init__(self, device: EntityDevice, uniqueid: str, options: dict[Any, str], onchanged: Callable | None, current: int | None = None) -> None:
+    def __init__(self, device: ZendureEntities, uniqueid: str, options: dict[Any, str], onchanged: Callable | None, current: int | None = None) -> None:
         """Initialize a select entity."""
         super().__init__(device, uniqueid, "select")
         self.entity_description = SelectEntityDescription(key=uniqueid, name=uniqueid)
@@ -37,7 +37,7 @@ class ZendureSelect(EntityZendure, SelectEntity):
         else:
             self._attr_current_option = self._attr_options[0]
         self.onchanged = onchanged
-        device.add_entity(self.add, self)
+        self.add([self])
 
     def setDict(self, options: dict[Any, str]) -> None:
         """Set the options for the select entity."""
@@ -97,7 +97,7 @@ class ZendureSelect(EntityZendure, SelectEntity):
 class ZendureRestoreSelect(ZendureSelect, RestoreEntity):
     """Representation of a Zendure select entity with restore."""
 
-    def __init__(self, device: EntityDevice, uniqueid: str, options: dict[int, str], onchanged: Callable | None, current: int | None = None) -> None:
+    def __init__(self, device: ZendureEntities, uniqueid: str, options: dict[int, str], onchanged: Callable | None, current: int | None = None) -> None:
         """Initialize a select entity."""
         super().__init__(device, uniqueid, options, onchanged, current)
 

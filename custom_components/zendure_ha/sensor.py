@@ -9,12 +9,13 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.template import Template
 from homeassistant.util import dt as dt_util
 
-from .entity import EntityDevice, EntityZendure
+from .entity import ZendureEntities, ZendureEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,12 +25,16 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, as
     ZendureSensor.add = async_add_entities
 
 
-class ZendureSensor(EntityZendure, SensorEntity):
+class ZendureSensor(ZendureEntity, SensorEntity):
     add: AddEntitiesCallback
+
+    temp: Template
+    volt: Template
+    curr: Template
 
     def __init__(
         self,
-        device: EntityDevice,
+        device: ZendureEntities,
         uniqueid: str,
         template: Template | None = None,
         uom: str | None = None,
@@ -42,16 +47,14 @@ class ZendureSensor(EntityZendure, SensorEntity):
     ) -> None:
         """Initialize a Zendure entity."""
         super().__init__(device, uniqueid, "sensor")
-        self.entity_description = SensorEntityDescription(
-            key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon
-        )
+        self.entity_description = SensorEntityDescription(key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon)
         self._value_template: Template | None = template
         if precision is not None:
             self._attr_suggested_display_precision = precision
         if state is not None:
             self._attr_native_value = state
         self.factor = factor
-        device.add_entity(self.add, self)
+        self.add([self])
 
     def update_value(self, value: Any) -> bool:
         try:
@@ -88,13 +91,26 @@ class ZendureSensor(EntityZendure, SensorEntity):
             return 0
         return int(self._attr_native_value / self.factor) if isinstance(self._attr_native_value, (int, float)) else 0
 
+    @property
+    def hidden(self) -> bool:
+        return self.registry_entry is None or self.registry_entry.hidden
+
+    @hidden.setter
+    def hidden(self, value: bool) -> None:
+        if self.registry_entry is not None:
+            entity_registry = er.async_get(self.hass)
+            entity_registry.async_update_entity(
+                entity_id=self.registry_entry.entity_id,
+                hidden_by=er.RegistryEntryHider.INTEGRATION if value else None,
+            )
+
 
 class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
     """Representation of a Zendure sensor entity with restore."""
 
     def __init__(
         self,
-        device: EntityDevice,
+        device: ZendureEntities,
         uniqueid: str,
         template: Template | None = None,
         uom: str | None = None,
@@ -149,7 +165,7 @@ class ZendureCalcSensor(ZendureSensor):
 
     def __init__(
         self,
-        device: EntityDevice,
+        device: ZendureEntities,
         uniqueid: str,
         calculate: Callable[[Any], Any] | None = None,
         uom: str | None = None,
@@ -177,15 +193,10 @@ class ZendureCalcSensor(ZendureSensor):
             _LOGGER.error(traceback.format_exc())
         return False
 
-    def calculate_version(self, value: Any) -> Any:
-        """Calculate the version from the value."""
-        version = int(value)
-        version = f"v{(version & 0xF000) >> 12}.{(version & 0x0F00) >> 8}.{version & 0x00FF}" if version != 0 else "not provided"
-        if (
-            self._attr_translation_key in {"soft_version", "master_soft_version"}
-            and self.device_info is not None
-            and self.device_info.get("sw_version") != version
-        ):
-            self.device.updateVersion(version)
-
-        return version
+    # def calculate_version(self, value: Any) -> Any:
+    #     """Calculate the version from the value."""
+    #     version = int(value)
+    #     version = f"v{(version & 0xF000) >> 12}.{(version & 0x0F00) >> 8}.{version & 0x00FF}" if version != 0 else "not provided"
+    #     if self._attr_translation_key in {"soft_version", "master_soft_version"} and self.device_info is not None and self.device_info.get("sw_version") != version:
+    #         self.device.updateVersion(version)
+    #     return version

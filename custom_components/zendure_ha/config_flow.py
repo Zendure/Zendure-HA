@@ -2,32 +2,30 @@
 
 from __future__ import annotations
 
+import dis
 import logging
 from typing import Any
 
 import voluptuous as vol
+from homeassistant.components import mqtt
+from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
+from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import Api
 from .const import (
     CONF_APPTOKEN,
-    CONF_MQTTLOCAL,
-    CONF_MQTTLOG,
-    CONF_MQTTPORT,
-    CONF_MQTTPSW,
-    CONF_MQTTSERVER,
-    CONF_MQTTUSER,
     CONF_P1METER,
-    CONF_SIM,
     CONF_WIFIPSW,
     CONF_WIFISSID,
     DOMAIN,
 )
-from .manager import ZendureConfigEntry
+from .coordinator import ZendureConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,22 +37,8 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     _input_data: dict[str, Any]
     data_schema = vol.Schema(
         {
-            vol.Required(CONF_APPTOKEN): str,
+            vol.Optional(CONF_APPTOKEN): str,
             vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): selector.EntitySelector(),
-            vol.Required(CONF_MQTTLOG): bool,
-            vol.Required(CONF_MQTTLOCAL): bool,
-        }
-    )
-    mqtt_schema = vol.Schema(
-        {
-            vol.Required(CONF_MQTTSERVER): str,
-            vol.Required(CONF_MQTTPORT, default=1883): int,
-            vol.Required(CONF_MQTTUSER): str,
-            vol.Optional(CONF_MQTTPSW): selector.TextSelector(
-                selector.TextSelectorConfig(
-                    type=selector.TextSelectorType.PASSWORD,
-                ),
-            ),
             vol.Optional(CONF_WIFISSID): str,
             vol.Optional(CONF_WIFIPSW): selector.TextSelector(
                 selector.TextSelectorConfig(
@@ -71,41 +55,26 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step when user initializes a integration."""
         errors: dict[str, str] = {}
+        await self.async_set_unique_id("Zendure", raise_on_progress=False)
+        self._abort_if_unique_id_configured()
         if user_input is not None:
             self._user_input = user_input
 
             try:
-                if await Api.Connect(self.hass, self._user_input, False) is None:
-                    errors["base"] = "invalid input"
-                else:
-                    localmqtt = user_input[CONF_MQTTLOCAL]
-                    if localmqtt:
-                        return await self.async_step_local()
+                try:
+                    if not mqtt.is_connected(self.hass):
+                        return self.async_abort(reason="mqtt_not_connected")
+                except KeyError:
+                    return self.async_abort(reason="mqtt_not_configured")
 
-                    await self.async_set_unique_id("Zendure", raise_on_progress=False)
-                    self._abort_if_unique_id_configured()
-                    return self.async_create_entry(title="Zendure", data=self._user_input)
+                await self.async_set_unique_id("Zendure", raise_on_progress=False)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(title="Zendure", data=self._user_input)
 
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
 
         return self.async_show_form(step_id="user", data_schema=self.data_schema, errors=errors)
-
-    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
-        if user_input is not None and user_input.get(CONF_MQTTSERVER, None) is not None:
-            try:
-                self._user_input = self._user_input | user_input if self._user_input else user_input
-                if await Api.Connect(self.hass, self._user_input, False) is None:
-                    errors["base"] = "invalid input"
-            except Exception as err:  # pylint: disable=broad-except
-                errors["base"] = f"invalid input {err}"
-            else:
-                await self.async_set_unique_id("Zendure", raise_on_progress=False)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title="Zendure", data=self._user_input)
-
-        return self.async_show_form(step_id="local", data_schema=self.mqtt_schema, errors=errors)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Add reconfigure step to allow to reconfigure a config entry."""
@@ -147,6 +116,21 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return await self.async_step_confirm()
 
+    async def async_step_bluetooth(self, discovery_info: BluetoothServiceInfoBleak) -> ConfigFlowResult:
+        """Handle a discovered Bluetooth device."""
+        if len(entries := self._async_current_entries()) == 0 or discovery_info.manufacturer_id is None:
+            return self.async_abort(reason="single_instance_allowed")
+
+        sn = discovery_info.manufacturer_data.get(discovery_info.manufacturer_id, b"").decode("utf8")[:-1]
+        device_registry = dr.async_get(self.hass)
+        for d in dr.async_entries_for_config_entry(device_registry, entries[0].entry_id):
+            if d.serial_number and d.serial_number.endswith(sn):
+                device_registry.async_update_device(d.id, merge_connections={(CONNECTION_BLUETOOTH, discovery_info.address)})
+                # return self.async_abort(reason="already_configured")
+
+        await Api.IotToHA(discovery_info)
+        return self.async_abort(reason="unknown")
+
     @staticmethod
     @callback
     def async_get_options_flow(_config_entry: ZendureConfigEntry) -> ZendureOptionsFlowHandler:
@@ -162,13 +146,17 @@ class ZendureOptionsFlowHandler(OptionsFlow):
         if user_input is not None:
             data = self.config_entry.data | user_input
             self.hass.config_entries.async_update_entry(self.config_entry, data=data)
-            return self.async_create_entry(title="", data=data)
+            return self.async_create_entry(title="Zendure", data=data)
 
         options_schema = vol.Schema(
             {
                 vol.Required(CONF_P1METER, default=self.config_entry.data[CONF_P1METER]): str,
-                vol.Required(CONF_MQTTLOG, default=self.config_entry.data[CONF_MQTTLOG]): bool,
-                vol.Optional(CONF_SIM, default=self.config_entry.data.get(CONF_SIM, False)): bool,
+                vol.Optional(CONF_WIFISSID): str,
+                vol.Optional(CONF_WIFIPSW): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        type=selector.TextSelectorType.PASSWORD,
+                    ),
+                ),
             }
         )
 

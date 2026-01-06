@@ -1,13 +1,15 @@
-"""Initialize the Zendure component."""
+# """Initialize the Zendure component."""
 
 import logging
 
+from homeassistant.components import mqtt
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.template import Template
 
-from .api import Api
-from .const import CONF_MQTTLOG, CONF_P1METER, CONF_SIM
-from .manager import ZendureConfigEntry, ZendureManager
+from .coordinator import ZendureConfigEntry, ZendureCoordinator
+from .sensor import ZendureSensor
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
 
@@ -16,21 +18,20 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
     """Set up Zendure as config entry."""
+    if not await mqtt.async_wait_for_mqtt_client(hass):
+        _LOGGER.error("MQTT integration not available")
+        raise ConfigEntryNotReady("MQTT integration not available")
+
+    ZendureSensor.temp = Template("{{ (value | float - 2731) / 10 | round(1) }}", hass)
+    ZendureSensor.volt = Template("{{ value / 100 if (value | int) < 32768 else (value | bitwise_xor(0x8000 | int) - 0x8000 | int) / 100 }}", hass)
+    ZendureSensor.curr = Template("{{ value / 10 if (value | int) < 32768 else (value | bitwise_xor(0x8000 | int) - 0x8000 | int) / 10 }}", hass)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    manager = ZendureManager(hass, entry)
-    await manager.loadDevices()
-    entry.runtime_data = manager
-    await manager.async_config_entry_first_refresh()
-    entry.async_on_unload(entry.add_update_listener(update_listener))
+    coordinator = ZendureCoordinator(hass, entry)
+    entry.runtime_data = coordinator
+    await coordinator.async_config_entry_first_refresh()
+    entry.async_on_unload(entry.add_update_listener(coordinator.async_update))
     return True
-
-
-async def update_listener(_hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
-    """Handle options update."""
-    _LOGGER.debug("Updating Zendure config entry: %s", entry.entry_id)
-    Api.mqttLogging = entry.data.get(CONF_MQTTLOG, False)
-    ZendureManager.simulation = entry.data.get(CONF_SIM, False)
-    entry.runtime_data.update_p1meter(entry.data.get(CONF_P1METER, "sensor.power_actual"))
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
@@ -38,16 +39,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> 
     _LOGGER.debug("Unloading Zendure config entry: %s", entry.entry_id)
     result = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if result:
-        manager = entry.runtime_data
-        if Api.mqttCloud.is_connected():
-            Api.mqttCloud.disconnect()
-        if Api.mqttLocal.is_connected():
-            Api.mqttLocal.disconnect()
-        for c in Api.devices.values():
-            if c.zendure is not None and c.zendure.is_connected():
-                c.zendure.disconnect()
-            c.zendure = None
-        manager.update_p1meter(None)
-        manager.fuseGroups.clear()
-        manager.devices.clear()
+        await entry.runtime_data.async_unload()
     return result

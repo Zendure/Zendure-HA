@@ -1,16 +1,16 @@
-"""Module for the Hyper2000 device integration in Home Assistant."""
+"""Module for the SuperBaseV4600 device integration in Home Assistant."""
 
 import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.zendure_ha.device import ZendureLegacy
+from custom_components.zendure_ha.device import ZendureDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SuperBaseV4600(ZendureLegacy):
+class SuperBaseV4600(ZendureDevice):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any, parent: str | None = None) -> None:
         """Initialise SuperBaseV4600."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition, parent)

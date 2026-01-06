@@ -4,12 +4,18 @@
   "after_dependencies": [
     "zeroconf"
   ],
+  "bluetooth": [
+    {
+      "local_name": "Zen*"
+    }
+  ],
   "codeowners": [
     "@fireson"
   ],
   "config_flow": true,
   "dependencies": [
     "bluetooth",
+    "bluetooth_adapters",
     "mqtt"
   ],
   "documentation": "https://github.com/zendure/zendure-ha",
@@ -20,7 +26,7 @@
     "paho-mqtt==2.1.0",
     "stringcase==1.2.0"
   ],
-  "single_config_entry": true,
+  "single_config_entry": false,
   "version": "1.1.4",
   "zeroconf": [
     {
