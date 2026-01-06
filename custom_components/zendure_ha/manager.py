@@ -23,7 +23,6 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, call
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
-from homeassistant.helpers.entity import EntityCategory
 
 from .api import Api
 from .const import CONF_P1METER, CONF_POWER_START, CONF_POWER_TOLERANCE, DOMAIN, DeviceState, ManagerMode, ManagerState, SmartMode
@@ -156,7 +155,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             1,
             True,
         )
-        self.power_start._attr_entity_category = EntityCategory.CONFIG
         self.power_start._attr_native_value = SmartMode.POWER_START
 
         self.power_tolerance = ZendureNumber(
@@ -172,7 +170,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             1,
             True,
         )
-        self.power_tolerance._attr_entity_category = EntityCategory.CONFIG
         self.power_tolerance._attr_native_value = SmartMode.POWER_TOLERANCE
 
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
