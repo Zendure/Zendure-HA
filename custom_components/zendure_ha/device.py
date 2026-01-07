@@ -13,6 +13,7 @@ from paho.mqtt import client as mqtt_client
 
 from .battery import ZendureBattery
 from .binary_sensor import ZendureBinarySensor
+from .const import SmartMode
 from .entity import ZendureEntities, ZendureEntity
 from .number import ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
@@ -49,34 +50,34 @@ class ZendureDevice(ZendureEntities):
         self.charge_limit = 0
         self.charge_optimal = 0
         self.charge_start = 0
+        self.power = 0
         self.fuseGrp: FuseGroup | None = None
         self.entityCreate()
 
     def entityCreate(self) -> None:
         """Create the device entities."""
         self.electricLevel = ZendureSensor(self, "electricLevel", None, "%", "battery", "measurement")
-        self.gridInputPower = ZendureSensor(self, "gridInputPower", None, "W", "power", "measurement")
-        self.solarInputPower = ZendureSensor(self, "solarInputPower", None, "W", "power", "measurement", icon="mdi:solar-panel")
-        self.outputPackPower = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
-        self.packInputPower = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
-        self.outputHomePower = ZendureSensor(self, "outputHomePower", None, "W", "power", "measurement")
+        self.homePower = ZendureSensor(self, "homePower", None, "W", "power", "measurement")
+        self.batteryPower = ZendureSensor(self, "batteryPower", None, "W", "power", "measurement")
+        self.solarPower = ZendureSensor(self, "solarPower", None, "W", "power", "measurement", icon="mdi:solar-panel")
+        self.offGrid: ZendureSensor | None = None
+
         self.socStatus = ZendureSensor(self, "socStatus", state=0)
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
+
+        self.minSoc = ZendureNumber(self, "socMin", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
+        self.socSet = ZendureNumber(self, "socMax", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
+        self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
+        self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.discharge_limit, 0, NumberMode.SLIDER)
+        self.inputLimit = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.charge_limit, 0, NumberMode.SLIDER)
+
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
         self.remainingTime.hidden = True
-
-        self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.discharge_limit, 0, NumberMode.SLIDER)
-        self.inputLimit = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.charge_limit, 0, NumberMode.SLIDER)
-        self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-        self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-
         self.byPass = ZendureBinarySensor(self, "pass")
         self.hemsState = ZendureBinarySensor(self, "hemsState")
-
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", self.fuseGroups, None)
-        self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
 
         self.aggrCharge = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
@@ -91,6 +92,18 @@ class ZendureDevice(ZendureEntities):
         def update_entity(key: str, value: Any) -> None:
             if entity := self.__dict__.get(key):
                 entity.update_value(value)
+            else:
+                match key:
+                    case "outputHomePower":
+                        self.homePower.update_value(value)
+                    case "gridInputPower":
+                        self.homePower.update_value(-value)
+                    case "outputPackPower":
+                        self.batteryPower.update_value(value)
+                    case "packInputPower":
+                        self.batteryPower.update_value(-value)
+                    case "solarInputPower":
+                        self.solarPower.update_value(value)
 
         if (properties := payload.get("properties")) and len(properties) > 0:
             for key, value in properties.items():
@@ -115,7 +128,7 @@ class ZendureDevice(ZendureEntities):
 
         property_name = entity.unique_id[(len(self.name) + 1) :]
         _LOGGER.info(f"Writing property {self.name} {property_name} => {value}")
-        self.mqttPublish(f"iot/{self.prodKey}/{self.deviceId}/properties/write", {"properties": {property_name: value}})
+        self.mqttWrite({"properties": {property_name: value}})
 
     def mqttPublish(self, topic: str, command: Any) -> None:
         self._messageid += 1
@@ -127,6 +140,9 @@ class ZendureDevice(ZendureEntities):
 
     def mqttInvoke(self, command: Any) -> None:
         self.mqttPublish(self.topic_function, command)
+
+    def mqttWrite(self, command: Any) -> None:
+        self.mqttPublish(self.topic_write, command)
 
     def mqttRegister(self, payload: dict) -> None:
         """Handle device registration."""
@@ -198,29 +214,18 @@ class ZendureDevice(ZendureEntities):
         except Exception as err:
             _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", self.name, self.deviceId, err, exc_info=True)
 
-    async def charge(self, _power: int) -> int:
+    def power(self, power: int) -> int:
+        """Set charge/discharge power."""
+        if abs(power - self.homePower.asInt) <= SmartMode.POWER_TOLERANCE:
+            _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
+            return self.homePower.asInt
+        return self._power_update(power)
+
+    def _power_update(self, power: int) -> int:
         """Set the power output/input."""
-        return 0
-
-    async def power_charge(self, power: int) -> int:
-        """Set charge power."""
-        power = min(0, max(power, self.charge_limit))
-        # if abs(power - self.homeInput.asInt + self.homeOutput.asInt) <= SmartMode.POWER_TOLERANCE:
-        #     _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
-        #     return self.homeInput.asInt
-        return await self.charge(power)
-
-    async def discharge(self, _power: int) -> int:
-        """Set the power output/input."""
-        return 0
-
-    async def power_discharge(self, power: int) -> int:
-        """Set discharge power."""
-        power = max(0, min(power, self.discharge_limit))
-        # if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
-        #     _LOGGER.info(f"Power discharge {self.name} => no action [power {power}]")
-        #     return self.homeOutput.asInt
-        return await self.discharge(power)
+        self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 1 if power >= 0 else 2, "outputLimit": max(0, power), "inputLimit": min(0, power)}})
+        return power
 
     async def power_off(self) -> None:
         """Set the power off."""
+        self.mqttWrite({"properties": {"smartMode": 0, "acMode": 1, "outputLimit": 0, "inputLimit": 0}})

@@ -80,6 +80,7 @@ class ZendureEntities:
 
         self._messageid = 0
         self.topic_function = f"iot/{model_id}/{self.deviceId}/function/invoke"
+        self.topic_write = f"iot/{model_id}/{self.deviceId}/function/invoke"
 
     def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
