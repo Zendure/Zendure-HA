@@ -359,11 +359,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # reflect clamp in UI
         entity._attr_native_value = SmartMode.POWER_START
-        entity.schedule_update_ha_state()
+        if entity.hass and entity.hass.loop.is_running():
+            entity.schedule_update_ha_state()
         if self.power_tolerance is not None:
             self.power_tolerance.update_range(5, tol_max)
             self.power_tolerance._attr_native_value = SmartMode.POWER_TOLERANCE
-            self.power_tolerance.schedule_update_ha_state()
+            if self.power_tolerance.hass and self.power_tolerance.hass.loop.is_running():
+                self.power_tolerance.schedule_update_ha_state()
 
     async def update_power_tolerance(self, entity: ZendureNumber, value: Any) -> None:
         tol_max = self._max_power_tolerance(SmartMode.POWER_START)
@@ -376,7 +378,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         entity.update_range(5, tol_max)
         entity._attr_native_value = power_tolerance
-        entity.schedule_update_ha_state()
+        if entity.hass and entity.hass.loop.is_running():
+            entity.schedule_update_ha_state()
 
 
     def update_p1meter(self, p1meter: str | None) -> None:
