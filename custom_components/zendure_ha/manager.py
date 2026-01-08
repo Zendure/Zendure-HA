@@ -100,7 +100,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
         start_raw = self.config_entry.options.get(CONF_POWER_START, SmartMode.POWER_START)
         tol_raw = self.config_entry.options.get(CONF_POWER_TOLERANCE, SmartMode.POWER_TOLERANCE)
-        power_start = max(50, min(self._coerce_int(start_raw, SmartMode.POWER_START), 12000))
+        power_start = max(50, self._coerce_int(start_raw, SmartMode.POWER_START))
         tol_max = self._max_power_tolerance(power_start)
         power_tolerance = max(5, min(self._coerce_int(tol_raw, SmartMode.POWER_TOLERANCE), tol_max))
         SmartMode.POWER_START = power_start
@@ -134,7 +134,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             None,
             "W",
             "power",
-            12000,
+            999999,
             50,
             NumberMode.BOX,
             True,
@@ -345,7 +345,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self._schedule_refresh()
 
     async def update_power_start(self, entity: ZendureNumber, value: Any) -> None:
-        power_start = max(50, min(self._coerce_int(value, SmartMode.POWER_START), 12000))
+        power_start = max(50, self._coerce_int(value, SmartMode.POWER_START))
         SmartMode.POWER_START = power_start
 
         tol_max = self._max_power_tolerance(power_start)
