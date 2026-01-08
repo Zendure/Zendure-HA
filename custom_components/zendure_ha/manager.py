@@ -80,9 +80,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.idle_lvlmin = 0
         self.produced = 0
         self.pwr_low = 0
-
-        self.power_start: ZendureNumber | None = None
-        self.power_tolerance: ZendureNumber | None = None
+        self.power_start: ZendureRestoreNumber | None = None
+        self.power_tolerance: ZendureRestoreNumber | None = None
 
     @staticmethod
     def _coerce_int(value: object, default: int) -> int:
@@ -95,19 +94,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
     def _max_power_tolerance(power_start: int) -> int:
         return max(5, power_start - 10)
 
-    def _persist_power_thresholds(self, power_start: int, power_tolerance: int) -> None:
-        if self.config_entry is None:
-            return
-        options = dict(self.config_entry.options)
-        changed = False
-        if options.get(CONF_POWER_START) != power_start:
-            options[CONF_POWER_START] = power_start
-            changed = True
-        if options.get(CONF_POWER_TOLERANCE) != power_tolerance:
-            options[CONF_POWER_TOLERANCE] = power_tolerance
-            changed = True
-        if changed:
-            self.hass.config_entries.async_update_entry(self.config_entry, options=options)
 
     def _load_power_thresholds(self) -> None:
         if self.config_entry is None:
@@ -119,7 +105,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         power_tolerance = max(5, min(self._coerce_int(tol_raw, SmartMode.POWER_TOLERANCE), tol_max))
         SmartMode.POWER_START = power_start
         SmartMode.POWER_TOLERANCE = power_tolerance
-        self._persist_power_thresholds(power_start, power_tolerance)
 
 
     async def loadDevices(self) -> None:
@@ -142,7 +127,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         tol_max = self._max_power_tolerance(SmartMode.POWER_START)
 
-        self.power_start = ZendureNumber(
+        self.power_start = ZendureRestoreNumber(
             self,
             "power_start",
             self.update_power_start,
@@ -152,12 +137,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             5000,
             50,
             NumberMode.BOX,
-            1,
             True,
         )
         self.power_start._attr_native_value = SmartMode.POWER_START
 
-        self.power_tolerance = ZendureNumber(
+        self.power_tolerance = ZendureRestoreNumber(
             self,
             "power_tolerance",
             self.update_power_tolerance,
@@ -167,7 +151,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             tol_max,
             5,
             NumberMode.BOX,
-            1,
             True,
         )
         self.power_tolerance._attr_native_value = SmartMode.POWER_TOLERANCE
@@ -374,8 +357,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             )
             SmartMode.POWER_TOLERANCE = tol_max
 
-        self._persist_power_thresholds(SmartMode.POWER_START, SmartMode.POWER_TOLERANCE)
-
         # reflect clamp in UI
         entity._attr_native_value = SmartMode.POWER_START
         entity.schedule_update_ha_state()
@@ -392,7 +373,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             _LOGGER.warning("POWER_TOLERANCE clamped from %s to %s", requested, power_tolerance)
 
         SmartMode.POWER_TOLERANCE = power_tolerance
-        self._persist_power_thresholds(SmartMode.POWER_START, power_tolerance)
 
         entity.update_range(5, tol_max)
         entity._attr_native_value = power_tolerance
