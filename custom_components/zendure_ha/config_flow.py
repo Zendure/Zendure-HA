@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dis
 import logging
 from typing import Any
 
@@ -11,11 +10,9 @@ from homeassistant.components import mqtt
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import Api
 from .const import (
@@ -110,12 +107,6 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
-        """Handle a flow initialized by zeroconf discovery."""
-        await self.async_set_unique_id("Zendure", raise_on_progress=False)
-
-        return await self.async_step_confirm()
-
     async def async_step_bluetooth(self, discovery_info: BluetoothServiceInfoBleak) -> ConfigFlowResult:
         """Handle a discovered Bluetooth device."""
         if len(entries := self._async_current_entries()) == 0 or discovery_info.manufacturer_id is None:
@@ -126,7 +117,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         for d in dr.async_entries_for_config_entry(device_registry, entries[0].entry_id):
             if d.serial_number and d.serial_number.endswith(sn):
                 device_registry.async_update_device(d.id, merge_connections={(CONNECTION_BLUETOOTH, discovery_info.address)})
-                # return self.async_abort(reason="already_configured")
+                return self.async_abort(reason="already_configured")
 
         await Api.IotToHA(discovery_info)
         return self.async_abort(reason="unknown")
@@ -164,11 +155,3 @@ class ZendureOptionsFlowHandler(OptionsFlow):
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(options_schema, self.config_entry.data),
         )
-
-
-class ZendureConnectionError(HomeAssistantError):
-    """Error to indicate there is a connection issue with Zendure Integration."""
-
-    def __init__(self) -> None:
-        """Initialize the connection error."""
-        super().__init__("Zendure Integration")

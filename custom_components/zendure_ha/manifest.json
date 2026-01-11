@@ -1,9 +1,6 @@
 {
   "domain": "zendure_ha",
   "name": "Zendure Home Assistant Integration",
-  "after_dependencies": [
-    "zeroconf"
-  ],
   "bluetooth": [
     {
       "local_name": "Zen*"
@@ -27,14 +24,5 @@
     "stringcase==1.2.0"
   ],
   "single_config_entry": false,
-  "version": "1.1.4",
-  "zeroconf": [
-    {
-      "name": "zendure*",
-      "type": "_http._tcp.local."
-    },
-    {
-      "type": "_zendure._tcp.local."
-    }
-  ]
+  "version": "0.0.0"
 }

@@ -27,6 +27,7 @@ from .devices.solarflow800Pro import SolarFlow800Pro
 from .devices.solarflow2400ac import SolarFlow2400AC
 from .devices.superbasev4600 import SuperBaseV4600
 from .devices.superbasev6400 import SuperBaseV6400
+from .distribution import Distribution
 from .entity import ZendureEntities
 from .fusegroup import FuseGroup
 from .number import ZendureRestoreNumber
@@ -72,12 +73,13 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         ZendureEntities.__init__(self, self.hass, "Zendure Coordinator", "Zendure Coordinator")
 
         self.operation: ManagerMode = ManagerMode.OFF
+        self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
+        self.distribution = Distribution(self.hass, entry.data.get("p1meter", ""), self.power)
         self.operationmode = ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging"}, self.update_operation)
         self.operationstate = ZendureSensor(self, "operation_state")
         self.bypassmode = ZendureRestoreSelect(self, "Bypass", {0: "never", 1: "house", 2: "grid"}, self.update_bypass)
         self.manualpower = ZendureRestoreNumber(self, "manual_power", self.update_manualpower, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
-        self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
         self.devices: dict[str, ZendureEntities] = {}
         self.fuseGroups: list[FuseGroup] = []
 
@@ -92,7 +94,10 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                     if prod := self.models.get(model_key):
                         sn = d.serial_number
                         deviceId = d.hw_version
-                        self.devices[deviceId] = prod[1](self.hass, f"Zen{sn[:2]}{sn[-2:]}", deviceId, sn, prod[0], d.model_id)
+                        device = prod[1](self.hass, f"Zen{sn[:2]}{sn[-2:]}", deviceId, sn, prod[0], d.model_id)
+                        self.devices[deviceId] = device
+                        if isinstance(device, ZendureDevice):
+                            self.distribution.devices.append(device)
         except Exception:
             _LOGGER.exception("Unexpected error in MQTT message handler")
         await self.update_fusegroups()
@@ -128,6 +133,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
 
     async def update_operation(self, entity: ZendureRestoreSelect, _operation: Any) -> None:
         operation = ManagerMode(entity.value)
+        self.distribution.operation = operation
         _LOGGER.info(f"Update operation: {operation} from: {self.operation}")
 
         # self.operation = operation
@@ -146,10 +152,8 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
     async def update_bypass(self, _entity: ZendureRestoreSelect, _operation: Any) -> None:
         _LOGGER.info("Update bypass")
 
-    async def update_manualpower(self, _entity: Any, _power: Any) -> None:
-        if self.operation == ManagerMode.MANUAL:
-            _LOGGER.info(f"Update manual power: {self.manualpower.value}")
-            # await self.powerChanged(0, False, datetime.now())
+    async def update_manualpower(self, _entity: Any, power: Any) -> None:
+        self.distribution.manualpower = power
 
     async def update_fusegroups(self) -> None:
         _LOGGER.info("Update fusegroups")
@@ -226,7 +230,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                         device.mqttRegister(payload)
 
                 # if self.mqttLogging:
-                _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
+                # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
             elif (lg := payload.get("log", None)) is not None and (sn := lg.get("sn", None)) is not None and (prod := self.models.get(topics[1].lower(), None)) is not None:
                 self.devices[deviceId] = prod[1](self.hass, f"Zen{sn[:2]}{sn[-2:]}", deviceId, sn, prod[0], topics[1])
                 _LOGGER.info("New device found: %s => %s", deviceId, msg.topic)

@@ -50,8 +50,12 @@ class ZendureDevice(ZendureEntities):
         self.charge_limit = 0
         self.charge_optimal = 0
         self.charge_start = 0
-        self.power = 0
+        self.level = 0
         self.fuseGrp: FuseGroup | None = None
+        self.values = [0, 0, 0, 0]
+        self.setpoint = 0
+        self.setpointTime = datetime.min
+        self.power_offset = 0
         self.entityCreate()
 
     def entityCreate(self) -> None:
@@ -90,20 +94,28 @@ class ZendureDevice(ZendureEntities):
         """Handle incoming MQTT message for the device."""
 
         def update_entity(key: str, value: Any) -> None:
-            if entity := self.__dict__.get(key):
-                entity.update_value(value)
-            else:
-                match key:
-                    case "outputHomePower":
-                        self.homePower.update_value(value)
-                    case "gridInputPower":
-                        self.homePower.update_value(-value)
-                    case "outputPackPower":
-                        self.batteryPower.update_value(value)
-                    case "packInputPower":
-                        self.batteryPower.update_value(-value)
-                    case "solarInputPower":
-                        self.solarPower.update_value(value)
+            match key:
+                case "gridInputPower":
+                    self.values[0] = value
+                    self.homePower.update_value(-value + self.values[1])
+                case "outputHomePower":
+                    self.values[1] = value
+                    self.homePower.update_value(-self.values[0] + value)
+                case "outputPackPower":
+                    self.values[2] = value
+                    self.batteryPower.update_value(-value + self.values[3])
+                case "packInputPower":
+                    self.values[3] = value
+                    self.batteryPower.update_value(-self.values[2] + value)
+                case "solarInputPower":
+                    self.solarPower.update_value(value)
+                case "electricLevel":
+                    self.electricLevel.update_value(value)
+                    self.level = (self.electricLevel.asNumber - self.minSoc.asNumber) / 100
+                    self.availableKwh.update_value((self.kWh * self.level) / 100)
+                case _:
+                    if entity := self.__dict__.get(key):
+                        entity.update_value(value)
 
         if (properties := payload.get("properties")) and len(properties) > 0:
             for key, value in properties.items():
@@ -214,18 +226,21 @@ class ZendureDevice(ZendureEntities):
         except Exception as err:
             _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", self.name, self.deviceId, err, exc_info=True)
 
-    def power(self, power: int) -> int:
-        """Set charge/discharge power."""
-        if abs(power - self.homePower.asInt) <= SmartMode.POWER_TOLERANCE:
+    def distribute(self, power: int) -> int:
+        """Set charge/discharge power, but correct for power offset."""
+        pwr = power - self.power_offset
+        if abs(pwr - self.homePower.asInt) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
-            return self.homePower.asInt
-        return self._power_update(power)
+            return self.homePower.asInt + self.power_offset
+        pwr = max(-self.discharge_limit, min(self.charge_limit, pwr))
+        # pwr = self._power_update(pwr)
+        return pwr + self.power_offset
+
+    async def power_off(self) -> None:
+        """Set the power off."""
+        self.mqttWrite({"properties": {"smartMode": 0, "acMode": 1, "outputLimit": 0, "inputLimit": 0}})
 
     def _power_update(self, power: int) -> int:
         """Set the power output/input."""
         self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 1 if power >= 0 else 2, "outputLimit": max(0, power), "inputLimit": min(0, power)}})
         return power
-
-    async def power_off(self) -> None:
-        """Set the power off."""
-        self.mqttWrite({"properties": {"smartMode": 0, "acMode": 1, "outputLimit": 0, "inputLimit": 0}})
