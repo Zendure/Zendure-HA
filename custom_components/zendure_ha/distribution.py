@@ -6,13 +6,12 @@ import logging
 import traceback
 from collections import deque
 from datetime import datetime, timedelta
-from math import sqrt
 from typing import Callable
 
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import ManagerMode
+from .const import ManagerMode, SmartMode
 from .device import ZendureDevice
 from .sensor import ZendureSensor
 
@@ -29,6 +28,7 @@ class Distribution:
     def __init__(self, hass: HomeAssistant, p1meter: str, setPoint: ZendureSensor) -> None:
         """Initialize Zendure Manager."""
         self.hass = hass
+        self.weights: list[Callable[[ZendureDevice], float]] = [self.weightcharge, self.weightdischarge]
         self.setpoint_history: deque[int] = deque([0], maxlen=5)
         self.p1_avg = 0.0
         self.p1_factor = 1
@@ -38,6 +38,7 @@ class Distribution:
         self.operation: ManagerMode = ManagerMode.OFF
         self.manualpower = 0
         self._needs_update = datetime.min
+        self._check_devices = datetime.now() + timedelta(seconds=60)
 
         _LOGGER.debug("Updating P1 meter to: %s", p1meter)
         if p1meter:
@@ -106,18 +107,20 @@ class Distribution:
     def init_distribute(self, setpoint: int) -> tuple[int, int, float, Callable[[ZendureDevice], float]]:
         # update the power
         solar = 0
-        chargelimit = 0
-        dischargelimit = 0
-        chargeWeight = 0
-        dischargeWeight = 0
+        limit = [0, 0]
+        weight = [0.0, 0.0]
+        available = 0
 
         time = datetime.now()
         for d in self.devices:
             if (home := d.homePower.asInt if time > d.power_time else d.power_setpoint) != 0:
-                chargelimit += d.charge_limit
-                dischargelimit += d.discharge_limit
-                chargeWeight += self.weightcharge(d)
-                dischargeWeight += self.weightdischarge(d)
+                limit[0] += d.limit[0]
+                limit[1] += d.limit[1]
+                weight[0] += self.weightcharge(d)
+                weight[1] += self.weightdischarge(d)
+            elif d.level > 0:
+                available += 1
+
             d.power_offset = d.solarPower.asInt
             solar += d.power_offset
             if d.offGrid is not None:
@@ -128,10 +131,25 @@ class Distribution:
                 d.power_offset += min(0, off_grid)
             setpoint += home
 
-        return (setpoint, solar, chargeWeight, self.weightcharge) if setpoint < 0 else (setpoint, solar, dischargeWeight, self.weightdischarge)
+        idx = 0 if setpoint < 0 else 1
+        check = self._check_devices < time
+        if (isLow := 0.20 * limit[idx] > setpoint) and check and available > 0:
+            sorted(self.devices, key=lambda d: d.level, reverse=idx != 1)[0].distribute(0)
+        elif (isHigh := setpoint > limit[idx] * 0.7) and check:
+            for d in sorted(self.devices, key=lambda d: d.level, reverse=idx != 0):
+                d.distribute(SmartMode.POWER_START * (-1 if idx == 0 else 1))
+                limit[idx] += d.limit[idx]
+                if limit[idx] * 0.7 >= setpoint:
+                    break
+        if (not isLow and not isHigh) or check:
+            self._check_devices = time + timedelta(seconds=60)
 
-    def weightcharge(self, d: ZendureDevice) -> float:
-        return d.charge_limit * (d.kWh - d.availableKwh.asNumber) if d.electricLevel.asInt < d.socSet.asNumber else 0.0
+        return (setpoint, solar, weight[idx], self.weights[idx])
 
-    def weightdischarge(self, d: ZendureDevice) -> float:
-        return d.discharge_limit * d.availableKwh.asNumber if d.electricLevel.asInt > d.minSoc.asNumber else 0.0
+    @staticmethod
+    def weightcharge(d: ZendureDevice) -> float:
+        return d.limit[0] * (d.kWh - d.availableKwh.asNumber) if d.electricLevel.asInt < d.socSet.asNumber else 0.0
+
+    @staticmethod
+    def weightdischarge(d: ZendureDevice) -> float:
+        return d.limit[1] * d.availableKwh.asNumber if d.electricLevel.asInt > d.minSoc.asNumber else 0.0

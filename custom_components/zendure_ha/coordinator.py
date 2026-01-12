@@ -192,9 +192,9 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         # check if we can split fuse groups
         self.fuseGroups.clear()
         for fg in fuseGroups.values():
-            if len(fg.devices) > 1 and fg.maxpower >= sum(d.discharge_limit for d in fg.devices) and fg.minpower <= sum(d.charge_limit for d in fg.devices):
+            if len(fg.devices) > 1 and fg.maxpower >= sum(d.limit[1] for d in fg.devices) and fg.minpower <= sum(d.limit[0] for d in fg.devices):
                 for d in fg.devices:
-                    self.fuseGroups.append(FuseGroup(d.name, d.discharge_limit, d.charge_limit, [d]))
+                    self.fuseGroups.append(FuseGroup(d.name, d.limit[1], d.limit[0], [d]))
             else:
                 for d in fg.devices:
                     d.fuseGrp = fg

@@ -79,12 +79,12 @@ class ZendureSmartMeter(ZendureEntities):
     def setLimits(self, charge: int, discharge: int) -> None:
         try:
             """Set the device limits."""
-            self.charge_limit = charge
+            self.limit[0] = charge
             self.charge_optimal = charge // 4
             self.charge_start = charge // 10
             self.inputLimit.update_range(0, abs(charge))
 
-            self.discharge_limit = discharge
+            self.limit[1] = discharge
             self.discharge_optimal = discharge // 4
             self.discharge_start = discharge // 10
             self.outputLimit.update_range(0, discharge)
@@ -129,7 +129,7 @@ class ZendureSmartMeter(ZendureEntities):
 
     async def power_charge(self, power: int) -> int:
         """Set charge power."""
-        power = min(0, max(power, self.charge_limit))
+        power = min(0, max(power, self.limit[0]))
         # if abs(power - self.homeInput.asInt + self.homeOutput.asInt) <= SmartMode.POWER_TOLERANCE:
         #     _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
         #     return self.homeInput.asInt
@@ -141,7 +141,7 @@ class ZendureSmartMeter(ZendureEntities):
 
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
-        power = max(0, min(power, self.discharge_limit))
+        power = max(0, min(power, self.limit[1]))
         # if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
         #     _LOGGER.info(f"Power discharge {self.name} => no action [power {power}]")
         #     return self.homeOutput.asInt

@@ -44,12 +44,7 @@ class ZendureDevice(ZendureEntities):
         self.mqttcloud: mqtt_client.Client
         self.batteries: dict[str, ZendureBattery | None] = {}
         self.kWh = 0.0
-        self.discharge_limit = 0
-        self.discharge_optimal = 0
-        self.discharge_start = 0
-        self.charge_limit = 0
-        self.charge_optimal = 0
-        self.charge_start = 0
+        self.limit = [0, 0]
         self.level = 0
         self.fuseGrp: FuseGroup | None = None
         self.values = [0, 0, 0, 0]
@@ -72,8 +67,8 @@ class ZendureDevice(ZendureEntities):
         self.minSoc = ZendureNumber(self, "socMin", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
         self.socSet = ZendureNumber(self, "socMax", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
         self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
-        self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.discharge_limit, 0, NumberMode.SLIDER)
-        self.inputLimit = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.charge_limit, 0, NumberMode.SLIDER)
+        self.inputLimit = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.limit[0], 0, NumberMode.SLIDER)
+        self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.limit[1], 0, NumberMode.SLIDER)
 
         self.hyperTmp = ZendureSensor(self, "Temp", ZendureSensor.temp, "°C", "temperature", "measurement")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
@@ -183,14 +178,8 @@ class ZendureDevice(ZendureEntities):
     def setLimits(self, charge: int, discharge: int) -> None:
         try:
             """Set the device limits."""
-            self.charge_limit = charge
-            self.charge_optimal = charge // 4
-            self.charge_start = charge // 10
+            self.limit = [charge, discharge]
             self.inputLimit.update_range(0, abs(charge))
-
-            self.discharge_limit = discharge
-            self.discharge_optimal = discharge // 4
-            self.discharge_start = discharge // 10
             self.outputLimit.update_range(0, discharge)
         except Exception:
             _LOGGER.error(f"SetLimits error {self.name} {charge} {discharge}!")
@@ -237,18 +226,18 @@ class ZendureDevice(ZendureEntities):
         _LOGGER.info(f"Power set {self.name} => power {power}")
         if (delta := abs(pwr - self.homePower.asInt)) <= SmartMode.POWER_TOLERANCE:
             return self.homePower.asInt + self.power_offset
-        pwr = min(self.discharge_limit, max(self.charge_limit, pwr))
+        pwr = min(max(self.limit[0], pwr), self.limit[1])
         self.power_setpoint = pwr
         self.power_time = time + timedelta(seconds=1 + delta / 250)
 
-        # pwr = self._power_update(pwr)
+        pwr = self.power_update(pwr)
         return pwr + self.power_offset
 
     async def power_off(self) -> None:
         """Set the power off."""
         self.mqttWrite({"properties": {"smartMode": 0, "acMode": 1, "outputLimit": 0, "inputLimit": 0}})
 
-    def _power_update(self, power: int) -> int:
+    def power_update(self, power: int) -> int:
         """Set the power output/input."""
         self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 1 if power >= 0 else 2, "outputLimit": max(0, power), "inputLimit": min(0, power)}})
         return power
