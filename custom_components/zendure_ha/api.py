@@ -173,6 +173,14 @@ class Api:
 
             result = await session.post(url=f"{api_url}/api/ha/deviceList", json=body, headers=headers)
             data = await result.json()
+            if data.get("code") != 200:
+                _LOGGER.debug(f"Zendure API response: {data.get('code')} Message: {data.get('msg')}")
+            elif data.get("code") == 200 and len(data["data"]["deviceList"]) == 0:
+                _LOGGER.error(f"Zendure API does not reply any devices: {data}")
+                return None
+            elif data.get("code") == 200 and len(data["data"]["mqtt"]) == 0:
+                _LOGGER.error(f"Zendure API does not reply any mqtt info: {data}")
+                return None
             if not data.get("success", False) or (json := data["data"]) is None:
                 return None
             return dict(json)

@@ -123,6 +123,13 @@
       "grid_off_power": {
         "name": "Offgrid-Ausgangsleistung"
       },
+      "plug_state": {
+        "name": "netzunabhängige Steckdose",
+        "state": {
+          "0": "nicht vorhanden",
+          "1": "angeschlossen"
+        }
+      },
       "connection_status": {
         "name": "Verbindungsstatus",
         "state": {

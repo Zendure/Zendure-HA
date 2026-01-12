@@ -116,6 +116,13 @@
       "aggr_solar_total": {
         "name": "Total solaire"
       },
+      "plug_state": {
+        "name": "Multiprise hors réseau",
+        "state": {
+          "0": "pas disponible",
+          "1": "connecté"
+        }
+      },
       "connection_status": {
         "name": "État de la connexion",
         "state": {

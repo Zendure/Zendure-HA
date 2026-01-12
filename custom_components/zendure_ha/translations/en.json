@@ -123,6 +123,13 @@
       "grid_off_power": {
         "name": "Offgrid output power"
       },
+      "plug_state": {
+        "name": "Off-Grid Power Strip",
+        "state": {
+          "0": "not available",
+          "1": "connected"
+        }
+      },
       "connection_status": {
         "name": "Connection Status",
         "state": {
