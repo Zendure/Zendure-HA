@@ -12,7 +12,7 @@ from typing import Callable
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import ManagerMode, ManagerState, SmartMode
+from .const import ManagerMode
 from .device import ZendureDevice
 from .sensor import ZendureSensor
 
@@ -68,6 +68,7 @@ class Distribution:
         # calculate average and delta setpoint
         avg = int(sum(self.setpoint_history) / len(self.setpoint_history))
         if (delta := abs(avg - setpoint)) <= CONST_POWER_NOACTION and self._needs_update > datetime.now():
+            _LOGGER.debug("No significant change in power distribution (delta=%d, avg=%d, setpoint=%d)", delta, avg, setpoint)
             return
         if delta > CONST_POWER_JUMP:
             self.setpoint_history.clear()
@@ -88,15 +89,18 @@ class Distribution:
                 return
 
         # distribute power
+        _LOGGER.info("Distributing power setpoint %dW (solarOnly=%s)", setpoint, solarOnly)
         for d in self.devices:
             if solarOnly:
                 setpoint -= d.distribute(max(setpoint, -d.solarPower.asInt))
-            else:
+            elif d.homePower.asInt != 0:
                 weight = deviceWeight(d)
                 power = int(setpoint * weight / totalweight if totalweight != 0 else setpoint if weight != 0 else 0)
                 power = max(power, setpoint) if setpoint < 0 else min(power, setpoint)
                 setpoint -= d.distribute(power)
-                totalweight -= weight
+                totalweight = round(totalweight - weight, 2)
+            else:
+                d.distribute(0)
         self._needs_update = datetime.now() + timedelta(seconds=30)
 
     def init_distribute(self, setpoint: int) -> tuple[int, int, float, Callable[[ZendureDevice], float]]:
@@ -107,8 +111,9 @@ class Distribution:
         chargeWeight = 0
         dischargeWeight = 0
 
+        time = datetime.now()
         for d in self.devices:
-            if (home := d.homePower.asInt) != 0:
+            if (home := d.homePower.asInt if time > d.power_time else d.power_setpoint) != 0:
                 chargelimit += d.charge_limit
                 dischargelimit += d.discharge_limit
                 chargeWeight += self.weightcharge(d)

@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -36,11 +36,11 @@ class ZendureDevice(ZendureEntities):
 
     fuseGroups: dict[Any, str] = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group800_2400", 4: "group1200", 5: "group2000", 6: "group2400", 7: "group3600"}
 
-    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None = None) -> None:
         """Initialize the Zendure device."""
         from .fusegroup import FuseGroup
 
-        super().__init__(hass, name, model, device_id, device_sn, model_id, parent)
+        super().__init__(hass, model, device_id, device_sn, model_id, parent)
         self.mqttcloud: mqtt_client.Client
         self.batteries: dict[str, ZendureBattery | None] = {}
         self.kWh = 0.0
@@ -53,8 +53,8 @@ class ZendureDevice(ZendureEntities):
         self.level = 0
         self.fuseGrp: FuseGroup | None = None
         self.values = [0, 0, 0, 0]
-        self.setpoint = 0
-        self.setpointTime = datetime.min
+        self.power_setpoint = 0
+        self.power_time = datetime.min
         self.power_offset = 0
         self.entityCreate()
 
@@ -75,6 +75,7 @@ class ZendureDevice(ZendureEntities):
         self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.discharge_limit, 0, NumberMode.SLIDER)
         self.inputLimit = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.charge_limit, 0, NumberMode.SLIDER)
 
+        self.hyperTmp = ZendureSensor(self, "Temp", ZendureSensor.temp, "°C", "temperature", "measurement")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
@@ -112,7 +113,7 @@ class ZendureDevice(ZendureEntities):
                 case "electricLevel":
                     self.electricLevel.update_value(value)
                     self.level = (self.electricLevel.asNumber - self.minSoc.asNumber) / 100
-                    self.availableKwh.update_value((self.kWh * self.level) / 100)
+                    self.availableKwh.update_value(self.kWh * self.level)
                 case _:
                     if entity := self.__dict__.get(key):
                         entity.update_value(value)
@@ -229,10 +230,17 @@ class ZendureDevice(ZendureEntities):
     def distribute(self, power: int) -> int:
         """Set charge/discharge power, but correct for power offset."""
         pwr = power - self.power_offset
-        if abs(pwr - self.homePower.asInt) <= SmartMode.POWER_TOLERANCE:
-            _LOGGER.info(f"Power charge {self.name} => no action [power {power}]")
+        if (time := datetime.now()) < self.power_time:
+            _LOGGER.info(f"Power set ===> setpoint {self.name} => power {power}-{self.power_setpoint}")
+            return self.power_setpoint
+
+        _LOGGER.info(f"Power set {self.name} => power {power}")
+        if (delta := abs(pwr - self.homePower.asInt)) <= SmartMode.POWER_TOLERANCE:
             return self.homePower.asInt + self.power_offset
-        pwr = max(-self.discharge_limit, min(self.charge_limit, pwr))
+        pwr = min(self.discharge_limit, max(self.charge_limit, pwr))
+        self.power_setpoint = pwr
+        self.power_time = time + timedelta(seconds=1 + delta / 250)
+
         # pwr = self._power_update(pwr)
         return pwr + self.power_offset
 

@@ -70,7 +70,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
     def __init__(self, hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Initialize Zendure Coordinator."""
         super().__init__(hass, _LOGGER, name="Zendure Coordinator", update_interval=timedelta(seconds=30), config_entry=entry)
-        ZendureEntities.__init__(self, self.hass, "Zendure Coordinator", "Zendure Coordinator")
+        ZendureEntities.__init__(self, self.hass, "Zendure Coordinator")
 
         self.operation: ManagerMode = ManagerMode.OFF
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
@@ -94,7 +94,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                     if prod := self.models.get(model_key):
                         sn = d.serial_number
                         deviceId = d.hw_version
-                        device = prod[1](self.hass, f"Zen{sn[:2]}{sn[-2:]}", deviceId, sn, prod[0], d.model_id)
+                        device = prod[1](self.hass, deviceId, sn, prod[0], d.model_id)
                         self.devices[deviceId] = device
                         if isinstance(device, ZendureDevice):
                             self.distribution.devices.append(device)
@@ -232,7 +232,9 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                 # if self.mqttLogging:
                 # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
             elif (lg := payload.get("log", None)) is not None and (sn := lg.get("sn", None)) is not None and (prod := self.models.get(topics[1].lower(), None)) is not None:
-                self.devices[deviceId] = prod[1](self.hass, f"Zen{sn[:2]}{sn[-2:]}", deviceId, sn, prod[0], topics[1])
+                self.devices[deviceId] = device = prod[1](self.hass, deviceId, sn, prod[0], topics[1])
+                if isinstance(device, ZendureDevice):
+                    self.distribution.devices.append(device)
                 _LOGGER.info("New device found: %s => %s", deviceId, msg.topic)
             else:
                 _LOGGER.debug("Unknown device: %s => %s", deviceId, msg.topic)

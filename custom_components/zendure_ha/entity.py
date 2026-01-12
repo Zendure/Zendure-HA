@@ -50,12 +50,11 @@ class ZendureEntity(Entity):
 
 
 class ZendureEntities:
-    def __init__(
-        self, hass: HomeAssistant, name: str, model: str, device_id: str | None = None, device_sn: str | None = None, model_id: str | None = None, parent: str | None = None
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, model: str, device_id: str | None = None, device_sn: str | None = None, model_id: str | None = None, parent: str | None = None) -> None:
         """Initialize the Zendure device."""
         self.hass = hass
-        self.name = name
+        self.name = f"{model.replace(' ', '').replace('SolarFlow', 'SF')} {device_sn[-2:] if device_sn is not None else ''}".strip()
+
         self.prodKey = model_id if model_id is not None else ""
         self.deviceId = device_id
         self.lastseen = datetime.min

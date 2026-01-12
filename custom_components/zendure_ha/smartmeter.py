@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 class ZendureSmartMeter(ZendureEntities):
     """Representation of a Zendure smart meter."""
 
-    def __init__(self, hass: HomeAssistant, name: str, device_id: str, device_sn: str, model: str, model_id: str) -> None:
+    def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialize the smart meter device."""
         super().__init__(hass, name, model, device_id, device_sn, model_id)
         self.entityCreate()
