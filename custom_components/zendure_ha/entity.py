@@ -79,7 +79,15 @@ class ZendureEntities:
 
         self._messageid = 0
         self.topic_function = f"iot/{model_id}/{self.deviceId}/function/invoke"
-        self.topic_write = f"iot/{model_id}/{self.deviceId}/function/invoke"
+        self.topic_read = f"iot/{model_id}/{self.deviceId}/properties/read"
+        self.topic_write = f"iot/{model_id}/{self.deviceId}/properties/write"
+        self.ready = datetime.min
+
+    def refresh(self) -> None:
+        return
+
+    def setStatus(self, _lastseen: datetime | None = None) -> None:
+        """Set the device connection status."""
 
     def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""

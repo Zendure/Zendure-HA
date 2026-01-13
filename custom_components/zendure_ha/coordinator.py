@@ -3,7 +3,7 @@
 import json
 import logging
 import traceback
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components import mqtt
@@ -124,8 +124,9 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         _LOGGER.debug("async_unload: %s", self.config_entry.entry_id)
 
     async def _async_update_data(self) -> None:
-        # await asyncio.sleep(2)
         _LOGGER.debug("Updating Zendure coordinator data for entry")
+        for device in self.devices.values():
+            device.refresh()
 
         # Manually update the timer
         if self.hass and self.hass.loop.is_running():
@@ -223,11 +224,16 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                 return
 
             if (device := self.devices.get(deviceId, None)) is not None:
+                device.setStatus(datetime.now())
                 match topics[3]:
                     case "properties/report":
                         device.entityRead(payload)
                     case "register":
                         device.mqttRegister(payload)
+                    case "function/invoke/reply" | "properties/write/reply":
+                        device.ready = datetime.min
+                    case _:
+                        pass
 
                 # if self.mqttLogging:
                 # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)

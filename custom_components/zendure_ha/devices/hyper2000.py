@@ -19,7 +19,6 @@ class Hyper2000(ZendureDevice):
         self.maxSolar = -1600
 
     def power_update(self, power: int) -> int:
-        _LOGGER.info(f"Power charge {self.name} => {power}")
         if power < 0:
             self.mqttInvoke(
                 {

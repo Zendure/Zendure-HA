@@ -25,10 +25,11 @@ _LOGGER = logging.getLogger(__name__)
 class DeviceState(Enum):
     CREATED = 0
     OFFLINE = 1
-    NOFUSEGROUP = 2
-    ACTIVE = 3
-    CALIBRATE = 4
-    HEMS = 5
+    NOBATTERY = 2
+    NOFUSEGROUP = 3
+    ACTIVE = 4
+    CALIBRATE = 5
+    HEMS = 6
 
 
 class ZendureDevice(ZendureEntities):
@@ -72,7 +73,7 @@ class ZendureDevice(ZendureEntities):
 
         self.hyperTmp = ZendureSensor(self, "Temp", ZendureSensor.temp, "°C", "temperature", "measurement")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
-        self.connectionStatus = ZendureSensor(self, "connectionStatus")
+        self.connectionStatus = ZendureSensor(self, "connectionStatus", state=0)
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
         self.remainingTime.hidden = True
         self.byPass = ZendureBinarySensor(self, "pass")
@@ -89,6 +90,11 @@ class ZendureDevice(ZendureEntities):
     def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
 
+        def home(value: int) -> None:
+            if abs(value - self.power_setpoint) < 20:
+                self.power_time = datetime.min
+            self.homePower.update_value(value)
+
         def update_entity(key: str, value: Any) -> None:
             match key:
                 case "gridInputPower":
@@ -96,10 +102,10 @@ class ZendureDevice(ZendureEntities):
                     self.homePower.update_value(-value + self.values[1])
                 case "outputHomePower":
                     self.values[1] = value
-                    self.homePower.update_value(-self.values[0] + value)
+                    home(-self.values[0] + value)
                 case "outputPackPower":
                     self.values[2] = value
-                    self.batteryPower.update_value(-value + self.values[3])
+                    home(-value + self.values[3])
                 case "packInputPower":
                     self.values[3] = value
                     self.batteryPower.update_value(-self.values[2] + value)
@@ -148,9 +154,11 @@ class ZendureDevice(ZendureEntities):
 
     def mqttInvoke(self, command: Any) -> None:
         self.mqttPublish(self.topic_function, command)
+        self.ready = datetime.now() + timedelta(seconds=1)
 
     def mqttWrite(self, command: Any) -> None:
         self.mqttPublish(self.topic_write, command)
+        self.ready = datetime.now() + timedelta(seconds=1)
 
     def mqttRegister(self, payload: dict) -> None:
         """Handle device registration."""
@@ -159,21 +167,32 @@ class ZendureDevice(ZendureEntities):
         else:
             _LOGGER.warning(f"MQTT register failed for device {self.name}: no token in payload")
 
-    def setStatus(self) -> None:
+    def refresh(self) -> None:
+        self.setStatus()
+        self.mqttPublish(self.topic_read, {"properties": ["getAll"]})
+
+    @property
+    def status(self) -> DeviceState:
+        return DeviceState(self.connectionStatus.asInt)
+
+    def setStatus(self, lastseen: datetime | None = None) -> None:
         """Set the device connection status."""
         try:
-            if self.lastseen == datetime.min:
-                self.connectionStatus.update_value(0)
-            elif self.socStatus.asInt == 1:
-                self.connectionStatus.update_value(1)
+            if lastseen is not None:
+                self.lastseen = lastseen
+                self.connectionStatus.update_value(DeviceState.ACTIVE.value)
+            elif self.lastseen <= datetime.now() - timedelta(minutes=2):
+                self.connectionStatus.update_value(DeviceState.ACTIVE.value)
+            elif self.kWh == 0.0:
+                self.connectionStatus.update_value(DeviceState.NOBATTERY.value)
             elif self.hemsState.is_on:
-                self.connectionStatus.update_value(2)
+                self.connectionStatus.update_value(DeviceState.HEMS.value)
             elif self.fuseGroup.value == 0:
-                self.connectionStatus.update_value(3)
+                self.connectionStatus.update_value(DeviceState.NOFUSEGROUP.value)
             else:
-                self.connectionStatus.update_value(10)
+                self.connectionStatus.update_value(DeviceState.ACTIVE.value)
         except Exception:
-            self.connectionStatus.update_value(0)
+            self.connectionStatus.update_value(DeviceState.OFFLINE.value)
 
     def setLimits(self, charge: int, discharge: int) -> None:
         try:
@@ -220,7 +239,7 @@ class ZendureDevice(ZendureEntities):
         """Set charge/discharge power, but correct for power offset."""
         pwr = power - self.power_offset
         if (time := datetime.now()) < self.power_time:
-            _LOGGER.info(f"Power set ===> setpoint {self.name} => power {power}-{self.power_setpoint}")
+            _LOGGER.info(f"Power set ===> setpoint {self.name} => power {self.power_setpoint}")
             return self.power_setpoint
 
         _LOGGER.info(f"Power set {self.name} => power {power}")
