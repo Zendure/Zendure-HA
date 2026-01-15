@@ -91,7 +91,7 @@ class ZendureDevice(ZendureEntities):
         """Handle incoming MQTT message for the device."""
 
         def home(value: int) -> None:
-            if abs(value - self.power_setpoint) < 20:
+            if self.power_time > datetime.min and abs(value - self.power_setpoint) < 20:
                 self.power_time = datetime.min
             self.homePower.update_value(value)
 
@@ -113,8 +113,8 @@ class ZendureDevice(ZendureEntities):
                     self.solarPower.update_value(value)
                 case "electricLevel":
                     self.electricLevel.update_value(value)
-                    self.level = (self.electricLevel.asNumber - self.minSoc.asNumber) / 100
-                    self.availableKwh.update_value(self.kWh * self.level)
+                    self.level = self.electricLevel.asNumber - self.minSoc.asNumber
+                    self.availableKwh.update_value(round(self.kWh * self.level / 100, 2))
                 case _:
                     if entity := self.__dict__.get(key):
                         entity.update_value(value)
@@ -239,15 +239,14 @@ class ZendureDevice(ZendureEntities):
         """Set charge/discharge power, but correct for power offset."""
         pwr = power - self.power_offset
         if (time := datetime.now()) < self.power_time:
-            _LOGGER.info(f"Power set ===> setpoint {self.name} => power {self.power_setpoint}")
             return self.power_setpoint
 
-        _LOGGER.info(f"Power set {self.name} => power {power}")
         if (delta := abs(pwr - self.homePower.asInt)) <= SmartMode.POWER_TOLERANCE:
             return self.homePower.asInt + self.power_offset
+
         pwr = min(max(self.limit[0], pwr), self.limit[1])
         self.power_setpoint = pwr
-        self.power_time = time + timedelta(seconds=1 + delta / 250)
+        self.power_time = time + timedelta(seconds=3 + delta / 250)
 
         pwr = self.power_update(pwr)
         return pwr + self.power_offset
@@ -258,5 +257,8 @@ class ZendureDevice(ZendureEntities):
 
     def power_update(self, power: int) -> int:
         """Set the power output/input."""
-        self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 1 if power >= 0 else 2, "outputLimit": max(0, power), "inputLimit": min(0, power)}})
+        if power >= 0:
+            self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
+        else:
+            self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power

@@ -64,8 +64,6 @@ class ZendureNumber(ZendureEntity, NumberEntity):
             if self._attr_native_value == new_value:
                 return False
 
-            _LOGGER.info(f"Update number: {self._attr_unique_id} => {new_value}")
-
             self._attr_native_value = new_value
             if self.hass and self.hass.loop.is_running():
                 self.schedule_update_ha_state()
