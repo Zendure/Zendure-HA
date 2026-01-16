@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import traceback
 from collections import deque
-from datetime import datetime
 from typing import Callable
 
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
@@ -17,7 +16,6 @@ from .sensor import ZendureSensor
 
 _LOGGER = logging.getLogger(__name__)
 
-CONST_POWER_NOACTION = 12
 CONST_POWER_START = 50
 CONST_POWER_JUMP = 100
 CONST_POWER_JUMP_HIGH = 250
@@ -93,7 +91,6 @@ class Distribution:
                     return
 
             # distribute power
-            # _LOGGER.info("Distributing power setpoint %dW (solarOnly=%s)", setpoint, solarOnly)
             if solarOnly:
                 for d in self.devices:
                     setpoint -= d.distribute(max(setpoint, -d.solarPower.asInt))
@@ -140,11 +137,13 @@ class Distribution:
                     start = self.Max[idx](0, int(start - d.limit[idx] * CONST_HIGH))
                 d.distribute(self.start[idx] if startdevice else 0)
             elif len(used_devices) == 0 or setpoint / (totalpower + d.limit[idx]) >= CONST_LOW:
+                # update the device power
                 used_devices.append(d)
                 totalpower += d.limit[idx]
                 totalweight += weight
                 start = self.Max[idx](0, int(start - d.limit[idx] * CONST_HIGH))
             else:
+                # Stop the device
                 d.distribute(0)
 
         if totalpower == 0 or totalweight == 0.0:
