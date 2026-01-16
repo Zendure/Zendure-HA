@@ -123,7 +123,6 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         _LOGGER.debug("async_unload: %s", self.config_entry.entry_id)
 
     async def _async_update_data(self) -> None:
-        _LOGGER.debug("Updating Zendure coordinator data for entry")
         for device in self.devices.values():
             device.refresh()
 

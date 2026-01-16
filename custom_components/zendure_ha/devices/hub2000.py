@@ -17,8 +17,8 @@ class Hub2000(ZendureDevice):
         self.setLimits(-800, 800)
         self.maxSolar = -800
 
-    def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:
-        self.setLimits(-1800 if len(batteries) > 1 else -1200 if batteries[0].kWh > 1 else -800, self.outputLimit.asInt)
+    def batteryUpdate(self) -> None:
+        self.setLimits(-1800 if len(self.batteries) > 1 else -1200 if self.kWh > 1 else -800, self.outputLimit.asInt)
 
     def power_update(self, power: int) -> int:
         if power < 0:

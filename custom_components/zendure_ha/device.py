@@ -102,8 +102,12 @@ class ZendureDevice(ZendureEntities):
                 if (bat := self.batteries.get(sn, None)) is None:
                     self.batteries[sn] = ZendureBattery(self.hass, self.name, sn)
                     self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
+                    self.batteryUpdate()
                 elif bat and b:
                     bat.entityRead(b)
+
+    def batteryUpdate(self) -> None:
+        """Update device based on battery status."""
 
     def entityUpdate(self, key: str, value: Any) -> None:
         def home(value: int) -> None:
