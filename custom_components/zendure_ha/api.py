@@ -58,26 +58,21 @@ class Api:
             await client.connect()
             await client.start_notify(SF_NOTIFY_CHAR, ble_notify_rx)
             await ble_cmd({"messageId": "none", "method": "getInfo", "timestamp": str(int(time.time()))})
-            await ble_cmd({"messageId": "none", "method": "getInfo", "timestamp": str(int(time.time()))})
 
             await ble_cmd(
                 {
                     "AM": 3,
-                    # "homeId": 64847,
-                    # "iotUrl": "mqtteu.zen-iot.com",
                     "iotUrl": Api.iotUrl,
                     "messageId": 1002,
                     "method": "token",
                     "password": Api.wifi_psw,
                     "ssid": Api.wifi_ssid,
                     "timeZone": "GMT+08:00",
-                    # "timeZone": "GMT+01:00",
-                    # "token": "1g1L5Oym2r8004oE",
                     "token": "abcdefghijklmnop",
                 }
             )
 
-            await asyncio.sleep(15)
+            await asyncio.sleep(25)
 
             await ble_cmd(
                 {

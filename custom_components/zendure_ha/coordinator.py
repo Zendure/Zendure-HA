@@ -23,8 +23,7 @@ from .devices.hub2000 import Hub2000
 from .devices.hyper2000 import Hyper2000
 from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro
 from .devices.solarflow2400 import SolarFlow2400AC
-from .devices.superbasev4600 import SuperBaseV4600
-from .devices.superbasev6400 import SuperBaseV6400
+from .devices.superbase import SuperBaseV4600, SuperBaseV6400
 from .distribution import Distribution
 from .entity import ZendureEntities
 from .fusegroup import FuseGroup
@@ -63,6 +62,8 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         "a8yh63": ("Hub 2000", Hub2000),
         "ywf7hv": ("AIO 2400", AIO2400),
         "8bm93h": ("ACE 1500", ACE1500),
+        "v4600": ("SuperBase v4600", SuperBaseV4600),
+        "v6400": ("SuperBase v6400", SuperBaseV6400),
     }
 
     def __init__(self, hass: HomeAssistant, entry: ZendureConfigEntry) -> None:

@@ -1,4 +1,4 @@
-"""Interfaces with the Zendure Integration api sensors."""
+"""Interfaces with the Zendure Integration sensors."""
 
 import logging
 import traceback
@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.template import Template
 from homeassistant.util import dt as dt_util
+from homeassistant.util.dt import parse_datetime
 
 from .entity import ZendureEntities, ZendureEntity
 
@@ -138,10 +139,12 @@ class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
         self._attr_native_value = 0.0
         state = await self.async_get_last_state()
         try:
-            self._attr_native_value = 0 if state is None else float(state.state)
-            _LOGGER.debug(f"Restored state for {self.entity_id}: {self._attr_native_value}")
+            if self.device_class in ["date", "timestamp"]:
+                self._attr_native_value = None if state is None else parse_datetime(state.state)
+            else:
+                self._attr_native_value = 0.0 if state is None else float(state.state)
         except ValueError:
-            self._attr_native_value = 0.0
+            self._attr_native_value = None
 
     def aggregate(self, time: datetime, value: Any) -> None:
         # prevent updates before sensor is initialized

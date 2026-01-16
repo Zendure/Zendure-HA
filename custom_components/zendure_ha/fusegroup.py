@@ -22,52 +22,52 @@ class FuseGroup:
         for d in self.devices:
             d.fuseGrp = self
 
-    def chargelimit(self, d: ZendureDevice) -> int:
-        """Return the limit discharge power for a device."""
-        if self.initPower:
-            self.initPower = False
-            if len(self.devices) == 1:
-                d.pwr_max = max(self.minpower, d.limit[0])
-            else:
-                limit = 0
-                weight = 0
-                for fd in self.devices:
-                    if fd.homeInput.asInt > 0:
-                        limit += fd.limit[0]
-                        weight += (100 - fd.electricLevel.asInt) * fd.limit[0]
-                avail = min(self.minpower, limit)
-                for fd in self.devices:
-                    if fd.homeInput.asInt > 0:
-                        fd.pwr_max = int(avail * ((100 - fd.electricLevel.asInt) * fd.limit[0]) / weight) if weight < 0 else fd.charge_start
-                        limit -= fd.limit[0]
-                        if limit > avail - fd.pwr_max:
-                            fd.pwr_max = max(avail - limit, avail)
-                        fd.pwr_max = max(fd.pwr_max, fd.limit[0])
-                        avail -= fd.pwr_max
+    # def charge_limit(self, d: ZendureDevice) -> int:
+    #     """Return the limit discharge power for a device."""
+    #     if self.initPower:
+    #         self.initPower = False
+    #         if len(self.devices) == 1:
+    #             d.pwr_max = max(self.minpower, d.charge_limit)
+    #         else:
+    #             limit = 0
+    #             weight = 0
+    #             for fd in self.devices:
+    #                 if fd.homeInput.asInt > 0:
+    #                     limit += fd.charge_limit
+    #                     weight += (100 - fd.electricLevel.asInt) * fd.charge_limit
+    #             avail = max(self.minpower, limit)
+    #             for fd in self.devices:
+    #                 if fd.homeInput.asInt > 0:
+    #                     fd.pwr_max = int(avail * ((100 - fd.electricLevel.asInt) * fd.charge_limit) / weight) if weight < 0 else fd.charge_start
+    #                     limit -= fd.charge_limit
+    #                     if limit > avail - fd.pwr_max:
+    #                         fd.pwr_max = max(avail - limit, avail)
+    #                     fd.pwr_max = max(fd.pwr_max, fd.charge_limit)
+    #                     avail -= fd.pwr_max
 
-        return d.pwr_max
+    #     return d.pwr_max
 
-    def dischargelimit(self, d: ZendureDevice) -> int:
-        """Return the limit discharge power for a device."""
-        if self.initPower:
-            self.initPower = False
-            if len(self.devices) == 1:
-                d.pwr_max = min(self.maxpower, d.limit[1])
-            else:
-                limit = 0
-                weight = 0
-                for fd in self.devices:
-                    if fd.homeOutput.asInt > 0:
-                        limit += fd.limit[1]
-                        weight += fd.electricLevel.asInt * fd.limit[1]
-                avail = min(self.maxpower, limit)
-                for fd in self.devices:
-                    if fd.homeOutput.asInt > 0:
-                        fd.pwr_max = int(avail * (fd.electricLevel.asInt * fd.limit[1]) / weight) if weight > 0 else fd.discharge_start
-                        limit -= fd.limit[1]
-                        if limit < avail - fd.pwr_max:
-                            fd.pwr_max = min(avail - limit, avail)
-                        fd.pwr_max = min(fd.pwr_max, fd.limit[1])
-                        avail -= fd.pwr_max
+    # def discharge_limit(self, d: ZendureDevice) -> int:
+    #     """Return the limit discharge power for a device."""
+    #     if self.initPower:
+    #         self.initPower = False
+    #         if len(self.devices) == 1:
+    #             d.pwr_max = min(self.maxpower, d.discharge_limit)
+    #         else:
+    #             limit = 0
+    #             weight = 0
+    #             for fd in self.devices:
+    #                 if fd.homeOutput.asInt > 0:
+    #                     limit += fd.discharge_limit
+    #                     weight += fd.electricLevel.asInt * fd.discharge_limit
+    #             avail = min(self.maxpower, limit)
+    #             for fd in self.devices:
+    #                 if fd.homeOutput.asInt > 0:
+    #                     fd.pwr_max = int(avail * (fd.electricLevel.asInt * fd.discharge_limit) / weight) if weight > 0 else fd.discharge_start
+    #                     limit -= fd.discharge_limit
+    #                     if limit < avail - fd.pwr_max:
+    #                         fd.pwr_max = min(avail - limit, avail)
+    #                     fd.pwr_max = min(fd.pwr_max, fd.discharge_limit)
+    #                     avail -= fd.pwr_max
 
-        return d.pwr_max
+    #     return d.pwr_max

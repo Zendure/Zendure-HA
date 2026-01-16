@@ -37,8 +37,6 @@ class ZendureBinarySensor(ZendureEntity, BinarySensorEntity):
             if self._attr_is_on == is_on:
                 return False
 
-            _LOGGER.info(f"Update binary_sensor: {self._attr_unique_id} => {is_on}")
-
             self._attr_is_on = is_on
             if self.hass and self.hass.loop.is_running():
                 self.schedule_update_ha_state()
