@@ -1,7 +1,6 @@
-"""Module for SolarFlow800Pro integration."""
+"""Module for the Solarflow2400 devices integration in Home Assistant."""
 
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant
 
@@ -11,11 +10,11 @@ from custom_components.zendure_ha.sensor import ZendureRestoreSensor, ZendureSen
 _LOGGER = logging.getLogger(__name__)
 
 
-class SolarFlow800Pro(ZendureDevice):
+class SolarFlow2400AC(ZendureDevice):
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
-        """Initialise SolarFlow800Pro."""
+        """Initialise SolarFlow2400AC."""
         super().__init__(hass, device_id, device_sn, model, model_id)
-        self.setLimits(-1000, 800)
-        self.maxSolar = -1200
+        self.setLimits(-2400, 2400)
+        self.maxSolar = -2400
         self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
-        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrGridOffPowerTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrOffGridTotal", None, "kWh", "energy", "total_increasing", 2)

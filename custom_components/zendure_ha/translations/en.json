@@ -57,6 +57,9 @@
       "wifi_state": {
         "name": "Wifi State"
       },
+      "hems_state": {
+        "name": "HEMS State"
+      },
       "pass": {
         "name": "Bypass"
       },
@@ -74,10 +77,10 @@
       "manual_power": {
         "name": "Manual Power"
       },
-      "min_soc": {
+      "soc_min": {
         "name": "SoC Minimum"
       },
-      "soc_set": {
+      "soc_max": {
         "name": "SoC Maximum"
       }
     },
@@ -105,16 +108,16 @@
       "aggr_discharge_total": {
         "name": "Battery Total Discharged"
       },
-      "aggr_output_home_total": {
-        "name": "fed into the House"
+      "aggr_home_output_total": {
+        "name": "Total house output"
+      },
+      "aggr_home_input_total": {
+        "name": "Total house input"
       },
       "aggr_solar_total": {
         "name": "Total Solar"
       },
-      "aggr_grid_input_power_total": {
-        "name": "Total from Grid/Offgrid"
-      },
-      "aggr_grid_off_power_total": {
+      "aggr_off_grid_total": {
         "name": "Total used by offgrid"
       },
       "grid_input_power": {
@@ -127,12 +130,12 @@
         "name": "Connection Status",
         "state": {
           "0": "Unknown",
-          "1": "Calibrating",
-          "2": "HEMS",
+          "1": "Offline",
+          "2": "No Battery",
           "3": "No FuseGroup",
-          "10": "Connected cloud",
-          "11": "Connected local",
-          "12": "Connected (zenSDK)"
+          "4": "Connected",
+          "5": "Calibrating",
+          "6": "Hems Active"
         }
       },
       "soh": {
@@ -144,6 +147,20 @@
           "0": "Operation",
           "1": "Auto-Calibration"
         }
+      },
+      "soc_limit": {
+        "name": "SoC Limit",
+        "state": {
+          "0": "No limit",
+          "1": "Max limit",
+          "2": "Min limit"
+        }
+      },
+      "home_power": {
+        "name": "Home power"
+      },
+      "solar_power": {
+        "name": "Solar power"
       },
       "hub_state": {
         "name": "Hub Status",
@@ -205,6 +222,9 @@
           "2": "Discharging"
         }
       },
+      "switch_count": {
+        "name": "Total inverter switches"
+      },
       "soc_level": {
         "name": "Electricity Level (SoC)"
       },
@@ -223,8 +243,8 @@
       "batcur": {
         "name": "Current"
       },
-      "pack_input_power": {
-        "name": "Battery Output Power"
+      "battery_power": {
+        "name": "Battery Power"
       },
       "power": {
         "name": "Power"
@@ -239,9 +259,6 @@
       },
       "hyper_2000_pass": {
         "name": "Bypass State"
-      },
-      "output_pack_power": {
-        "name": "Battery Input Power"
       },
       "solar_input_power": {
         "name": "Solar Input Power"
@@ -261,7 +278,7 @@
       "output_home_power": {
         "name": "Output Power"
       },
-      "hyper_tmp": {
+      "temp": {
         "name": "Device Temperature"
       },
       "strength": {
@@ -308,13 +325,6 @@
         "state": {
           "input": "AC Input Mode",
           "output": "AC Output Mode"
-        }
-      },
-      "hems_state": {
-        "name": "HEMS State",
-        "state": {
-          "off": "deactivated",
-          "on": "activated"
         }
       },
       "auto_heat": {

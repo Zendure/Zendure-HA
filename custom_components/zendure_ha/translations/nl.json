@@ -61,6 +61,9 @@
       "pass": {
         "name": "Bypass"
       },
+      "hems_state": {
+        "name": "HEMS Status"
+      },
       "heat_state": {
         "name": "batterijverwarming"
       }
@@ -75,10 +78,10 @@
       "manual_power": {
         "name": "Handmatig vermogen"
       },
-      "min_soc": {
+      "soc_min": {
         "name": "SOC Minimaal"
       },
-      "soc_set": {
+      "soc_max": {
         "name": "SOC Maximaal"
       }
     },
@@ -106,22 +109,28 @@
       "aggr_discharge_total": {
         "name": "Totaal geleverd"
       },
-      "aggr_output_home_total": {
-        "name": "in het huis gevoerd"
+      "aggr_home_output_total": {
+        "name": "Totale huis uitvoer"
+      },
+      "aggr_home_input_total": {
+        "name": "Totale huis invoer"
       },
       "aggr_solar_total": {
-        "name": "Totale Zonne-energie"
+        "name": "Totale zonne-energie"
+      },
+      "aggr_off_grid_total": {
+        "name": "Totale noodstroom"
       },
       "connection_status": {
         "name": "Connectie Status",
         "state": {
           "0": "Onbekend",
-          "1": "Kalibreren",
-          "2": "HEMS",
+          "1": "Offline",
+          "2": "Geen Batterij",
           "3": "Geen Zekeringgroep",
-          "10": "Verbonden (Cloud)",
-          "11": "Verbonden (Local)",
-          "12": "Verbonden (zenSDK)"
+          "4": "Verbonden",
+          "5": "Kalibreren",
+          "6": "HEMS Actief"
         }
       },
       "so_h": {
@@ -133,6 +142,20 @@
           "0": "Actief",
           "1": "Automatische kalibratie"
         }
+      },
+      "soc_limit": {
+        "name": "SoC Limiet",
+        "state": {
+          "0": "Geen limiet",
+          "1": "Maximale limiet",
+          "2": "Minimale limiet"
+        }
+      },
+      "home_power": {
+        "name": "Huis verbruik"
+      },
+      "solar_power": {
+        "name": "Zonne-energie"
       },
       "hub_state": {
         "name": "Hub Status"
@@ -193,6 +216,9 @@
           "2": "Ontladen"
         }
       },
+      "switch_count": {
+        "name": "Totaal aantal inverter schakelingen"
+      },
       "soc_level": {
         "name": "Elektriciteitsniveau (SoC)"
       },
@@ -217,7 +243,7 @@
       "output_pack_power": {
         "name": "Batterij Laden"
       },
-      "hyper_tmp": {
+      "temp": {
         "name": "Apparaat Temperatuur"
       },
       "strength": {
@@ -245,13 +271,6 @@
         "state": {
           "input": "AC Invoermodus",
           "output": "AC Uitvoermodus"
-        }
-      },
-      "hems_state": {
-        "name": "HEMS Status",
-        "state": {
-          "off": "Inactief",
-          "on": "Actief"
         }
       },
       "name": "automatische batterijverwarming",

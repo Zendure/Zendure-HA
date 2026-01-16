@@ -22,10 +22,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> b
         _LOGGER.error("MQTT integration not available")
         raise ConfigEntryNotReady("MQTT integration not available")
 
-    ZendureSensor.temp = Template("{{ (value | float - 2731) / 10 | round(1) }}", hass)
-    ZendureSensor.volt = Template("{{ value / 100 if (value | int) < 32768 else (value | bitwise_xor(0x8000 | int) - 0x8000 | int) / 100 }}", hass)
-    ZendureSensor.curr = Template("{{ value / 10 if (value | int) < 32768 else (value | bitwise_xor(0x8000 | int) - 0x8000 | int) / 10 }}", hass)
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     coordinator = ZendureCoordinator(hass, entry)
     entry.runtime_data = coordinator

@@ -261,7 +261,7 @@
       "output_home_power": {
         "name": "Ausgangsleistung"
       },
-      "hyper_tmp": {
+      "temp": {
         "name": "Gerätetemperatur"
       },
       "strength": {

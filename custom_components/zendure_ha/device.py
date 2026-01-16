@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.components import mqtt
 from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from paho.mqtt import client as mqtt_client
 
 from .battery import ZendureBattery
@@ -74,54 +75,24 @@ class ZendureDevice(ZendureEntities):
         self.hyperTmp = ZendureSensor(self, "Temp", ZendureSensor.temp, "°C", "temperature", "measurement")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus", state=0)
-        self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
-        self.remainingTime.hidden = True
+        self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement", hidden=True)
         self.byPass = ZendureBinarySensor(self, "pass")
         self.hemsState = ZendureBinarySensor(self, "hemsState")
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", self.fuseGroups, None)
 
         self.aggrCharge = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrHomeInput = ZendureRestoreSensor(self, "aggrGridInputPowerTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrHomeOut = ZendureRestoreSensor(self, "aggrOutputHomeTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrHomeInput = ZendureRestoreSensor(self, "aggrHomeInputTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrHomeOut = ZendureRestoreSensor(self, "aggrHomeOutputTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSolar = ZendureRestoreSensor(self, "aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0)
+        self.aggrOffGrid: ZendureRestoreSensor | None = None
 
     def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
-
-        def home(value: int) -> None:
-            if self.power_time > datetime.min and abs(value - self.power_setpoint) < 20:
-                self.power_time = datetime.min
-            self.homePower.update_value(value)
-
-        def update_entity(key: str, value: Any) -> None:
-            match key:
-                case "gridInputPower":
-                    self.values[0] = value
-                    self.homePower.update_value(-value + self.values[1])
-                case "outputHomePower":
-                    self.values[1] = value
-                    home(-self.values[0] + value)
-                case "outputPackPower":
-                    self.values[2] = value
-                    home(-value + self.values[3])
-                case "packInputPower":
-                    self.values[3] = value
-                    self.batteryPower.update_value(-self.values[2] + value)
-                case "solarInputPower":
-                    self.solarPower.update_value(value)
-                case "electricLevel":
-                    self.electricLevel.update_value(value)
-                    self.level = self.electricLevel.asNumber - self.minSoc.asNumber
-                    self.availableKwh.update_value(round(self.kWh * self.level / 100, 2))
-                case _:
-                    if entity := self.__dict__.get(key):
-                        entity.update_value(value)
-
         if (properties := payload.get("properties")) and len(properties) > 0:
             for key, value in properties.items():
-                update_entity(key, value)
+                self.entityUpdate(key, value)
 
         if batprops := payload.get("packData"):
             for b in batprops:
@@ -133,6 +104,55 @@ class ZendureDevice(ZendureEntities):
                     self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
                 elif bat and b:
                     bat.entityRead(b)
+
+    def entityUpdate(self, key: str, value: Any) -> None:
+        def home(value: int) -> None:
+            if self.power_time > datetime.min and abs(value - self.power_setpoint) < 20:
+                self.power_time = datetime.min
+            self.homePower.update_value(value)
+
+        match key:
+            case "gridInputPower":
+                self.values[0] = value
+                self.homePower.update_value(-value + self.values[1])
+                self.aggrHomeInput.aggregate(dt_util.now(), value)
+            case "outputHomePower":
+                self.values[1] = value
+                home(-self.values[0] + value)
+                self.aggrHomeOut.aggregate(dt_util.now(), value)
+            case "outputPackPower":
+                self.values[2] = value
+                home(-value + self.values[3])
+                self.aggrCharge.aggregate(dt_util.now(), value)
+                self.aggrDischarge.aggregate(dt_util.now(), 0)
+            case "packInputPower":
+                self.values[3] = value
+                self.batteryPower.update_value(-self.values[2] + value)
+                self.aggrCharge.aggregate(dt_util.now(), 0)
+                self.aggrDischarge.aggregate(dt_util.now(), value)
+            case "solarInputPower":
+                self.solarPower.update_value(value)
+                self.aggrSolar.aggregate(dt_util.now(), value)
+            case "gridOffPower":
+                if self.aggrOffGrid is not None and self.offGrid is not None:
+                    self.offGrid.update_value(value)
+                    self.aggrOffGrid.aggregate(dt_util.now(), value)
+            case "electricLevel":
+                self.electricLevel.update_value(value)
+                self.level = self.electricLevel.asNumber - self.minSoc.asNumber
+                self.availableKwh.update_value(round(self.kWh * self.level / 100, 2))
+            case "remainOutTime" | "remainInputTime":
+                self.remainingTime.update_value(self.calcRemainingTime())
+            case "inverseMaxPower":
+                self.setLimits(self.inputLimit.asInt, value)
+            case "chargeLimit" | "chargeMaxLimit":
+                self.setLimits(-value, self.outputLimit.asInt)
+            case "hemsState":
+                self.hemsState.update_value(value)
+                self.setStatus()
+            case _:
+                if entity := self.__dict__.get(key):
+                    entity.update_value(value)
 
     async def entityWrite(self, entity: ZendureEntity, value: Any) -> None:
         """Write a property to the device via MQTT."""
@@ -180,13 +200,13 @@ class ZendureDevice(ZendureEntities):
         try:
             if lastseen is not None:
                 self.lastseen = lastseen
-                self.connectionStatus.update_value(DeviceState.ACTIVE.value)
-            elif self.lastseen <= datetime.now() - timedelta(minutes=2):
-                self.connectionStatus.update_value(DeviceState.ACTIVE.value)
-            elif self.kWh == 0.0:
-                self.connectionStatus.update_value(DeviceState.NOBATTERY.value)
+
+            if self.lastseen <= datetime.now() - timedelta(minutes=2):
+                self.connectionStatus.update_value(DeviceState.OFFLINE.value)
             elif self.hemsState.is_on:
                 self.connectionStatus.update_value(DeviceState.HEMS.value)
+            elif self.kWh == 0.0:
+                self.connectionStatus.update_value(DeviceState.NOBATTERY.value)
             elif self.fuseGroup.value == 0:
                 self.connectionStatus.update_value(DeviceState.NOFUSEGROUP.value)
             else:
@@ -251,7 +271,7 @@ class ZendureDevice(ZendureEntities):
         pwr = self.power_update(pwr)
         return pwr + self.power_offset
 
-    async def power_off(self) -> None:
+    def power_off(self) -> None:
         """Set the power off."""
         self.mqttWrite({"properties": {"smartMode": 0, "acMode": 1, "outputLimit": 0, "inputLimit": 0}})
 
@@ -262,3 +282,18 @@ class ZendureDevice(ZendureEntities):
         else:
             self.mqttWrite({"properties": {"smartMode": 0 if power == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power
+
+    def calcRemainingTime(self) -> float:
+        """Calculate the remaining time."""
+        level = self.electricLevel.asInt
+        power = self.batteryPower.asInt
+
+        if power == 0:
+            return 0
+
+        if power < 0:
+            soc = self.socSet.asNumber
+            return 0 if level >= soc else min(999, self.kWh * 10 / -power * (soc - level))
+
+        soc = self.minSoc.asNumber
+        return 0 if level <= soc else min(999, self.kWh * 10 / power * (level - soc))

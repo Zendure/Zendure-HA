@@ -21,10 +21,8 @@ from .devices.aio2400 import AIO2400
 from .devices.hub1200 import Hub1200
 from .devices.hub2000 import Hub2000
 from .devices.hyper2000 import Hyper2000
-from .devices.solarflow800 import SolarFlow800
-from .devices.solarflow800Plus import SolarFlow800Plus
-from .devices.solarflow800Pro import SolarFlow800Pro
-from .devices.solarflow2400ac import SolarFlow2400AC
+from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro
+from .devices.solarflow2400 import SolarFlow2400AC
 from .devices.superbasev4600 import SuperBaseV4600
 from .devices.superbasev6400 import SuperBaseV6400
 from .distribution import Distribution

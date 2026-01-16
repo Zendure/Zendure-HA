@@ -1,4 +1,4 @@
-"""Module for the Hyper2000 device integration in Home Assistant."""
+"""Module for the Hub1200 device integration in Home Assistant."""
 
 import logging
 
@@ -20,30 +20,26 @@ class Hub1200(ZendureDevice):
     def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:
         # Check if any battery has kWh > 1
         if any(battery.kWh > 1 for battery in batteries):
-            self.powerMin = -1200
-            self.limitInput.update_range(0, abs(self.powerMin))
+            self.setLimits(-1200, self.outputLimit.asInt)
 
-    async def charge(self, power: int) -> int:
-        _LOGGER.info(f"Power charge {self.name} => {power}")
-        self.mqttInvoke(
-            {
-                "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],
-                "function": "deviceAutomation",
-            }
-        )
+    def power_update(self, power: int) -> int:
+        if power < 0:
+            self.mqttInvoke(
+                {
+                    "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],
+                    "function": "deviceAutomation",
+                }
+            )
+        else:
+            self.mqttInvoke(
+                {
+                    "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],
+                    "function": "deviceAutomation",
+                }
+            )
         return power
 
-    async def discharge(self, power: int) -> int:
-        _LOGGER.info(f"Power discharge {self.name} => {power}")
-        self.mqttInvoke(
-            {
-                "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],
-                "function": "deviceAutomation",
-            }
-        )
-        return power
-
-    async def power_off(self) -> None:
+    def power_off(self) -> None:
         """Set the power off."""
         self.mqttInvoke(
             {

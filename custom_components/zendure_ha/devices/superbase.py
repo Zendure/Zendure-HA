@@ -1,6 +1,4 @@
-"""Module for the Hyper2000 device integration in Home Assistant."""
-
-from __future__ import annotations
+"""Module for the SuperBase devices integration in Home Assistant."""
 
 import logging
 
@@ -11,12 +9,12 @@ from custom_components.zendure_ha.device import ZendureDevice
 _LOGGER = logging.getLogger(__name__)
 
 
-class Hyper2000(ZendureDevice):
+class SuperBase(ZendureDevice):
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
-        """Initialise Hyper2000."""
+        """Initialise SolarFlow800."""
         super().__init__(hass, device_id, device_sn, model, model_id)
-        self.setLimits(-1200, 1200)
-        self.maxSolar = -1600
+        self.setLimits(-900, 800)
+        self.maxSolar = -900
 
     def power_update(self, power: int) -> int:
         if power < 0:
@@ -24,14 +22,12 @@ class Hyper2000(ZendureDevice):
                 {
                     "arguments": [
                         {
-                            "autoModelProgram": 1,
+                            "autoModelProgram": 2,
                             "autoModelValue": {
                                 "chargingType": 1,
-                                "price": 2,
                                 "chargingPower": -power,
-                                "prices": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                                "outPower": 0,
                                 "freq": 0,
+                                "outPower": 0,
                             },
                             "msgType": 1,
                             "autoModel": 8,
@@ -81,3 +77,15 @@ class Hyper2000(ZendureDevice):
                 "function": "deviceAutomation",
             }
         )
+
+
+class SuperBaseV4600(SuperBase):
+    def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
+        """Initialise SuperBaseV4600."""
+        super().__init__(hass, device_id, device_sn, model, model_id)
+
+
+class SuperBaseV6400(SuperBase):
+    def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
+        """Initialise SuperBaseV6400."""
+        super().__init__(hass, device_id, device_sn, model, model_id)

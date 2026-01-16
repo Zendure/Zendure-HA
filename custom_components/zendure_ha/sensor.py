@@ -20,9 +20,12 @@ from .entity import ZendureEntities, ZendureEntity
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Zendure sensor."""
     ZendureSensor.add = async_add_entities
+    ZendureSensor.temp = Template("{{ (value | float - 2731) / 10 | round(1) }}", hass)
+    ZendureSensor.volt = Template("{{ value / 100 if (value | int) < 32768 else (value | bitwise_xor(0x8000 | int) - 0x8000 | int) / 100 }}", hass)
+    ZendureSensor.curr = Template("{{ value / 10 if (value | int) < 32768 else (value | bitwise_xor(0x8000 | int) - 0x8000 | int) / 10 }}", hass)
 
 
 class ZendureSensor(ZendureEntity, SensorEntity):
@@ -44,6 +47,7 @@ class ZendureSensor(ZendureEntity, SensorEntity):
         factor: int = 1,
         state: Any = None,
         icon: str | None = None,
+        hidden: bool = False,
     ) -> None:
         """Initialize a Zendure entity."""
         super().__init__(device, uniqueid, "sensor")
@@ -54,6 +58,11 @@ class ZendureSensor(ZendureEntity, SensorEntity):
         if state is not None:
             self._attr_native_value = state
         self.factor = factor
+
+        # Set initial hidden state if necessary
+        if hidden and self.registry_entry is not None:
+            pass
+
         self.add([self])
 
     def update_value(self, value: Any) -> bool:

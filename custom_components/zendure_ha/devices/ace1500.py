@@ -1,4 +1,4 @@
-"""Module for the Hyper2000 device integration in Home Assistant."""
+"""Module for the ACE1500 device integration in Home Assistant."""
 
 import logging
 
@@ -16,51 +16,48 @@ class ACE1500(ZendureDevice):
         self.setLimits(-900, 800)
         self.maxSolar = -900
 
-    async def charge(self, power: int) -> int:
-        _LOGGER.info(f"Power charge {self.name} => {power}")
-        self.mqttInvoke(
-            {
-                "arguments": [
-                    {
-                        "autoModelProgram": 2,
-                        "autoModelValue": {
-                            "chargingType": 1,
-                            "chargingPower": -power,
-                            "freq": 0,
-                            "outPower": 0,
-                        },
-                        "msgType": 1,
-                        "autoModel": 8,
-                    }
-                ],
-                "function": "deviceAutomation",
-            }
-        )
+    def power_update(self, power: int) -> int:
+        if power < 0:
+            self.mqttInvoke(
+                {
+                    "arguments": [
+                        {
+                            "autoModelProgram": 2,
+                            "autoModelValue": {
+                                "chargingType": 1,
+                                "chargingPower": -power,
+                                "freq": 0,
+                                "outPower": 0,
+                            },
+                            "msgType": 1,
+                            "autoModel": 8,
+                        }
+                    ],
+                    "function": "deviceAutomation",
+                }
+            )
+        else:
+            self.mqttInvoke(
+                {
+                    "arguments": [
+                        {
+                            "autoModelProgram": 2,
+                            "autoModelValue": {
+                                "chargingType": 0,
+                                "chargingPower": 0,
+                                "freq": 0,
+                                "outPower": max(0, power + sp),
+                            },
+                            "msgType": 1,
+                            "autoModel": 8,
+                        }
+                    ],
+                    "function": "deviceAutomation",
+                }
+            )
         return power
 
-    async def discharge(self, power: int) -> int:
-        _LOGGER.info(f"Power discharge {self.name} => {power}")
-        self.mqttInvoke(
-            {
-                "arguments": [
-                    {
-                        "autoModelProgram": 2,
-                        "autoModelValue": {
-                            "chargingType": 0,
-                            "chargingPower": 0,
-                            "freq": 0,
-                            "outPower": max(0, power + sp),
-                        },
-                        "msgType": 1,
-                        "autoModel": 8,
-                    }
-                ],
-                "function": "deviceAutomation",
-            }
-        )
-        return power
-
-    async def power_off(self) -> None:
+    def power_off(self) -> None:
         """Set the power off."""
         self.mqttInvoke(
             {
