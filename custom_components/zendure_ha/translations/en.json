@@ -62,6 +62,9 @@
       },
       "heat_state": {
         "name": "Battery heating"
+      },
+      "rest_state": {
+        "name": "Energy saving mode"
       }
     },
     "number": {
@@ -229,6 +232,9 @@
       },
       "batcur": {
         "name": "Current"
+      },
+      "bat_in_out": {
+        "name": "Battery Power"
       },
       "pack_input_power": {
         "name": "Battery Output Power"
