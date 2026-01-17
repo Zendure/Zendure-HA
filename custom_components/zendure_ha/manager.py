@@ -142,6 +142,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         self.devices = list(Api.devices.values())
         _LOGGER.info(f"Loaded {len(self.devices)} devices")
+        if len(self.devices) > 1:
+            self.optimialPower = ZendureRestoreNumber(self, "optimalPower", self.update_optimal, None, "%", None, 100, 10, NumberMode.SLIDER, True)
+            if self.optimialPower.asNumber == 0:
+                self.optimialPower.update_value(25)
 
         # initialize the api & p1 meter
         await EntityDevice.add_entities()
@@ -150,6 +154,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         await asyncio.sleep(1)  # allow other tasks to run
         await self.update_fusegroups()
         Api.mqttLogging = True
+
+    async def update_optimal(self, entity: ZendureRestoreNumber, _operation: Any) -> None:
+        for d in self.devices:
+            d.charge_optimal = int(d.charge_limit // 100 * self.optimialPower.asNumber) if self.optimialPower is not None else d.charge_limit // 4
+            d.discharge_optimal = int(d.discharge_limit // 100 * self.optimialPower.asNumber) if self.optimialPower is not None else d.discharge_limit // 4
 
     async def update_fusegroups(self) -> None:
         _LOGGER.info("Update fusegroups")
