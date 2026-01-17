@@ -71,7 +71,6 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         super().__init__(hass, _LOGGER, name="Zendure Coordinator", update_interval=timedelta(seconds=30), config_entry=entry)
         ZendureEntities.__init__(self, self.hass, "Zendure Coordinator")
 
-        self.operation: ManagerMode = ManagerMode.OFF
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
         self.distribution = Distribution(self.hass, entry.data.get("p1meter", ""), self.power)
         self.operationmode = ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging"}, self.update_operation)
@@ -131,22 +130,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
             self._schedule_refresh()
 
     async def update_operation(self, entity: ZendureRestoreSelect, _operation: Any) -> None:
-        operation = ManagerMode(entity.value)
-        self.distribution.operation = operation
-        _LOGGER.info(f"Update operation: {operation} from: {self.operation}")
-
-        # self.operation = operation
-        # if self.p1meterEvent is not None:
-        #     if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
-        #         _LOGGER.warning("No devices online, not possible to start the operation")
-        #         persistent_notification.async_create(self.hass, "No devices online, not possible to start the operation", "Zendure", "zendure_ha")
-        #         return
-
-        #     match self.operation:
-        #         case ManagerMode.OFF:
-        #             if len(self.devices) > 0:
-        #                 for d in self.devices:
-        #                     await d.power_off()
+        self.distribution.set_operationoperation = ManagerMode(entity.value)
 
     async def update_bypass(self, _entity: ZendureRestoreSelect, _operation: Any) -> None:
         _LOGGER.info("Update bypass")

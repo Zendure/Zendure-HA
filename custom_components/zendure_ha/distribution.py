@@ -7,6 +7,7 @@ import traceback
 from collections import deque
 from typing import Callable
 
+from homeassistant.components import persistent_notification
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
@@ -51,6 +52,21 @@ class Distribution:
                 self.p1_factor = 1000
         else:
             self.p1meterEvent = None
+
+    def set_operation(self, operation: ManagerMode) -> None:
+        """Set the operation mode."""
+        self.operation = operation
+        if self.p1meterEvent is not None:
+            if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
+                _LOGGER.warning("No devices online, not possible to start the operation")
+                persistent_notification.async_create(self.hass, "No devices online, not possible to start the operation", "Zendure", "zendure_ha")
+                return
+
+            match self.operation:
+                case ManagerMode.OFF:
+                    if len(self.devices) > 0:
+                        for d in self.devices:
+                            d.power_off()
 
     @callback
     def _p1_changed(self, event: Event[EventStateChangedData]) -> None:
@@ -106,10 +122,11 @@ class Distribution:
         # update the power
         solar = 0
         for d in self.devices:
-            if d.status != DeviceState.ACTIVE:
+            if d.status != DeviceState.ACTIVE or d.fuseGrp is None:
                 continue
             home = d.homePower.asInt
             d.power_offset = d.solarPower.asInt
+            d.fuseGrp.initPower = True
             solar += d.power_offset
             if d.offGrid is not None:
                 if (off_grid := d.offGrid.asInt) < 0:
@@ -128,7 +145,7 @@ class Distribution:
         totalweight = 0.0
         start = setpoint
         for d in sorted(self.devices, key=lambda d: d.level // 3, reverse=idx == 1):
-            if d.status != DeviceState.ACTIVE:
+            if d.status != DeviceState.ACTIVE or d.fuseGrp is None:
                 continue
             weight = deviceWeight(d)
             if d.homePower.asInt == 0:
@@ -139,7 +156,8 @@ class Distribution:
             elif len(used_devices) == 0 or setpoint / (totalpower + d.limit[idx]) >= CONST_LOW:
                 # update the device power
                 used_devices.append(d)
-                totalpower += d.limit[idx]
+                d.power_limit = d.fuseGrp.devicelimit(d, idx)
+                totalpower += d.power_limit
                 totalweight += weight
                 start = self.Max[idx](0, int(start - d.limit[idx] * CONST_HIGH))
             else:
@@ -153,7 +171,7 @@ class Distribution:
         for d in used_devices:
             # calculate the device home power, make sure we have 'enough' power for the setpoint
             flexible = 0 if fixedpct < CONST_FIXED else setpoint - CONST_FIXED * totalpower
-            totalpower -= d.limit[idx]
+            totalpower -= d.power_limit
             weight = deviceWeight(d)
             power = int(fixedpct * d.limit[idx] + flexible * (weight / totalweight)) if totalpower != 0 else setpoint
             power = self.Min[idx](d.limit[idx], self.Max[idx](power, setpoint - totalpower))

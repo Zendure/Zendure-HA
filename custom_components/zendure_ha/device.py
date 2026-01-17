@@ -48,11 +48,12 @@ class ZendureDevice(ZendureEntities):
         self.kWh = 0.0
         self.limit = [0, 0]
         self.level = 0
-        self.fuseGrp: FuseGroup | None = None
+        self.fuseGrp: FuseGroup
         self.values = [0, 0, 0, 0]
         self.power_setpoint = 0
         self.power_time = datetime.min
         self.power_offset = 0
+        self.power_limit = 0
         self.entityCreate()
 
     def entityCreate(self) -> None:
@@ -235,7 +236,6 @@ class ZendureDevice(ZendureEntities):
             if self.fuseGroup.onchanged is None:
                 self.fuseGroup.onchanged = updateFuseGroup
 
-            self.fuseGrp = None
             match self.fuseGroup.state:
                 case "owncircuit" | "group3600":
                     self.fuseGrp = FuseGroup(self.name, 3600, -3600)
@@ -250,7 +250,7 @@ class ZendureDevice(ZendureEntities):
                 case "group2400":
                     self.fuseGrp = FuseGroup(self.name, 2400, -2400)
                 case "unused":
-                    await self.power_off()
+                    self.power_off()
                 case _:
                     _LOGGER.debug("Device %s has unsupported fuseGroup state: %s", self.name, self.fuseGroup.state)
 
