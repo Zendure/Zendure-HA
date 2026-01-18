@@ -40,7 +40,7 @@ class ZendureDevice(ZendureEntities):
 
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None = None) -> None:
         """Initialize the Zendure device."""
-        from .fusegroup import FuseGroup
+        from .fusegroup import CONST_EMPTY_GROUP, FuseGroup
 
         super().__init__(hass, model, device_id, device_sn, model_id, parent)
         self.mqttcloud: mqtt_client.Client
@@ -48,7 +48,7 @@ class ZendureDevice(ZendureEntities):
         self.kWh = 0.0
         self.limit = [0, 0]
         self.level = 0
-        self.fuseGrp: FuseGroup
+        self.fuseGrp: FuseGroup = CONST_EMPTY_GROUP
         self.values = [0, 0, 0, 0]
         self.power_setpoint = 0
         self.power_time = datetime.min
@@ -228,7 +228,7 @@ class ZendureDevice(ZendureEntities):
         except Exception:
             _LOGGER.error(f"SetLimits error {self.name} {charge} {discharge}!")
 
-    async def setFuseGroup(self, updateFuseGroup: Any) -> None:
+    def setFuseGroup(self, updateFuseGroup: Any) -> None:
         """Set the device fuse group."""
         from .fusegroup import FuseGroup
 
@@ -236,6 +236,7 @@ class ZendureDevice(ZendureEntities):
             if self.fuseGroup.onchanged is None:
                 self.fuseGroup.onchanged = updateFuseGroup
 
+            self.fuseGrp = self.emptyFuseGroup
             match self.fuseGroup.state:
                 case "owncircuit" | "group3600":
                     self.fuseGrp = FuseGroup(self.name, 3600, -3600)

@@ -68,8 +68,10 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
 
     def __init__(self, hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Initialize Zendure Coordinator."""
+        from .fusegroup import FuseGroup
+
         super().__init__(hass, _LOGGER, name="Zendure Coordinator", update_interval=timedelta(seconds=30), config_entry=entry)
-        ZendureEntities.__init__(self, self.hass, "Zendure Coordinator")
+        ZendureEntities.__init__(self, self.hass, "Zendure Coordinator", "Zendure Coordinator")
 
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
         self.distribution = Distribution(self.hass, entry.data.get("p1meter", ""), self.power)
@@ -147,7 +149,9 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
 
         fuseGroups: dict[str, FuseGroup] = {}
         for device in self.devices.values():
-            await device.setFuseGroup(updateFuseGroup)
+            if not isinstance(device, ZendureDevice):
+                continue
+            device.setFuseGroup(updateFuseGroup)
             if device.fuseGrp is not None:
                 device.fuseGrp.devices.append(device)
                 fuseGroups[device.deviceId] = device.fuseGrp
@@ -175,7 +179,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         # check if we can split fuse groups
         self.fuseGroups.clear()
         for fg in fuseGroups.values():
-            if len(fg.devices) > 1 and fg.maxpower >= sum(d.limit[1] for d in fg.devices) and fg.minpower <= sum(d.limit[0] for d in fg.devices):
+            if len(fg.devices) > 1 and fg.limit[1] >= sum(d.limit[1] for d in fg.devices) and fg.limit[0] <= sum(d.limit[0] for d in fg.devices):
                 for d in fg.devices:
                     self.fuseGroups.append(FuseGroup(d.name, d.limit[1], d.limit[0], [d]))
             else:
