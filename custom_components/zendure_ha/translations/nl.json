@@ -63,6 +63,9 @@
       },
       "heat_state": {
         "name": "batterijverwarming"
+      },
+      "rest_state": {
+        "name": "Energiebesparende modus"
       }
     },
     "number": {
@@ -223,6 +226,9 @@
       },
       "batcur": {
         "name": "huidig"
+      },
+      "bat_in_out": {
+        "name": "Batterijvermogen"
       },
       "pack_input_power": {
         "name": "Batterij Ontladen"

@@ -67,6 +67,9 @@
       },
       "heat_state": {
         "name": "chauffage de batterie"
+      },
+      "rest_state": {
+        "name": "mode d'économie d'énergie"
       }
     },
     "number": {
@@ -228,6 +231,9 @@
       },
       "batcur": {
         "name": "Intensité"
+      },
+      "bat_in_out": {
+        "name": "Puissance de la batterie"
       },
       "pack_input_power": {
         "name": "Puissance de sortie de la batterie"

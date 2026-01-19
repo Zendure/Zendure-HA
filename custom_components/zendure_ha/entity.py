@@ -112,6 +112,7 @@ class EntityDevice:
         "autoRecover": ("switch"),
         "wifiState": ("binary"),
         "heatState": ("binary"),
+        "restState": ("binary"),
         "reverseState": ("binary"),
         "pass": ("binary"),
         "lowTemperature": ("binary"),
