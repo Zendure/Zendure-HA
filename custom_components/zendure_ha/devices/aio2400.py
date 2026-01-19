@@ -16,6 +16,7 @@ class AIO2400(ZendureLegacy):
         """Initialise AIO2400."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.setLimits(-1200, 1200)
+        self.solar_inputs = 2
         self.maxSolar = -1200
 
     async def charge(self, power: int) -> int:

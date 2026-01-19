@@ -71,12 +71,6 @@ class EntityDevice:
         "acOutputPower": ("W", "power"),
         "dcOutputPower": ("W", "power"),
         "solarInputPower": ("W", "power", "mdi:solar-panel"),
-        "solarPower1": ("W", "power"),
-        "solarPower2": ("W", "power"),
-        "solarPower3": ("W", "power"),
-        "solarPower4": ("W", "power"),
-        "solarPower5": ("W", "power"),
-        "solarPower6": ("W", "power"),
         "energyPower": ("W"),
         "inverseMaxPower": ("W"),
         "batteryElectric": ("W", "power"),
@@ -153,6 +147,11 @@ class EntityDevice:
         self.name = name
         self.unique = "".join(self.name.split())
         self.entities: dict[str, EntityZendure] = {}
+        
+        # Add solarPowerN entities based on device's solar_inputs configuration
+        solar_inputs = getattr(self, "solar_inputs", 4)  # Default to 4 if not set
+        for i in range(1, solar_inputs + 1):
+            self.createEntity[f"solarPower{i}"] = ("W", "power")
 
         self.attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self.name)},

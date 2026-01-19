@@ -104,6 +104,7 @@ class ZendureDevice(EntityDevice):
         self.pwr_produced: int = 0
         self.actualKwh: float = 0.0
         self.state: DeviceState = DeviceState.OFFLINE
+        self.solar_inputs: int = 4 # default solar input number to be overriden by subclasses
 
         self.create_entities()
 

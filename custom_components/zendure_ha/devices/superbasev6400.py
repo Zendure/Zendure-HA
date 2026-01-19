@@ -18,6 +18,7 @@ class SuperBaseV6400(ZendureLegacy):
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition, parent)
         self.setLimits(-900, 800)
         self.maxSolar = -900
+        self.solar_inputs = 1
         self.acSwitch = ZendureSwitch(self, "acSwitch", self.entityWrite, None, "switch",1)
         self.dcSwitch = ZendureSelect(self, "dcSwitch", {0: "off", 1: "on"}, self.entityWrite, 1)
 

@@ -16,6 +16,7 @@ class SolarFlow800Pro(ZendureZenSdk):
         """Initialise SolarFlow800Pro."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.setLimits(-1000, 800)
+        self.solar_inputs = 4
         self.maxSolar = -1200
         self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
         self.aggrOffGrid = ZendureRestoreSensor(self, "aggrGridOffPowerTotal", None, "kWh", "energy", "total_increasing", 2)

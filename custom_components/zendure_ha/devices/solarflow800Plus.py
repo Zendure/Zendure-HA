@@ -15,4 +15,5 @@ class SolarFlow800Plus(ZendureZenSdk):
         """Initialise SolarFlow800Plus."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.setLimits(-1000, 800)
+        self.solar_inputs = 2
         self.maxSolar = -1500

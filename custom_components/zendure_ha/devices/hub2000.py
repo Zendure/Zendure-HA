@@ -15,6 +15,7 @@ class Hub2000(ZendureLegacy):
         """Initialise Hub2000."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.setLimits(-800, 800)
+        self.solar_inputs = 2
         self.maxSolar = -800
 
     def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:
