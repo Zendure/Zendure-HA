@@ -116,6 +116,24 @@
       "aggr_output_home_total": {
         "name": "introduit dans la maison"
       },
+      "aggr_solar_total1": {
+        "name": "PV1 Total solaire"
+      },
+      "aggr_solar_total2": {
+        "name": "PV2 Total solaire"
+      },
+      "aggr_solar_total3": {
+        "name": "PV3 Total solaire"
+      },
+      "aggr_solar_total4": {
+        "name": "PV4 Total solaire"
+      },
+      "aggr_solar_total5": {
+        "name": "PV5 Total solaire"
+      },
+      "aggr_solar_total6": {
+        "name": "PV6 Total solaire"
+      },
       "aggr_solar_total": {
         "name": "Total solaire"
       },

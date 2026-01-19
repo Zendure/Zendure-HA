@@ -141,6 +141,11 @@ class ZendureDevice(EntityDevice):
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeInput = ZendureRestoreSensor(self, "aggrGridInputPowerTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeOut = ZendureRestoreSensor(self, "aggrOutputHomeTotal", None, "kWh", "energy", "total_increasing", 2)
+
+        if self.solar_inputs > 1:
+            for i in range(1, self.solar_inputs + 1):
+                setattr(self, f"aggrSolar{i}", ZendureRestoreSensor(self, f"aggrSolarTotal{i}", None, "kWh", "energy", "total_increasing", 2,),
+            )
         self.aggrSolar = ZendureRestoreSensor(self, "aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0)
 
@@ -202,6 +207,10 @@ class ZendureDevice(EntityDevice):
                         self.aggrCharge.aggregate(dt_util.now(), 0)
                         self.aggrDischarge.aggregate(dt_util.now(), value)
                         self.batInOut.update_value(self.batteryOutput.asInt - self.batteryInput.asInt)
+                    case ("solarPower1" | "solarPower2" | "solarPower3" | "solarPower4" | "solarPower5" | "solarPower6"):
+                        pv_num = key[11:]
+                        if hasattr(self, f"aggrSolar{pv_num}"):
+                            getattr(self, f"aggrSolar{pv_num}").aggregate(dt_util.now(), value)
                     case "solarInputPower":
                         self.aggrSolar.aggregate(dt_util.now(), value)
                     case "gridInputPower":
@@ -465,7 +474,10 @@ class ZendureDevice(EntityDevice):
             self.state = DeviceState.OFFLINE
         elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber:
             self.state = DeviceState.SOCFULL
-        elif self.socLimit.asInt == SmartMode.SOCEMPTY or self.electricLevel.asInt <= self.minSoc.asNumber:
+        elif (
+            self.socLimit.asInt == SmartMode.SOCEMPTY
+            or self.electricLevel.asInt <= self.minSoc.asNumber
+        ):
             self.state = DeviceState.SOCEMPTY
         else:
             self.state = DeviceState.INACTIVE
