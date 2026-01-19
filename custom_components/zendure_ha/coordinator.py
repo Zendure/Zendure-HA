@@ -132,7 +132,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
             self._schedule_refresh()
 
     async def update_operation(self, entity: ZendureRestoreSelect, _operation: Any) -> None:
-        self.distribution.set_operationoperation = ManagerMode(entity.value)
+        self.distribution.set_operation(ManagerMode(entity.value))
 
     async def update_bypass(self, _entity: ZendureRestoreSelect, _operation: Any) -> None:
         _LOGGER.info("Update bypass")

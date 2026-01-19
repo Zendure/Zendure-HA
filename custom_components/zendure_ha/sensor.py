@@ -59,11 +59,8 @@ class ZendureSensor(ZendureEntity, SensorEntity):
         if state is not None:
             self._attr_native_value = state
         self.factor = factor
-
-        # Set initial hidden state if necessary
-        if hidden and self.registry_entry is not None:
-            pass
-
+        self._attr_entity_registry_visible_default = not hidden
+        self._attr_entity_registry_enabled_default = not hidden
         self.add([self])
 
     def update_value(self, value: Any) -> bool:

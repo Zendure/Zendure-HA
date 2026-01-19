@@ -230,13 +230,13 @@ class ZendureDevice(ZendureEntities):
 
     def setFuseGroup(self, updateFuseGroup: Any) -> None:
         """Set the device fuse group."""
-        from .fusegroup import FuseGroup
+        from .fusegroup import CONST_EMPTY_GROUP, FuseGroup
 
         try:
             if self.fuseGroup.onchanged is None:
                 self.fuseGroup.onchanged = updateFuseGroup
 
-            self.fuseGrp = self.emptyFuseGroup
+            self.fuseGrp = CONST_EMPTY_GROUP
             match self.fuseGroup.state:
                 case "owncircuit" | "group3600":
                     self.fuseGrp = FuseGroup(self.name, 3600, -3600)
