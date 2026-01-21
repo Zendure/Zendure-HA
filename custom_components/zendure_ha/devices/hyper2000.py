@@ -18,6 +18,7 @@ class Hyper2000(ZendureLegacy):
         """Initialise Hyper2000."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
         self.setLimits(-1200, 1200)
+        self.solar_inputs = 4
         self.maxSolar = -1600
 
     async def charge(self, power: int) -> int:

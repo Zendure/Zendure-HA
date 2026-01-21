@@ -111,6 +111,24 @@
       "aggr_output_home_total": {
         "name": "fed into the House"
       },
+      "aggr_solar_total1": {
+        "name": "PV1 Total Solar"
+      },
+      "aggr_solar_total2": {
+        "name": "PV2 Total Solar"
+      },
+      "aggr_solar_total3": {
+        "name": "PV3 Total Solar"
+      },
+      "aggr_solar_total4": {
+        "name": "PV4 Total Solar"
+      },
+      "aggr_solar_total5": {
+        "name": "PV5 Total Solar"
+      },
+      "aggr_solar_total6": {
+        "name": "PV6 Total Solar"
+      },
       "aggr_solar_total": {
         "name": "Total Solar"
       },

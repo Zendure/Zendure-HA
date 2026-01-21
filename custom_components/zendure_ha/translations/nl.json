@@ -112,6 +112,24 @@
       "aggr_output_home_total": {
         "name": "in het huis gevoerd"
       },
+      "aggr_solar_total1": {
+        "name": "PV1 Totale Zonne-energie"
+      },
+      "aggr_solar_total2": {
+        "name": "PV2 Totale Zonne-energie"
+      },
+      "aggr_solar_total3": {
+        "name": "PV3 Totale Zonne-energie"
+      },
+      "aggr_solar_total4": {
+        "name": "PV4 Totale Zonne-energie"
+      },
+      "aggr_solar_total5": {
+        "name": "PV5 Totale Zonne-energie"
+      },
+      "aggr_solar_total6": {
+        "name": "PV6 Totale Zonne-energie"
+      },
       "aggr_solar_total": {
         "name": "Totale Zonne-energie"
       },

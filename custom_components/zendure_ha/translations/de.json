@@ -111,6 +111,24 @@
       "aggr_output_home_total": {
         "name": "ins Haus eingespeist"
       },
+      "aggr_solar_total1": {
+        "name": "PV1 Solar-Energie erzeugt"
+      },
+      "aggr_solar_total2": {
+        "name": "PV2 Solar-Energie erzeugt"
+      },
+      "aggr_solar_total3": {
+        "name": "PV3 Solar-Energie erzeugt"
+      },
+      "aggr_solar_total4": {
+        "name": "PV4 Solar-Energie erzeugt"
+      },
+      "aggr_solar_total5": {
+        "name": "PV5 Solar-Energie erzeugt"
+      },
+      "aggr_solar_total6": {
+        "name": "PV6 Solar-Energie erzeugt"
+      },
       "aggr_solar_total": {
         "name": "Solar-Energie erzeugt"
       },
