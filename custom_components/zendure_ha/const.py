@@ -18,6 +18,9 @@ CONF_MQTTPSW = "mqttpsw"
 CONF_WIFISSID = "wifissid"
 CONF_WIFIPSW = "wifipsw"
 
+CONF_POWER_START = "power_start"
+CONF_POWER_TOLERANCE = "power_tolerance"
+
 CONF_HAKEY = "C*dafwArEOXK"
 
 
