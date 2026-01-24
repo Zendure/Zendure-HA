@@ -525,7 +525,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # but should not be started with more than pwr_offgrid if they are full
                 # if a offGrid device need to be started, the output power is set to 0 and it take all offGrid power from grid
                 # also, do not start any devices that are not AC chargeable.
-                if d.charge_limit > 0:
+                if d.charge_limit < 0:
                     await d.power_charge(-SmartMode.POWER_START - max(0,d.pwr_offgrid) if d.state != DeviceState.SOCFULL else -max(0,d.pwr_offgrid))
                     if (dev_start := dev_start - d.charge_optimal * 2) >= 0:
                         break
