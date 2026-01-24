@@ -15,7 +15,7 @@ class AIO2400(ZendureLegacy):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
         """Initialise AIO2400."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
-        self.setLimits(-1200, 1200)
+        self.setLimits(0, 1200)
         self.maxSolar = -1200
 
     async def charge(self, power: int) -> int:
