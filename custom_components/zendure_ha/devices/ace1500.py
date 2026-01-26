@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from custom_components.zendure_ha.device import ZendureLegacy
 from custom_components.zendure_ha.select import ZendureSelect
 from custom_components.zendure_ha.switch import ZendureSwitch
+from custom_components.zendure_ha.sensor import ZendureSensor
 
 _LOGGER = logging.getLogger(__name__)
 
