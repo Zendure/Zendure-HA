@@ -300,7 +300,8 @@
         "manual": "Handmatig Vermogen",
         "smart": "Slimme Matching",
         "smart_discharging": "Slim ontladen",
-        "smart_charging": "Slim opladen"
+        "smart_charging": "Slim opladen | PV -> Huis",
+        "smart_charging_bat": "Slim opladen | PV -> Bat"
       }
     },
     "pass_mode": {

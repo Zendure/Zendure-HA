@@ -40,6 +40,7 @@ class ManagerMode(Enum):
     MATCHING = 2
     MATCHING_DISCHARGE = 3
     MATCHING_CHARGE = 4
+    MATCHING_CHARGE_BAT = 5
 
 
 class ManagerState(Enum):
