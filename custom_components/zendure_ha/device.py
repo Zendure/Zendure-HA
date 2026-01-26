@@ -205,7 +205,7 @@ class ZendureDevice(EntityDevice):
                         self.aggrSolar.aggregate(dt_util.now(), value)
                     case "gridInputPower":
                         self.aggrHomeInput.aggregate(dt_util.now(), value)
-                    case "outputHomePower":
+                    case "outputHomePower" | "acOutputPower":
                         self.aggrHomeOut.aggregate(dt_util.now(), value)
                     case "gridOffPower":
                         self.aggrOffGrid.aggregate(dt_util.now(), value)

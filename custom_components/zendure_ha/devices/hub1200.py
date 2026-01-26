@@ -14,7 +14,7 @@ class Hub1200(ZendureLegacy):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
         """Initialise Hub1200."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
-        self.setLimits(-800, 800)
+        self.setLimits(0, 800)
         self.maxSolar = -800
 
     def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:

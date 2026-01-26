@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from custom_components.zendure_ha.device import ZendureLegacy
 from custom_components.zendure_ha.select import ZendureSelect
 from custom_components.zendure_ha.switch import ZendureSwitch
+from custom_components.zendure_ha.sensor import ZendureSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class ACE1500(ZendureLegacy):
         self.maxSolar = -900
         self.acSwitch = ZendureSwitch(self, "acSwitch", self.entityWrite, None, "switch",1)
         self.dcSwitch = ZendureSelect(self, "dcSwitch", {0: "off", 1: "on"}, self.entityWrite, 1)
+        self.homeOutput = ZendureSensor(self, "acOutputPower", None, "W", "power", "measurement")
 
     async def charge(self, power: int) -> int:
         _LOGGER.info(f"Power charge {self.name} => {power}")
