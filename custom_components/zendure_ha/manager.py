@@ -423,8 +423,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge_optimal += d.charge_optimal
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
                     setpoint += home
-
-                elif (home := d.homeOutput.asInt) > 0 and d.state != DeviceState.SOCEMPTY:
+                # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
+                elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
                     self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
@@ -484,7 +484,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # stop discharging devices
         for d in self.discharge:
-            await d.power_discharge(0)
+            # avoid gridOff device to use power from the grid
+            if d.pwr_offgrid == 0:
+                await d.power_discharge(0)
+            else:
+                await d.power_charge(-10)
 
         # prevent hysteria
         if self.charge_time > time:
@@ -541,7 +545,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # stop charging devices
         for d in self.charge:
-            await d.power_discharge(0)
+            # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, 
+            # so set power to 10 instead of 0
+            await d.power_discharge(0 if max(0,d.pwr_offgrid) == 0 else 10)
 
         # distribute discharging devices
         dev_start = max(0, setpoint - self.discharge_optimal * 2) if setpoint > SmartMode.POWER_START else 0
