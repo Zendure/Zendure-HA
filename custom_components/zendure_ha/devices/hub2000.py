@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 class Hub2000(ZendureDevice):
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialise Hub2000."""
-        super().__init__(hass, device_id, device_sn, model, model_id)
+        super().__init__(hass, device_id, device_sn, model, model_id, None, False, 4)
         self.setLimits(-800, 800)
         self.maxSolar = -800
 

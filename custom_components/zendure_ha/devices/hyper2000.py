@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 class Hyper2000(ZendureDevice):
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialise Hyper2000."""
-        super().__init__(hass, device_id, device_sn, model, model_id)
+        super().__init__(hass, device_id, device_sn, model, model_id, None, False, 4)
         self.setLimits(-1200, 1200)
         self.maxSolar = -1600
 

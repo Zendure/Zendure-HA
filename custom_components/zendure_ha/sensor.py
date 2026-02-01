@@ -48,19 +48,19 @@ class ZendureSensor(ZendureEntity, SensorEntity):
         factor: int = 1,
         state: Any = None,
         icon: str | None = None,
-        hidden: bool = False,
+        disabled: bool = False,
     ) -> None:
         """Initialize a Zendure entity."""
         super().__init__(device, uniqueid, "sensor")
-        self.entity_description = SensorEntityDescription(key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon)
+        self.entity_description = SensorEntityDescription(
+            key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon, entity_registry_enabled_default=not disabled
+        )
         self._value_template: Template | None = template
         if precision is not None:
             self._attr_suggested_display_precision = precision
         if state is not None:
             self._attr_native_value = state
         self.factor = factor
-        self._attr_entity_registry_visible_default = not hidden
-        self._attr_entity_registry_enabled_default = not hidden
         self.add([self])
 
     def update_value(self, value: Any) -> bool:
@@ -124,9 +124,10 @@ class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
         deviceclass: Any | None = None,
         stateclass: Any | None = None,
         precision: int | None = None,
+        disabled: bool = False,
     ) -> None:
         """Initialize a select entity."""
-        super().__init__(device, uniqueid, template, uom, deviceclass, stateclass, precision)
+        super().__init__(device, uniqueid, template, uom, deviceclass, stateclass, precision, disabled=disabled)
         self.last_value = 0
         self.lastValueUpdate = dt_util.utcnow()
 

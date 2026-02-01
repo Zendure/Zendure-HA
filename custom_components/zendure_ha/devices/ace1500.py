@@ -12,7 +12,7 @@ _LOGGER = logging.getLogger(__name__)
 class ACE1500(ZendureDevice):
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None = None) -> None:
         """Initialise Ace1500."""
-        super().__init__(hass, name, device_id, device_sn, model, model_id, parent)
+        super().__init__(hass, device_id, device_sn, model, model_id, parent, False, 2)
         self.setLimits(-900, 800)
         self.maxSolar = -900
 

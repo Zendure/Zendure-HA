@@ -57,7 +57,8 @@ class ZendureEntities:
 
         self.prodKey = model_id if model_id is not None else ""
         self.deviceId = device_id
-        self.lastseen = datetime.min
+        self.deviceSn = device_sn if device_sn is not None else ""
+        self.lastseen = datetime.now()
         self.attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self.name)},
             name=self.name,
@@ -83,10 +84,7 @@ class ZendureEntities:
         self.topic_write = f"iot/{model_id}/{self.deviceId}/properties/write"
         self.ready = datetime.min
 
-    def refresh(self) -> None:
-        return
-
-    def setStatus(self, _lastseen: datetime | None = None) -> None:
+    def setStatus(self, _lastseen: datetime, _state: DeviceState) -> None:
         """Set the device connection status."""
 
     def entityRead(self, payload: dict) -> None:
@@ -109,6 +107,10 @@ class ZendureEntities:
 
     def mqttInvoke(self, command: Any) -> None:
         self.mqttPublish(self.topic_function, command)
+
+    @property
+    def model(self) -> str:
+        return self.attr_device_info.get("model") or ""
 
     @property
     def bleMac(self) -> str:

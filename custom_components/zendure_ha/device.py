@@ -28,9 +28,9 @@ class DeviceState(Enum):
     OFFLINE = 1
     NOBATTERY = 2
     NOFUSEGROUP = 3
-    ACTIVE = 4
-    CALIBRATE = 5
-    HEMS = 6
+    CALIBRATE = 4
+    HEMS = 5
+    ACTIVE = 6
 
 
 class ZendureDevice(ZendureEntities):
@@ -38,7 +38,7 @@ class ZendureDevice(ZendureEntities):
 
     fuseGroups: dict[Any, str] = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group800_2400", 4: "group1200", 5: "group2000", 6: "group2400", 7: "group3600"}
 
-    def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None, zenSdk: bool, solarcnt: int) -> None:
         """Initialize the Zendure device."""
         from .fusegroup import CONST_EMPTY_GROUP, FuseGroup
 
@@ -54,15 +54,42 @@ class ZendureDevice(ZendureEntities):
         self.power_time = datetime.min
         self.power_offset = 0
         self.power_limit = 0
-        self.entityCreate()
+        self.zenSdk = zenSdk
+        self.usefallback = False
+        self.entityCreate(solarcnt)
 
-    def entityCreate(self) -> None:
+    def entityCreate(self, solarcnt: int) -> None:
         """Create the device entities."""
         self.electricLevel = ZendureSensor(self, "electricLevel", None, "%", "battery", "measurement")
         self.homePower = ZendureSensor(self, "homePower", None, "W", "power", "measurement")
         self.batteryPower = ZendureSensor(self, "batteryPower", None, "W", "power", "measurement")
-        self.solarPower = ZendureSensor(self, "solarPower", None, "W", "power", "measurement", icon="mdi:solar-panel")
         self.offGrid: ZendureSensor | None = None
+
+        self.solarPower = ZendureSensor(self, "solarPower", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=solarcnt == 0)
+        self.aggrSolar = ZendureRestoreSensor(self, "aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2, disabled=solarcnt == 0)
+        if solarcnt > 0:
+            self.solarPower1 = ZendureSensor(self, "solarPower1", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+            self.solarPower2 = ZendureSensor(self, "solarPower2", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+            self.aggrSolar1 = ZendureRestoreSensor(self, "aggrSolar1", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+            self.aggrSolar2 = ZendureRestoreSensor(self, "aggrSolar2", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+
+            if solarcnt > 2:
+                self.solarPower3 = ZendureSensor(self, "solarPower3", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+                self.solarPower4 = ZendureSensor(self, "solarPower4", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+                self.aggrSolar3 = ZendureRestoreSensor(self, "aggrSolar3", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+                self.aggrSolar4 = ZendureRestoreSensor(self, "aggrSolar4", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+
+            if solarcnt > 4:
+                self.solarPower5 = ZendureSensor(self, "solarPower5", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+                self.solarPower6 = ZendureSensor(self, "solarPower6", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+                self.aggrSolar5 = ZendureRestoreSensor(self, "aggrSolar5", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+                self.aggrSolar6 = ZendureRestoreSensor(self, "aggrSolar6", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+
+            if solarcnt > 6:
+                self.solarPower7 = ZendureSensor(self, "solarPower7", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+                self.solarPower8 = ZendureSensor(self, "solarPower8", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
+                self.aggrSolar7 = ZendureRestoreSensor(self, "aggrSolar7", None, "kWh", "energy", "total_increasing", 2, disabled=True)
+                self.aggrSolar8 = ZendureRestoreSensor(self, "aggrSolar8", None, "kWh", "energy", "total_increasing", 2, disabled=True)
 
         self.socStatus = ZendureSensor(self, "socStatus", state=0)
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
@@ -76,17 +103,16 @@ class ZendureDevice(ZendureEntities):
         self.hyperTmp = ZendureSensor(self, "Temp", ZendureSensor.temp, "°C", "temperature", "measurement")
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus", state=0)
-        self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement", hidden=True)
+        self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement", disabled=True)
         self.byPass = ZendureBinarySensor(self, "pass")
-        self.hemsState = ZendureBinarySensor(self, "hemsState")
+        self.hemsState = ZendureBinarySensor(self, "hemsState", disabled=True)
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", self.fuseGroups, None)
 
         self.aggrCharge = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeInput = ZendureRestoreSensor(self, "aggrHomeInputTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeOut = ZendureRestoreSensor(self, "aggrHomeOutputTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrSolar = ZendureRestoreSensor(self, "aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0)
+        self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0, disabled=True)
         self.aggrOffGrid: ZendureRestoreSensor | None = None
 
     def entityRead(self, payload: dict) -> None:
@@ -106,9 +132,6 @@ class ZendureDevice(ZendureEntities):
                     self.batteryUpdate()
                 elif bat and b:
                     bat.entityRead(b)
-
-    def batteryUpdate(self) -> None:
-        """Update device based on battery status."""
 
     def entityUpdate(self, key: str, value: Any) -> None:
         def home(value: int) -> None:
@@ -144,7 +167,8 @@ class ZendureDevice(ZendureEntities):
                     self.aggrOffGrid.aggregate(dt_util.now(), value)
             case "electricLevel":
                 self.electricLevel.update_value(value)
-                self.level = self.electricLevel.asNumber - self.minSoc.asNumber
+                if (soc_range := self.socSet.asNumber - self.minSoc.asNumber) > 0:
+                    self.level = int(100 * (self.electricLevel.asNumber - self.minSoc.asNumber) / soc_range)
                 self.availableKwh.update_value(round(self.kWh * self.level / 100, 2))
             case "remainOutTime" | "remainInputTime":
                 self.remainingTime.update_value(self.calcRemainingTime())
@@ -154,7 +178,6 @@ class ZendureDevice(ZendureEntities):
                 self.setLimits(-value, self.outputLimit.asInt)
             case "hemsState":
                 self.hemsState.update_value(value)
-                self.setStatus()
             case _:
                 if entity := self.__dict__.get(key):
                     entity.update_value(value)
@@ -168,6 +191,9 @@ class ZendureDevice(ZendureEntities):
         property_name = entity.unique_id[(len(self.name) + 1) :]
         _LOGGER.info(f"Writing property {self.name} {property_name} => {value}")
         self.mqttWrite({"properties": {property_name: value}})
+
+    def batteryUpdate(self) -> None:
+        """Update device based on battery status."""
 
     def mqttPublish(self, topic: str, command: Any) -> None:
         self._messageid += 1
@@ -192,30 +218,22 @@ class ZendureDevice(ZendureEntities):
         else:
             _LOGGER.warning(f"MQTT register failed for device {self.name}: no token in payload")
 
-    def refresh(self) -> None:
-        self.setStatus()
-        self.mqttPublish(self.topic_read, {"properties": ["getAll"]})
-
     @property
     def status(self) -> DeviceState:
         return DeviceState(self.connectionStatus.asInt)
 
-    def setStatus(self, lastseen: datetime | None = None) -> None:
+    def setStatus(self, lastseen: datetime, state: DeviceState) -> None:
         """Set the device connection status."""
         try:
-            if lastseen is not None:
-                self.lastseen = lastseen
-
-            if self.lastseen <= datetime.now() - timedelta(minutes=2):
-                self.connectionStatus.update_value(DeviceState.OFFLINE.value)
-            elif self.hemsState.is_on:
+            self.lastseen = lastseen
+            if self.hemsState.is_on:
                 self.connectionStatus.update_value(DeviceState.HEMS.value)
             elif self.kWh == 0.0:
                 self.connectionStatus.update_value(DeviceState.NOBATTERY.value)
             elif self.fuseGroup.value == 0:
                 self.connectionStatus.update_value(DeviceState.NOFUSEGROUP.value)
             else:
-                self.connectionStatus.update_value(DeviceState.ACTIVE.value)
+                self.connectionStatus.update_value(state.value)
         except Exception:
             self.connectionStatus.update_value(DeviceState.OFFLINE.value)
 
@@ -260,12 +278,12 @@ class ZendureDevice(ZendureEntities):
         except Exception as err:
             _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", self.name, self.deviceId, err, exc_info=True)
 
-    def distribute(self, power: int) -> int:
+    def distribute(self, power: int, time: datetime) -> int:
         """Set charge/discharge power, but correct for power offset."""
-        pwr = power - self.power_offset
-        if (time := datetime.now()) < self.power_time:
+        if time < self.power_time:
             return self.power_setpoint
 
+        pwr = power - self.power_offset
         if (delta := abs(pwr - self.homePower.asInt)) <= SmartMode.POWER_TOLERANCE:
             return self.homePower.asInt + self.power_offset
 

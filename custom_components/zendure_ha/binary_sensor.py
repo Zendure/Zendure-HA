@@ -22,10 +22,10 @@ async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, as
 class ZendureBinarySensor(ZendureEntity, BinarySensorEntity):
     add: AddEntitiesCallback
 
-    def __init__(self, device: ZendureEntities, uniqueid: str, template: Template | None = None, deviceclass: Any | None = None) -> None:
+    def __init__(self, device: ZendureEntities, uniqueid: str, template: Template | None = None, deviceclass: Any | None = None, disabled: bool = False) -> None:
         """Initialize a binary sensor entity."""
         super().__init__(device, uniqueid, "binary_sensor")
-        self.entity_description = BinarySensorEntityDescription(key=uniqueid, name=uniqueid, device_class=deviceclass)
+        self.entity_description = BinarySensorEntityDescription(key=uniqueid, name=uniqueid, device_class=deviceclass, entity_registry_enabled_default=not disabled)
         self._attr_is_on = False
         self._value_template: Template | None = template
         self.add([self])

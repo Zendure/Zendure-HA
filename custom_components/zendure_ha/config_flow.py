@@ -14,7 +14,6 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH
 
-from .api import Api
 from .const import (
     CONF_APPTOKEN,
     CONF_P1METER,

@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import Api
 from .const import ManagerMode
-from .device import ZendureDevice
+from .device import DeviceState, ZendureDevice
 from .devices.ace1500 import ACE1500
 from .devices.aio2400 import AIO2400
 from .devices.hub1200 import Hub1200
@@ -70,7 +70,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         """Initialize Zendure Coordinator."""
         from .fusegroup import FuseGroup
 
-        super().__init__(hass, _LOGGER, name="Zendure Coordinator", update_interval=timedelta(seconds=30), config_entry=entry)
+        super().__init__(hass, _LOGGER, name="Zendure Coordinator", update_interval=timedelta(seconds=2), config_entry=entry)
         ZendureEntities.__init__(self, self.hass, "Zendure Coordinator", "Zendure Coordinator")
 
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
@@ -82,6 +82,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.devices: dict[str, ZendureEntities] = {}
         self.fuseGroups: list[FuseGroup] = []
+        self.next_update = datetime.min
 
     async def _async_setup(self) -> None:
         """Set up the coordinator."""
@@ -124,8 +125,24 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         _LOGGER.debug("async_unload: %s", self.config_entry.entry_id)
 
     async def _async_update_data(self) -> None:
-        for device in self.devices.values():
-            device.refresh()
+        time = datetime.now() - timedelta(minutes=2)
+        if doUpdate := datetime.now() > self.next_update:
+            self.next_update = datetime.now() + timedelta(seconds=60)
+
+        for d in self.devices.values():
+            if isinstance(d, ZendureDevice):
+                if d.lastseen < time:
+                    if not d.usefallback or d.status != DeviceState.OFFLINE:
+                        Api.fallback_start(d)
+                        d.connectionStatus.update_value(DeviceState.OFFLINE.value)
+                elif d.usefallback:
+                    await Api.fallback_stop(d)
+                elif doUpdate:
+                    d.mqttPublish(d.topic_read, {"properties": ["getAll"]})
+
+        # check for fallback devices
+        if len(Api.recover) > 0:
+            await Api.fallback_check(self.hass)
 
         # Manually update the timer
         if self.hass and self.hass.loop.is_running():
@@ -174,7 +191,6 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
             if fg := fuseGroups.get(device.fuseGroup.value):
                 device.fuseGrp = fg
                 fg.devices.append(device)
-            device.setStatus()
 
         # check if we can split fuse groups
         self.fuseGroups.clear()
@@ -210,10 +226,10 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                 return
 
             if (device := self.devices.get(deviceId, None)) is not None:
-                device.setStatus(datetime.now())
                 match topics[3]:
                     case "properties/report":
                         device.entityRead(payload)
+                        device.setStatus(datetime.now(), DeviceState.ACTIVE)
                     case "register":
                         device.mqttRegister(payload)
                     case "function/invoke/reply" | "properties/write/reply":
