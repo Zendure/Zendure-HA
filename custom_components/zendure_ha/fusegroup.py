@@ -25,7 +25,7 @@ class FuseGroup:
         """Return the limit discharge power for a device."""
         if self.initPower:
             self.initPower = False
-            lim = max if idx == 1 else min
+            lim = max if idx == 0 else min
             if len(self.devices) == 1:
                 d.power_limit = lim(self.limit[idx], d.limit[idx])
             else:

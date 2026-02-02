@@ -16,7 +16,7 @@ from .battery import ZendureBattery
 from .binary_sensor import ZendureBinarySensor
 from .const import SmartMode
 from .entity import ZendureEntities, ZendureEntity
-from .number import ZendureNumber
+from .number import ZendureNumber, ZendureRestoreNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureRestoreSensor, ZendureSensor
 
@@ -36,7 +36,7 @@ class DeviceState(Enum):
 class ZendureDevice(ZendureEntities):
     """Representation of a Zendure device."""
 
-    fuseGroups: dict[Any, str] = {0: "unused", 1: "owncircuit", 2: "group800", 3: "group800_2400", 4: "group1200", 5: "group2000", 6: "group2400", 7: "group3600"}
+    fuseGroups: dict[Any, str] = {0: "unused", 1: "owncircuit", 2: "fusegroup"}
 
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str, parent: str | None, zenSdk: bool, solarcnt: int) -> None:
         """Initialize the Zendure device."""
@@ -91,7 +91,7 @@ class ZendureDevice(ZendureEntities):
                 self.aggrSolar7 = ZendureRestoreSensor(self, "aggrSolar7", None, "kWh", "energy", "total_increasing", 2, disabled=True)
                 self.aggrSolar8 = ZendureRestoreSensor(self, "aggrSolar8", None, "kWh", "energy", "total_increasing", 2, disabled=True)
 
-        self.socStatus = ZendureSensor(self, "socStatus", state=0)
+        self.socStatus = ZendureSensor(self, "socStatus", state=0, disabled=True)
         self.socLimit = ZendureSensor(self, "socLimit", state=0)
 
         self.minSoc = ZendureNumber(self, "socMin", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
@@ -107,6 +107,8 @@ class ZendureDevice(ZendureEntities):
         self.byPass = ZendureBinarySensor(self, "pass")
         self.hemsState = ZendureBinarySensor(self, "hemsState", disabled=True)
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", self.fuseGroups, None)
+        self.fuseGroupMax = ZendureRestoreNumber(self, "fuseGroupMax", self.setFusegroup, None, "W", "power", 3600, 0, NumberMode.SLIDER, disabled=True, native_value=2400)
+        self.fuseGroupMin = ZendureRestoreNumber(self, "fuseGroupMin", self.setFusegroup, None, "W", "power", 0, -3600, NumberMode.SLIDER, disabled=True, native_value=-2400)
 
         self.aggrCharge = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
@@ -130,6 +132,7 @@ class ZendureDevice(ZendureEntities):
                     self.batteries[sn] = ZendureBattery(self.hass, self.name, sn)
                     self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
                     self.batteryUpdate()
+                    self.setStatus(datetime.now(), DeviceState.ACTIVE)
                 elif bat and b:
                     bat.entityRead(b)
 
@@ -173,11 +176,15 @@ class ZendureDevice(ZendureEntities):
             case "remainOutTime" | "remainInputTime":
                 self.remainingTime.update_value(self.calcRemainingTime())
             case "inverseMaxPower":
-                self.setLimits(self.inputLimit.asInt, value)
+                self.setLimits(self.limit[0], value)
             case "chargeLimit" | "chargeMaxLimit":
-                self.setLimits(-value, self.outputLimit.asInt)
+                self.setLimits(-value, self.limit[1])
             case "hemsState":
                 self.hemsState.update_value(value)
+                self.setStatus(datetime.now(), DeviceState.ACTIVE)
+            case "socStatus":
+                self.socStatus.update_value(value)
+                self.setStatus(datetime.now(), DeviceState.ACTIVE)
             case _:
                 if entity := self.__dict__.get(key):
                     entity.update_value(value)
@@ -222,6 +229,12 @@ class ZendureDevice(ZendureEntities):
     def status(self) -> DeviceState:
         return DeviceState(self.connectionStatus.asInt)
 
+    def setFusegroup(self, entity: ZendureRestoreNumber, value: Any) -> None:
+        entity.update_value(value)
+        if self.fuseGrp is not None and self.fuseGrp.name != self.name:
+            return
+        self.fuseGrp.limit[1 if entity.name == "fuseGroupMax" else 0] = int(value)
+
     def setStatus(self, lastseen: datetime, state: DeviceState) -> None:
         """Set the device connection status."""
         try:
@@ -232,6 +245,8 @@ class ZendureDevice(ZendureEntities):
                 self.connectionStatus.update_value(DeviceState.NOBATTERY.value)
             elif self.fuseGroup.value == 0:
                 self.connectionStatus.update_value(DeviceState.NOFUSEGROUP.value)
+            elif self.socStatus.asInt == 1:
+                self.connectionStatus.update_value(DeviceState.CALIBRATE.value)
             else:
                 self.connectionStatus.update_value(state.value)
         except Exception:
@@ -245,38 +260,6 @@ class ZendureDevice(ZendureEntities):
             self.outputLimit.update_range(0, discharge)
         except Exception:
             _LOGGER.error(f"SetLimits error {self.name} {charge} {discharge}!")
-
-    def setFuseGroup(self, updateFuseGroup: Any) -> None:
-        """Set the device fuse group."""
-        from .fusegroup import CONST_EMPTY_GROUP, FuseGroup
-
-        try:
-            if self.fuseGroup.onchanged is None:
-                self.fuseGroup.onchanged = updateFuseGroup
-
-            self.fuseGrp = CONST_EMPTY_GROUP
-            match self.fuseGroup.state:
-                case "owncircuit" | "group3600":
-                    self.fuseGrp = FuseGroup(self.name, 3600, -3600)
-                case "group800":
-                    self.fuseGrp = FuseGroup(self.name, 800, -1200)
-                case "group800_2400":
-                    self.fuseGrp = FuseGroup(self.name, 800, -2400)
-                case "group1200":
-                    self.fuseGrp = FuseGroup(self.name, 1200, -1200)
-                case "group2000":
-                    self.fuseGrp = FuseGroup(self.name, 2000, -2000)
-                case "group2400":
-                    self.fuseGrp = FuseGroup(self.name, 2400, -2400)
-                case "unused":
-                    self.power_off()
-                case _:
-                    _LOGGER.debug("Device %s has unsupported fuseGroup state: %s", self.name, self.fuseGroup.state)
-
-        except AttributeError as err:
-            _LOGGER.error("Device %s missing fuseGroup attribute: %s", self.name, err)
-        except Exception as err:
-            _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", self.name, self.deviceId, err, exc_info=True)
 
     def distribute(self, power: int, time: datetime) -> int:
         """Set charge/discharge power, but correct for power offset."""

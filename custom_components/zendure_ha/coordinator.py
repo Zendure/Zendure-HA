@@ -25,8 +25,8 @@ from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pr
 from .devices.solarflow2400 import SolarFlow2400AC
 from .devices.superbase import SuperBaseV4600, SuperBaseV6400
 from .distribution import Distribution
-from .entity import ZendureEntities
-from .fusegroup import FuseGroup
+from .entity import ZendureEntities, ZendureEntity
+from .fusegroup import CONST_EMPTY_GROUP, FuseGroup
 from .number import ZendureRestoreNumber
 from .select import ZendureRestoreSelect
 from .sensor import ZendureSensor
@@ -158,28 +158,48 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         self.distribution.manualpower = power
 
     async def update_fusegroups(self) -> None:
-        _LOGGER.info("Update fusegroups")
-
         # updateFuseGroup callback
-        async def updateFuseGroup(_entity: ZendureRestoreSelect, _value: Any) -> None:
+        async def updateFuseGroup(_entity: ZendureEntity, _value: Any) -> None:
             await self.update_fusegroups()
 
         fuseGroups: dict[str, FuseGroup] = {}
         for device in self.devices.values():
             if not isinstance(device, ZendureDevice):
                 continue
-            device.setFuseGroup(updateFuseGroup)
-            if device.fuseGrp is not None:
-                device.fuseGrp.devices.append(device)
-                fuseGroups[device.deviceId] = device.fuseGrp
+
+            if device.fuseGroup.onchanged is None:
+                device.fuseGroup.onchanged = updateFuseGroup
+
+            def updateDevice(device: ZendureDevice, disable: bool) -> None:
+                device.fuseGroupMax.update_disabled(self.hass, disable)
+                device.fuseGroupMin.update_disabled(self.hass, disable)
+
+            match device.fuseGroup.state:
+                case "unused":
+                    device.fuseGrp = CONST_EMPTY_GROUP
+                    device.power_off()
+                    updateDevice(device, True)
+                    continue
+                case "owncircuit":
+                    device.fuseGrp = FuseGroup(device.name, 3600, -3600, [device])
+                    updateDevice(device, True)
+                    continue
+                case "fusegroup":
+                    device.fuseGrp = FuseGroup(device.name, device.fuseGroupMax.asInt, device.fuseGroupMin.asInt, [device])
+                    fuseGroups[device.deviceId] = device.fuseGrp
+                    updateDevice(device, False)
+                case _:
+                    updateDevice(device, True)
 
         # Update the fusegroups and select optins for each device
         for device in self.devices.values():
+            if not isinstance(device, ZendureDevice):
+                continue
             try:
                 fusegroups = ZendureDevice.fuseGroups.copy()
                 for deviceId, fg in fuseGroups.items():
                     if deviceId != device.deviceId:
-                        fusegroups[deviceId] = f"Part of {fg.name} fusegroup"
+                        fusegroups[deviceId] = f"fusegroup: {fg.name}"
                 device.fuseGroup.setDict(fusegroups)
             except AttributeError as err:
                 _LOGGER.error("Device %s missing fuseGroup attribute: %s", device.name, err)
@@ -188,20 +208,12 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
 
         # Add devices to fusegroups
         for device in self.devices.values():
+            if not isinstance(device, ZendureDevice):
+                continue
+
             if fg := fuseGroups.get(device.fuseGroup.value):
                 device.fuseGrp = fg
                 fg.devices.append(device)
-
-        # check if we can split fuse groups
-        self.fuseGroups.clear()
-        for fg in fuseGroups.values():
-            if len(fg.devices) > 1 and fg.limit[1] >= sum(d.limit[1] for d in fg.devices) and fg.limit[0] <= sum(d.limit[0] for d in fg.devices):
-                for d in fg.devices:
-                    self.fuseGroups.append(FuseGroup(d.name, d.limit[1], d.limit[0], [d]))
-            else:
-                for d in fg.devices:
-                    d.fuseGrp = fg
-                self.fuseGroups.append(fg)
 
     @callback
     def mqtt_message_received(self, msg: mqtt.ReceiveMessage) -> None:
@@ -229,7 +241,6 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                 match topics[3]:
                     case "properties/report":
                         device.entityRead(payload)
-                        device.setStatus(datetime.now(), DeviceState.ACTIVE)
                     case "register":
                         device.mqttRegister(payload)
                     case "function/invoke/reply" | "properties/write/reply":

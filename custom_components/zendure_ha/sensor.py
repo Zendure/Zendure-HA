@@ -9,7 +9,6 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.template import Template
@@ -97,19 +96,6 @@ class ZendureSensor(ZendureEntity, SensorEntity):
         if self._attr_native_value is None:
             return 0
         return int(self._attr_native_value / self.factor) if isinstance(self._attr_native_value, (int, float)) else 0
-
-    @property
-    def hidden(self) -> bool:
-        return self.registry_entry is None or self.registry_entry.hidden
-
-    @hidden.setter
-    def hidden(self, value: bool) -> None:
-        if self.registry_entry is not None:
-            entity_registry = er.async_get(self.hass)
-            entity_registry.async_update_entity(
-                entity_id=self.registry_entry.entity_id,
-                hidden_by=er.RegistryEntryHider.INTEGRATION if value else None,
-            )
 
 
 class ZendureRestoreSensor(ZendureSensor, RestoreEntity):

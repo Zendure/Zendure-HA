@@ -10,8 +10,9 @@ from typing import Any
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
-from homeassistant.helpers.entity import Entity, EntityPlatformState
+from homeassistant.helpers.entity import Entity
 from stringcase import snakecase
 
 from .const import DOMAIN
@@ -43,10 +44,14 @@ class ZendureEntity(Entity):
         """Update the entity value."""
         return False
 
-    @property
-    def hasPlatform(self) -> bool:
-        """Return whether the entity has a platform."""
-        return self._platform_state != EntityPlatformState.NOT_ADDED
+    def update_disabled(self, hass: HomeAssistant, disabled: bool) -> None:
+        if self.registry_entry is not None and disabled != self.registry_entry.disabled:
+            self.async_registry_entry_updated()
+            entity_registry = er.async_get(hass)
+            entity_registry.async_update_entity(
+                entity_id=self.registry_entry.entity_id,
+                disabled_by=er.RegistryEntryDisabler.INTEGRATION if disabled else None,
+            )
 
 
 class ZendureEntities:
@@ -83,9 +88,6 @@ class ZendureEntities:
         self.topic_read = f"iot/{model_id}/{self.deviceId}/properties/read"
         self.topic_write = f"iot/{model_id}/{self.deviceId}/properties/write"
         self.ready = datetime.min
-
-    def setStatus(self, _lastseen: datetime, _state: DeviceState) -> None:
-        """Set the device connection status."""
 
     def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
