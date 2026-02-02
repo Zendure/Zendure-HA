@@ -37,9 +37,6 @@
             }
         }
     },
-    "mounts": [
-        "type=bind,source=/run/dbus,target=/run/dbus,readonly"
-    ],
     "remoteUser": "vscode",
     "privileged": true,
     "runArgs": [
