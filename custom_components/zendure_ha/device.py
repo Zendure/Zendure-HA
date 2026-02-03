@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from aiohttp import ClientTimeout
 from bleak import BleakClient
 from bleak.exc import BleakError
 from homeassistant.components import bluetooth, persistent_notification
@@ -29,6 +30,7 @@ from .sensor import ZendureRestoreSensor, ZendureSensor
 _LOGGER = logging.getLogger(__name__)
 
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
+CONST_TIMEOUT = ClientTimeout(total=4)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
 
@@ -60,7 +62,7 @@ class ZendureBattery(EntityDevice):
                 model = "Unknown"
                 self.kWh = 0.0
 
-        super().__init__(hass, sn, sn, model, parent.name)
+        super().__init__(hass, sn, sn, model, "", parent.name)
         self.attr_device_info["serial_number"] = sn
 
 
@@ -72,9 +74,9 @@ class ZendureDevice(EntityDevice):
         from .fusegroup import FuseGroup
 
         """Initialize Device."""
-        super().__init__(hass, deviceId, name, model, parent)
-        self.name = name
         self.prodkey = definition["productKey"]
+        super().__init__(hass, deviceId, name, model, self.prodkey, parent)
+        self.name = name
         self.snNumber = definition["snNumber"]
         self.attr_device_info["serial_number"] = self.snNumber
         self.definition = definition
@@ -588,7 +590,7 @@ class ZendureZenSdk(ZendureDevice):
 
     async def power_get(self) -> bool:
         """Get the current power."""
-        if self.online and self.connection.value != 0:
+        if self.connection.value != 0:
             json = await self.httpGet("properties/report")
             self.mqttProperties(json)
 
@@ -618,7 +620,7 @@ class ZendureZenSdk(ZendureDevice):
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
             url = f"http://{self.ipAddress}/{url}"
-            response = await self.session.get(url, headers=CONST_HEADER)
+            response = await self.session.get(url, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
             payload = json.loads(await response.text())
             self.lastseen = datetime.now()
             return payload if key is None else payload.get(key, {})
@@ -633,7 +635,7 @@ class ZendureZenSdk(ZendureDevice):
             command["id"] = self.httpid
             command["sn"] = self.snNumber
             url = f"http://{self.ipAddress}/{url}"
-            await self.session.post(url, json=command, headers=CONST_HEADER)
+            await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
         except Exception as e:
             _LOGGER.error(f"HttpPost error {self.name} {e}!")
             self.lastseen = datetime.min

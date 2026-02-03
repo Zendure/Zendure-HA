@@ -37,8 +37,8 @@
             }
         }
     },
-    "privileged": true,
     "remoteUser": "vscode",
+    "privileged": true,
     "runArgs": [
         "--privileged",
         "-v",

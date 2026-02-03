@@ -18,7 +18,7 @@ class SolarFlow800Pro(ZendureZenSdk):
         self.setLimits(-1000, 800)
         self.maxSolar = -1200
         self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
-        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrGridOffPowerTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrGridOffPowerTotal", None, "kWh", "energy", "total", 2)
 
     @property
     def pwr_offgrid(self) -> int:

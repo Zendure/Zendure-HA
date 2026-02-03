@@ -69,10 +69,10 @@
     },
     "number": {
       "input_limit": {
-        "name": "Eingangslimit"
+        "name": "Eingangsleistung"
       },
       "output_limit": {
-        "name": "Ausgangslimit"
+        "name": "Ausgangsleistung"
       },
       "manual_power": {
         "name": "Manuelle Leistung"
@@ -296,7 +296,7 @@
         "name": "Hardware-Version"
       },
       "inverse_max_power": {
-        "name": "Wechselrichtereingangsleistung"
+        "name": "behördl. begrenzte Ausgangsleistung"
       },
       "grid_power": {
         "name": "Netzleistung"

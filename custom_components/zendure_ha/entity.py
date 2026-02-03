@@ -41,7 +41,6 @@ class EntityZendure(Entity):
             return
         self.device = device
         self._attr_unique_id = f"{self.device.name}-{uniqueid}"
-        self.entity_id = f"{entitytype}.{self.device.name}-{snakecase(uniqueid)}"
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
 
@@ -116,7 +115,7 @@ class EntityDevice:
         "reverseState": ("binary"),
         "pass": ("binary"),
         "lowTemperature": ("binary"),
-        "autoHeat": ("select", {0: "off", 1: "on"},1),
+        "autoHeat": ("select", {0: "off", 1: "on"}, 1),
         "localState": ("binary"),
         "ctOff": ("binary"),
         "lampSwitch": ("switch"),
@@ -147,7 +146,7 @@ class EntityDevice:
     empty = EntityZendure(None, "empty", "empty")
     to_add: dict[AddEntitiesCallback, list[EntityZendure]] = {}
 
-    def __init__(self, hass: HomeAssistant, deviceId: str, name: str, model: str, parent: str | None = None) -> None:
+    def __init__(self, hass: HomeAssistant, deviceId: str, name: str, model: str, model_id: str, parent: str | None = None) -> None:
         """Initialize Device."""
         self.hass = hass
         self.deviceId = deviceId
@@ -160,6 +159,8 @@ class EntityDevice:
             name=self.name,
             manufacturer="Zendure",
             model=model,
+            model_id=model_id,
+            hw_version=deviceId,
         )
         device_registry = dr.async_get(self.hass)
         if di := device_registry.async_get_device(identifiers={(DOMAIN, self.name)}):
