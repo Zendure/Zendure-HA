@@ -30,6 +30,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Zendure Integration."""
 
     VERSION = 1
+    MINOR_VERSION = 2
     _input_data: dict[str, Any]
     data_schema = vol.Schema(
         {

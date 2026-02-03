@@ -7,6 +7,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .coordinator import ZendureConfigEntry, ZendureCoordinator
 from .device import ZendureDevice
@@ -52,5 +53,41 @@ async def async_remove_config_entry_device(_hass: HomeAssistant, entry: ZendureC
         if isinstance(d, ZendureDevice) and (bat := next((b for b in d.batteries.values() if b.name == device_entry.name), None)) is not None:
             d.batteries.pop(bat.deviceId)
             return True
+
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
+    """Migrate entry."""
+    _LOGGER.debug("Migrating from version %s:%s", entry.version, entry.minor_version)
+
+    if entry.version > 1:
+        # This means the user has downgraded from a future version
+        return False
+
+    if entry.version == 1 and entry.minor_version == 1:
+        # Rename the device ids
+        device_registry = dr.async_get(hass)
+        devices = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+        for device in devices:
+            _LOGGER.debug("Migrating device %s", device.id)
+            # get old unique id
+            # device_registry.async_remove_device(device.id)
+            # device_registry.async_update_device(
+            #     device.id,
+            #     disabled_by=dr.DeviceEntryDisabler.USER,
+            # )
+
+        entity_registry = er.async_get(hass)
+        entity_entries = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+        for entity in entity_entries:
+            _LOGGER.debug("Migrating entity %s", entity.entity_id)
+            # entity_registry.async_update_entity(
+            #     entity.entity_id,
+            #     new_entity_id=entity.entity_id,
+            # )
+        # hass.config_entries.async_update_entry(entry, minor_version=3)
+
+    _LOGGER.debug("Migration to version %s:%s successful", entry.version, entry.minor_version)
 
     return True

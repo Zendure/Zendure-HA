@@ -110,10 +110,10 @@ class ZendureDevice(ZendureEntities):
         self.fuseGroupMax = ZendureRestoreNumber(self, "fuseGroupMax", self.setFusegroup, None, "W", "power", 3600, 0, NumberMode.SLIDER, disabled=True, native_value=2400)
         self.fuseGroupMin = ZendureRestoreNumber(self, "fuseGroupMin", self.setFusegroup, None, "W", "power", 0, -3600, NumberMode.SLIDER, disabled=True, native_value=-2400)
 
-        self.aggrCharge = ZendureRestoreSensor(self, "aggrChargeTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischargeTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrHomeInput = ZendureRestoreSensor(self, "aggrHomeInputTotal", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrHomeOut = ZendureRestoreSensor(self, "aggrHomeOutputTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrCharge = ZendureRestoreSensor(self, "aggrCharge", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischarge", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrHomeInput = ZendureRestoreSensor(self, "aggrHomeInput", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrHomeOut = ZendureRestoreSensor(self, "aggrHomeOutput", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0, disabled=True)
         self.aggrOffGrid: ZendureRestoreSensor | None = None
 
