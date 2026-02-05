@@ -1,5 +1,6 @@
 # """Initialize the Zendure component."""
 
+from html import entities
 import logging
 
 from homeassistant.components import mqtt
@@ -8,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from stringcase import snakecase
 
 from .coordinator import ZendureConfigEntry, ZendureCoordinator
 from .device import ZendureDevice
@@ -68,25 +70,44 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ZendureConfigEntry) ->
     if entry.version == 1 and entry.minor_version == 1:
         # Rename the device ids
         device_registry = dr.async_get(hass)
+        entity_registry = er.async_get(hass)
+        delete: list[str] = ["gridInputPower", "outputHomePower", "outputPackPower", "packInputPower"]
+        rename = {"solarInputPower": "solarPower", "minSoc": "socMin"}
         devices = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
         for device in devices:
-            _LOGGER.debug("Migrating device %s", device.id)
-            # get old unique id
-            # device_registry.async_remove_device(device.id)
-            # device_registry.async_update_device(
-            #     device.id,
-            #     disabled_by=dr.DeviceEntryDisabler.USER,
-            # )
+            if device.model_id is not None and (m := ZendureCoordinator.models.get(device.model_id.lower())) is not None:
+                device_name = f"{m[0].replace(' ', '').replace('SolarFlow', 'SF')} {device.serial_number[-2:] if device.serial_number is not None else ''}".strip()
+                if device.name != device_name:
+                    _LOGGER.debug("Renaming device %s to %s", device.name, device_name)
+                    device_registry.async_update_device(
+                        device.id,
+                        name=device_name,
+                    )
 
-        entity_registry = er.async_get(hass)
-        entity_entries = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
-        for entity in entity_entries:
-            _LOGGER.debug("Migrating entity %s", entity.entity_id)
-            # entity_registry.async_update_entity(
-            #     entity.entity_id,
-            #     new_entity_id=entity.entity_id,
-            # )
-        # hass.config_entries.async_update_entry(entry, minor_version=3)
+                    def update_entity(entity: er.RegistryEntry, unique_id: str, device_name: str) -> None:
+                        # Update the entity name
+                        try:
+                            entity_registry.async_update_entity(
+                                entity.entity_id,
+                                new_entity_id=f"{snakecase(device_name)}_{snakecase(unique_id)}",
+                                new_unique_id=f"{device_name}-{unique_id}",
+                            )
+                            _LOGGER.debug("Migrating entity %s", entity.entity_id)
+                        except Exception as e:
+                            _LOGGER.error("Error updating entity %s: %s", entity.entity_id, e)
+
+                    # Update the device entities
+                    entities = er.async_entries_for_device(entity_registry, device.id, True)
+                    for entity in entities:
+                        unique_id = entity.unique_id[entity.unique_id.find("-") + 1 :]
+                        if unique_id in delete:
+                            entity_registry.async_remove(entity.entity_id)
+                        if (new_unique_id := rename.get(unique_id)) is not None:
+                            update_entity(entity, new_unique_id, device_name)
+                        elif unique_id.startswith("aggr"):
+                            update_entity(entity, unique_id.replace("Total", ""), device_name)
+                        else:
+                            update_entity(entity, unique_id, device_name)
 
     _LOGGER.debug("Migration to version %s:%s successful", entry.version, entry.minor_version)
 
