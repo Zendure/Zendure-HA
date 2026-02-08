@@ -364,7 +364,8 @@
           "manual": "Puissance manuelle",
           "smart": "Couplage intelligent",
           "smart_discharging": "Décharge intelligente",
-          "smart_charging": "Charge intelligente"
+          "smart_charging": "Charge intelligente | PV -> Maison",
+          "smart_charging_bat": "Charge intelligente | PV -> Bat"
         }
       },
       "pass_mode": {
