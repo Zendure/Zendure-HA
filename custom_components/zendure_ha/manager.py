@@ -94,7 +94,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
         self.attr_device_info["sw_version"] = integration.manifest.get("version", "unknown")
 
-        self.operationmode = (ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging"}, self.update_operation),)
+        self.operationmode = (ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "smart_charging_bat"}, self.update_operation),)
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
@@ -459,11 +459,14 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # Only discharge, do nothing if setpoint is negative
                 await self.power_discharge(max(0, setpoint))
 
-            case ManagerMode.MATCHING_CHARGE:
-                # Allow discharge of produced power, otherwise only charge
+            case ManagerMode.MATCHING_CHARGE | ManagerMode.MATCHING_CHARGE_BAT:
+                # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
                 # d.pwr_produced is negative, but self.produced is positive
-                if setpoint > 0 and self.produced > SmartMode.POWER_START:
+                if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
                     await self.power_discharge(min(self.produced, setpoint))
+                # send device into idle-mode 
+                elif setpoint > 0:
+                    await self.power_discharge(0)
                 else:
                     await self.power_charge(min(0, setpoint), time)
 
@@ -544,8 +547,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
             await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
 
-        # distribute discharging devices
-        dev_start = max(0, setpoint - self.discharge_optimal * 2) if setpoint > SmartMode.POWER_START else 0
+        # distribute discharging devices, use produced power first, before adding another device
+        dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
         solaronly = self.discharge_produced >= setpoint
         limit = self.discharge_produced if solaronly else self.discharge_limit
         setpoint = min(limit, setpoint)
