@@ -33,6 +33,9 @@ class ZendureBattery(ZendureEntities):
             case "F":
                 model = "AB3000"
                 self.kWh = 2.88
+            case "J":
+                model = "AB3000L"
+                self.kWh = 2.88
             case _:
                 model = "Unknown"
                 self.kWh = 0.0

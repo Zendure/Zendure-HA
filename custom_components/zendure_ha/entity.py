@@ -36,9 +36,9 @@ class ZendureEntity(Entity):
         self._attr_should_poll = False
         self._attr_available = True
         self.device_info = device.attr_device_info
-        self._attr_unique_id = f"{device.name}-{uniqueid}"
-        self.entity_id = f"{entitytype}.{device.name}-{snakecase(uniqueid)}"
         self._attr_translation_key = snakecase(uniqueid)
+        self._attr_unique_id = f"{device.name.lower()}_{self._attr_translation_key}"
+        # self.entity_id = f"{entitytype}.{snakecase(f'{device.name.lower()}_{uniqueid}')}"
 
     def update_value(self, _value: Any) -> bool:
         """Update the entity value."""
@@ -89,7 +89,7 @@ class ZendureEntities:
         self.topic_write = f"iot/{model_id}/{self.deviceId}/properties/write"
         self.ready = datetime.min
 
-    def entityRead(self, payload: dict) -> None:
+    async def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
 
     def mqttRegister(self, payload: dict) -> None:

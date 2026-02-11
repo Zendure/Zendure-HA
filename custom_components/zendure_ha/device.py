@@ -117,7 +117,7 @@ class ZendureDevice(ZendureEntities):
         self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0, disabled=True)
         self.aggrOffGrid: ZendureRestoreSensor | None = None
 
-    def entityRead(self, payload: dict) -> None:
+    async def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
         if (properties := payload.get("properties")) and len(properties) > 0:
             for key, value in properties.items():

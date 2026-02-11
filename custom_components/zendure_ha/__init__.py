@@ -66,50 +66,50 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ZendureConfigEntry) ->
         # This means the user has downgraded from a future version
         return False
 
-    if entry.version == 1 and entry.minor_version == 1:
-        # Rename the device ids
-        device_registry = dr.async_get(hass)
-        entity_registry = er.async_get(hass)
-        delete: list[str] = ["gridInputPower", "outputHomePower", "outputPackPower", "packInputPower"]
-        rename = {"solarInputPower": "solarPower", "minSoc": "socMin"}
-        devices = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
-        for device in devices:
-            if device.model_id is not None and (m := ZendureCoordinator.models.get(device.model_id.lower())) is not None:
-                device_name = f"{m[0].replace(' ', '').replace('SolarFlow', 'SF')} {device.serial_number[-2:] if device.serial_number is not None else ''}".strip()
-                if device.name != device_name:
+    # if entry.version == 1 and entry.minor_version == 1:
+    #     # Rename the device ids
+    #     device_registry = dr.async_get(hass)
+    #     entity_registry = er.async_get(hass)
+    #     delete: list[str] = ["gridInputPower", "outputHomePower", "outputPackPower", "packInputPower"]
+    #     rename = {"solarInputPower": "solarPower", "minSoc": "socMin"}
+    #     devices = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+    #     for device in devices:
+    #         if device.model_id is not None and (m := ZendureCoordinator.models.get(device.model_id.lower())) is not None:
+    #             device_name = f"{m[0].replace(' ', '').replace('SolarFlow', 'SF')} {device.serial_number[-2:] if device.serial_number is not None else ''}".strip()
+    #             if device.name != device_name:
 
-                    def update_entity(entity: er.RegistryEntry, unique_id: str, device_name: str) -> None:
-                        # Update the entity name
-                        try:
-                            new_entity_id = f"{entity.domain}.{snakecase(device_name)}_{snakecase(unique_id)}"
-                            new_unique_id = f"{device_name}-{unique_id}"
-                            entity_registry.async_update_entity(
-                                entity.entity_id,
-                                new_entity_id=new_entity_id,
-                                new_unique_id=new_unique_id,
-                            )
-                            _LOGGER.debug("Migrating entity %s", entity.entity_id)
-                        except Exception as e:
-                            _LOGGER.error("Error updating entity %s: %s", entity.entity_id, e)
+    #                 def update_entity(entity: er.RegistryEntry, unique_id: str, device_name: str) -> None:
+    #                     # Update the entity name
+    #                     try:
+    #                         new_entity_id = f"{entity.domain}.{snakecase(device_name)}_{snakecase(unique_id)}"
+    #                         new_unique_id = f"{device_name}-{unique_id}"
+    #                         entity_registry.async_update_entity(
+    #                             entity.entity_id,
+    #                             new_entity_id=new_entity_id,
+    #                             new_unique_id=new_unique_id,
+    #                         )
+    #                         _LOGGER.debug("Migrating entity %s", entity.entity_id)
+    #                     except Exception as e:
+    #                         _LOGGER.error("Error updating entity %s: %s", entity.entity_id, e)
 
-                    # Update the device entities
-                    entities = er.async_entries_for_device(entity_registry, device.id, True)
-                    for entity in entities:
-                        unique_id = entity.unique_id[entity.unique_id.find("-") + 1 :]
-                        if unique_id in delete:
-                            entity_registry.async_remove(entity.entity_id)
-                        elif (new_unique_id := rename.get(unique_id)) is not None:
-                            update_entity(entity, new_unique_id, device_name)
-                        elif unique_id.startswith("aggr"):
-                            update_entity(entity, unique_id.replace("Total", ""), device_name)
-                        else:
-                            update_entity(entity, unique_id, device_name)
+    #                 # Update the device entities
+    #                 entities = er.async_entries_for_device(entity_registry, device.id, True)
+    #                 for entity in entities:
+    #                     unique_id = entity.unique_id[entity.unique_id.find("-") + 1 :]
+    #                     if unique_id in delete:
+    #                         entity_registry.async_remove(entity.entity_id)
+    #                     elif (new_unique_id := rename.get(unique_id)) is not None:
+    #                         update_entity(entity, new_unique_id, device_name)
+    #                     elif unique_id.startswith("aggr"):
+    #                         update_entity(entity, unique_id.replace("Total", ""), device_name)
+    #                     else:
+    #                         update_entity(entity, unique_id, device_name)
 
-                    _LOGGER.debug("Renaming device %s to %s", device.name, device_name)
-                    device_registry.async_update_device(
-                        device.id,
-                        name=device_name,
-                    )
+    #                 _LOGGER.debug("Renaming device %s to %s", device.name, device_name)
+    #                 device_registry.async_update_device(
+    #                     device.id,
+    #                     name=device_name,
+    #                 )
 
     _LOGGER.debug("Migration to version %s:%s successful", entry.version, entry.minor_version)
 

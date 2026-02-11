@@ -103,7 +103,9 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
             _LOGGER.exception("Unexpected error in MQTT message handler")
         await self.update_fusegroups()
         await self.async_update(self.hass, self.config_entry)
-        await mqtt.async_subscribe(self.hass, "/#", self.mqtt_message_received, 1)
+        self.api = Api()
+        await self.api.async_init(self.hass, self.config_entry)
+        # await mqtt.async_subscribe(self.hass, "/#", self.mqtt_message_received, 1)
 
         info = self.hass.config_entries.async_loaded_entries(mqtt.DOMAIN)
         if info is not None and len(info) > 0 and (data := info[0].data) is not None:
@@ -112,8 +114,8 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
     async def async_update(self, _hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Handle options update."""
         _LOGGER.debug("async_update: %s", entry.entry_id)
-        Api.wifi_ssid = entry.data.get("wifissid", "")
-        Api.wifi_psw = entry.data.get("wifipsw", "")
+        # Api.wifi_ssid = entry.data.get("wifissid", "")
+        # Api.wifi_psw = entry.data.get("wifipsw", "")
         # Api.iotUrl = mqtt.
         #     _LOGGER.debug("Updating Zendure config entry: %s", entry.entry_id)
         #     Api.mqttLogging = entry.data.get(CONF_MQTTLOG, False)
@@ -129,20 +131,20 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         if doUpdate := datetime.now() > self.next_update:
             self.next_update = datetime.now() + timedelta(seconds=60)
 
-        for d in self.devices.values():
-            if isinstance(d, ZendureDevice):
-                if d.lastseen < time:
-                    if not d.usefallback or d.status != DeviceState.OFFLINE:
-                        Api.fallback_start(d)
-                        d.connectionStatus.update_value(DeviceState.OFFLINE.value)
-                elif d.usefallback:
-                    await Api.fallback_stop(d)
-                elif doUpdate:
-                    d.mqttPublish(d.topic_read, {"properties": ["getAll"]})
+        # for d in self.devices.values():
+        #     if isinstance(d, ZendureDevice):
+        #         if d.lastseen < time:
+        #             if not d.usefallback or d.status != DeviceState.OFFLINE:
+        #                 Api.fallback_start(d)
+        #                 d.connectionStatus.update_value(DeviceState.OFFLINE.value)
+        #         elif d.usefallback:
+        #             await Api.fallback_stop(d)
+        #         elif doUpdate:
+        #             d.mqttPublish(d.topic_read, {"properties": ["getAll"]})
 
         # check for fallback devices
-        if len(Api.recover) > 0:
-            await Api.fallback_check(self.hass)
+        # if len(Api.recover) > 0:
+        #     await Api.fallback_check(self.hass)
 
         # Manually update the timer
         if self.hass and self.hass.loop.is_running():
@@ -215,49 +217,49 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                 device.fuseGrp = fg
                 fg.devices.append(device)
 
-    @callback
-    def mqtt_message_received(self, msg: mqtt.ReceiveMessage) -> None:
-        """Handle Zendure mqtt messages."""
-        if msg.payload is None or not msg.payload:
-            return
-        try:
-            # Validate topic format before accessing indices
-            if len(topics := msg.topic.split("/", 3)) < CONST_TOPIC_CNT:
-                _LOGGER.warning("Invalid MQTT topic format: %s (expected 4 segments)", msg.topic)
-                return
+    # @callback
+    # def mqtt_message_received(self, msg: mqtt.ReceiveMessage) -> None:
+    #     """Handle Zendure mqtt messages."""
+    #     if msg.payload is None or not msg.payload:
+    #         return
+    #     try:
+    #         # Validate topic format before accessing indices
+    #         if len(topics := msg.topic.split("/", 3)) < CONST_TOPIC_CNT:
+    #             _LOGGER.warning("Invalid MQTT topic format: %s (expected 4 segments)", msg.topic)
+    #             return
 
-            # deserialize payload
-            deviceId = topics[2]
-            try:
-                payload = json.loads(msg.payload)
-            except json.JSONDecodeError as err:
-                _LOGGER.error("Failed to decode JSON from device %s: %s", deviceId, err)
-                return
-            except UnicodeDecodeError as err:
-                _LOGGER.error("Failed to decode payload encoding from device %s: %s", deviceId, err)
-                return
+    #         # deserialize payload
+    #         deviceId = topics[2]
+    #         try:
+    #             payload = json.loads(msg.payload)
+    #         except json.JSONDecodeError as err:
+    #             _LOGGER.error("Failed to decode JSON from device %s: %s", deviceId, err)
+    #             return
+    #         except UnicodeDecodeError as err:
+    #             _LOGGER.error("Failed to decode payload encoding from device %s: %s", deviceId, err)
+    #             return
 
-            if (device := self.devices.get(deviceId, None)) is not None:
-                match topics[3]:
-                    case "properties/report":
-                        device.entityRead(payload)
-                    case "register":
-                        device.mqttRegister(payload)
-                    case "function/invoke/reply" | "properties/write/reply":
-                        device.ready = datetime.min
-                    case _:
-                        pass
+    #         if (device := self.devices.get(deviceId, None)) is not None:
+    #             match topics[3]:
+    #                 case "properties/report":
+    #                     device.entityRead(payload)
+    #                 case "register":
+    #                     device.mqttRegister(payload)
+    #                 case "function/invoke/reply" | "properties/write/reply":
+    #                     device.ready = datetime.min
+    #                 case _:
+    #                     pass
 
-                # if self.mqttLogging:
-                # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
-            elif (lg := payload.get("log", None)) is not None and (sn := lg.get("sn", None)) is not None and (prod := self.models.get(topics[1].lower(), None)) is not None:
-                self.devices[deviceId] = device = prod[1](self.hass, deviceId, sn, prod[0], topics[1])
-                if isinstance(device, ZendureDevice):
-                    self.distribution.devices.append(device)
-                _LOGGER.info("New device found: %s => %s", deviceId, msg.topic)
-            else:
-                _LOGGER.debug("Unknown device: %s => %s", deviceId, msg.topic)
+    #             # if self.mqttLogging:
+    #             # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
+    #         elif (lg := payload.get("log", None)) is not None and (sn := lg.get("sn", None)) is not None and (prod := self.models.get(topics[1].lower(), None)) is not None:
+    #             self.devices[deviceId] = device = prod[1](self.hass, deviceId, sn, prod[0], topics[1])
+    #             if isinstance(device, ZendureDevice):
+    #                 self.distribution.devices.append(device)
+    #             _LOGGER.info("New device found: %s => %s", deviceId, msg.topic)
+    #         else:
+    #             _LOGGER.debug("Unknown device: %s => %s", deviceId, msg.topic)
 
-        except Exception as err:
-            _LOGGER.error(f"Error mqtt_message_received {err}!")
-            _LOGGER.error(traceback.format_exc())
+    #     except Exception as err:
+    #         _LOGGER.error(f"Error mqtt_message_received {err}!")
+    #         _LOGGER.error(traceback.format_exc())
