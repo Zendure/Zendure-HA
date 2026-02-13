@@ -15,7 +15,6 @@ from typing import Any
 
 from bleak import BleakClient
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
-from homeassistant.components.mqtt.async_client import AsyncMQTTClient
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
@@ -31,6 +30,7 @@ from .devices.hub1200 import Hub1200
 from .devices.hub2000 import Hub2000
 from .devices.hyper2000 import Hyper2000
 from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro
+from .devices.solarflow1600 import SolarFlow1600AC
 from .devices.solarflow2400 import SolarFlow2400AC
 from .devices.superbase import SuperBaseV4600, SuperBaseV6400
 from .entity import ZendureEntities
@@ -58,6 +58,7 @@ class Api:
         "n8sky9": ("SolarFlow 800AC", SolarFlow800),
         "8n77v3": ("SolarFlow 800Plus", SolarFlow800Plus),
         "r3mn8u": ("SolarFlow 800Pro", SolarFlow800Pro),
+        "65174u": ("SolarFlow 1600AC+", SolarFlow1600AC),
         "bc8b7f": ("SolarFlow 2400AC", SolarFlow2400AC),
         "2qe7c9": ("SolarFlow 2400Pro", SolarFlow2400AC),
         "5fg27j": ("SolarFlow 2400AC+", SolarFlow2400AC),
