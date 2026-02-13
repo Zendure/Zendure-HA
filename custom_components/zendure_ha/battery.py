@@ -40,7 +40,7 @@ class ZendureBattery(ZendureEntities):
                 model = "Unknown"
                 self.kWh = 0.0
 
-        super().__init__(hass, device_sn, model, parent=parent)
+        super().__init__(hass, model, f"{model}_{device_sn[-8:]}", device_sn, parent=parent)
         self.lastseen = datetime.min
 
         # Create the battery entities."""

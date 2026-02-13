@@ -42,30 +42,6 @@ CONST_TOPIC_CNT = 4
 class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
     """Zendure coordinator."""
 
-    models: dict[str, tuple[str, type[ZendureEntities]]] = {
-        "a4ss5p": ("SolarFlow 800", SolarFlow800),
-        "b1nhmc": ("SolarFlow 800", SolarFlow800),
-        "n8sky9": ("SolarFlow 800AC", SolarFlow800),
-        "8n77v3": ("SolarFlow 800Plus", SolarFlow800Plus),
-        "r3mn8u": ("SolarFlow 800Pro", SolarFlow800Pro),
-        "bc8b7f": ("SolarFlow 2400AC", SolarFlow2400AC),
-        "2qe7c9": ("SolarFlow 2400Pro", SolarFlow2400AC),
-        "5fg27j": ("SolarFlow 2400AC+", SolarFlow2400AC),
-        "c3yt68": ("smartMeter 3CT", ZendureSmartMeter),
-        "y6hvtw": ("smartMeter 3CT-S", ZendureSmartMeter),
-        "1dmcr8": ("smartPlug", ZendureSmartMeter),
-        "vv1wd7": ("smartCt", ZendureSmartMeter),
-        "gda3tb": ("Hyper 2000", Hyper2000),
-        "b3dxda": ("Hyper 2000", Hyper2000),
-        "ja72u0": ("Hyper 2000", Hyper2000),
-        "73bktv": ("Hub 1200", Hub1200),
-        "a8yh63": ("Hub 2000", Hub2000),
-        "ywf7hv": ("AIO 2400", AIO2400),
-        "8bm93h": ("ACE 1500", ACE1500),
-        "v4600": ("SuperBase v4600", SuperBaseV4600),
-        "v6400": ("SuperBase v6400", SuperBaseV6400),
-    }
-
     def __init__(self, hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Initialize Zendure Coordinator."""
         from .fusegroup import FuseGroup
@@ -80,36 +56,32 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
         self.bypassmode = ZendureRestoreSelect(self, "Bypass", {0: "never", 1: "house", 2: "grid"}, self.update_bypass)
         self.manualpower = ZendureRestoreNumber(self, "manual_power", self.update_manualpower, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
-        self.devices: dict[str, ZendureEntities] = {}
         self.fuseGroups: list[FuseGroup] = []
         self.next_update = datetime.min
 
     async def _async_setup(self) -> None:
         """Set up the coordinator."""
         _LOGGER.debug("Setting up Zendure coordinator for entry: %s", self.config_entry.entry_id)
+        self.api = Api()
         try:
             device_registry = dr.async_get(self.hass)
             for d in dr.async_entries_for_config_entry(device_registry, self.config_entry.entry_id):
                 if d.serial_number and d.model_id and d.hw_version:
                     model_key = d.model_id.lower()
-                    if prod := self.models.get(model_key):
+                    if prod := Api.models.get(model_key):
                         sn = d.serial_number
                         deviceId = d.hw_version
                         device = prod[1](self.hass, deviceId, sn, prod[0], d.model_id)
-                        self.devices[deviceId] = device
+                        Api.devices[deviceId] = device
                         if isinstance(device, ZendureDevice):
                             self.distribution.devices.append(device)
+                    else:
+                        _LOGGER.warning("Unknown model_id %s for device %s, skipping device setup", d.model_id, d.name)
         except Exception:
             _LOGGER.exception("Unexpected error in MQTT message handler")
         await self.update_fusegroups()
         await self.async_update(self.hass, self.config_entry)
-        self.api = Api()
         await self.api.async_init(self.hass, self.config_entry)
-        # await mqtt.async_subscribe(self.hass, "/#", self.mqtt_message_received, 1)
-
-        info = self.hass.config_entries.async_loaded_entries(mqtt.DOMAIN)
-        if info is not None and len(info) > 0 and (data := info[0].data) is not None:
-            Api.iotUrl = self.hass.config.api.local_ip if "core-mosquitto" in data["broker"].lower() else data["broker"]
 
     async def async_update(self, _hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Handle options update."""
@@ -165,7 +137,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
             await self.update_fusegroups()
 
         fuseGroups: dict[str, FuseGroup] = {}
-        for device in self.devices.values():
+        for device in Api.devices.values():
             if not isinstance(device, ZendureDevice):
                 continue
 
@@ -194,7 +166,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                     updateDevice(device, True)
 
         # Update the fusegroups and select optins for each device
-        for device in self.devices.values():
+        for device in Api.devices.values():
             if not isinstance(device, ZendureDevice):
                 continue
             try:
@@ -209,7 +181,7 @@ class ZendureCoordinator(DataUpdateCoordinator[None], ZendureEntities):
                 _LOGGER.error("Unable to update fusegroup options for device %s (%s): %s", device.name, device.deviceId, err, exc_info=True)
 
         # Add devices to fusegroups
-        for device in self.devices.values():
+        for device in Api.devices.values():
             if not isinstance(device, ZendureDevice):
                 continue
 

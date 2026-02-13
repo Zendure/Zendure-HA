@@ -41,7 +41,7 @@ class ZendureNumber(ZendureEntity, NumberEntity):
         disabled: bool = False,
     ) -> None:
         """Initialize a number entity."""
-        super().__init__(device, uniqueid, "number")
+        super().__init__(device, uniqueid)
         self.entity_description = NumberEntityDescription(
             key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, entity_registry_enabled_default=not disabled
         )

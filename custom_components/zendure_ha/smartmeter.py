@@ -16,14 +16,14 @@ class ZendureSmartMeter(ZendureEntities):
 
     def __init__(self, hass: HomeAssistant, device_id: str, device_sn: str, model: str, model_id: str) -> None:
         """Initialize the smart meter device."""
-        super().__init__(hass, name, model, device_id, device_sn, model_id)
+        super().__init__(hass, model, device_id, device_sn, model_id)
         self.entityCreate()
 
     def entityCreate(self) -> None:
         """Create the device entities."""
-        self.electricLevel = ZendureSensor(self, "power", None, "W", "power", "measurement")
+        self.totalPower = ZendureSensor(self, "power", None, "W", "power", "measurement")
 
-    def entityRead(self, payload: dict) -> None:
+    async def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
 
         def update_entity(key: str, value: Any) -> None:

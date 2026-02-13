@@ -49,6 +49,9 @@ SF_NOTIFY_CHAR = "0000c305-0000-1000-8000-00805f9b34fb"
 class Api:
     """Api for Zendure Integration."""
 
+    cloud = mqtt_client.Client()
+    local = mqtt_client.Client()
+    devices: dict[str, ZendureEntities] = {}
     models: dict[str, tuple[str, type[ZendureEntities]]] = {
         "a4ss5p": ("SolarFlow 800", SolarFlow800),
         "b1nhmc": ("SolarFlow 800", SolarFlow800),
@@ -58,10 +61,11 @@ class Api:
         "bc8b7f": ("SolarFlow 2400AC", SolarFlow2400AC),
         "2qe7c9": ("SolarFlow 2400Pro", SolarFlow2400AC),
         "5fg27j": ("SolarFlow 2400AC+", SolarFlow2400AC),
-        "c3yt68": ("smartMeter 3CT", ZendureSmartMeter),
-        "y6hvtw": ("smartMeter 3CT-S", ZendureSmartMeter),
-        "1dmcr8": ("smartPlug", ZendureSmartMeter),
-        "vv1wd7": ("smartCt", ZendureSmartMeter),
+        "c3yt68": ("SmartMeter 3CT", ZendureSmartMeter),
+        "y6hvtw": ("SmartMeter 3CT-S", ZendureSmartMeter),
+        "q331b1": ("SmartMeter P1", ZendureSmartMeter),
+        "1dmcr8": ("SmartPlug", ZendureSmartMeter),
+        "vv1wd7": ("Smart Ct", ZendureSmartMeter),
         "gda3tb": ("Hyper 2000", Hyper2000),
         "b3dxda": ("Hyper 2000", Hyper2000),
         "ja72u0": ("Hyper 2000", Hyper2000),
@@ -74,23 +78,23 @@ class Api:
     }
 
     async def async_init(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize the Zendure MQTT API."""
+        """Initialize the Zendure API."""
         self.hass = hass
         self.entry = entry
-        self.devices: dict[str, ZendureEntities] = {}
+        self._messageid = 1000000
 
         # Get wifi settings
         self.wifissid = entry.data.get(CONF_WIFISSID)
         self.wifipsw = entry.data.get(CONF_WIFIPSW)
 
         # Init Mqtt
-        self.cloud = mqtt_client.Client()
         if (data := await self.ZendureCloud()) is not None and (mqtt := data.get("mqtt")) is not None and (deviceList := data.get("deviceList")) is not None:
-            self.cloud = mqtt_client.Client(userdata=[f"/{d['productKey']}/{d['deviceKey']}/#" for d in deviceList])
+            self.topics = [f"/{d['productKey']}/{d['deviceKey']}/#" for d in deviceList]
+            self.topics.append("/Q331b1/A0r9v5UC/#")
             self.mqtt_init(self.cloud, mqtt.get("url"), mqtt.get("username"), mqtt.get("password"), mqtt.get("clientId"))
-        self.local = mqtt_client.Client(userdata="['/#']")
-        # if entry.data.get(CONF_MQTTSERVER) is not None:
-        #     self.mqtt_init(self.local, entry.data.get(CONF_MQTTSERVER), entry.data.get(CONF_MQTTUSER), entry.data.get(CONF_MQTTPSW), DOMAIN)
+        if entry.data.get(CONF_MQTTSERVER) is not None:
+            self.mqtt_init(self.local, entry.data.get(CONF_MQTTSERVER), entry.data.get(CONF_MQTTUSER), entry.data.get(CONF_MQTTPSW), DOMAIN)
+        _LOGGER.debug("Zendure API initialized")
 
     async def ZendureCloud(self) -> dict[str, Any] | None:
         session = async_get_clientsession(self.hass)
@@ -144,28 +148,44 @@ class Api:
             _LOGGER.error(traceback.format_exc())
             return None
 
+    @staticmethod
+    async def mqtt_connect(hass: HomeAssistant, input: dict[str, Any], cloud: bool) -> str | None:
+        return None
+
     def mqtt_init(self, client: mqtt_client.Client, server: str | None, user: str | None, password: str | None, clientid: str | None) -> None:
         """Connect to the Zendure MQTT server."""
         if server is None or user is None or password is None:
             return
         client.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, clientid, True, userdata=client.user_data_get())
         client.username_pw_set(user, password)
-        client.on_connect = self.mqtt_connect
+        client.on_connect = self.mqtt_connect_cloud if client == self.cloud else self.mqtt_connect_local
         client.on_disconnect = self.mqtt_disconnect
         client.on_message = self.mqtt_message
         client.connect(server, 1883)
         client.loop_start()
 
-    def mqtt_connect(self, client: Any, userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
-        _LOGGER.info(f"Client {userdata} connected to MQTT broker, return code: {rc}")
-        for topic in userdata:
+    def mqtt_connect_cloud(self, client: Any, _userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
+        _LOGGER.info(f"Client connected to cloud MQTT broker, return code: {rc}")
+        for topic in self.topics:
             client.subscribe(topic)
+
+    def mqtt_connect_local(self, client: Any, _userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
+        _LOGGER.info(f"Client connected to local MQTT broker, return code: {rc}")
+        client.subscribe("/#")
 
     def mqtt_disconnect(self, _client: Any, userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
         # _LOGGER.info(f"Client {userdata} disconnected to MQTT broker, return code: {rc}")
         pass
 
-    def mqtt_message(self, _client: mqtt_client.Client, _userdata: Any, msg: mqtt_client.MQTTMessage) -> None:
+    def mqttPublish(self, client: mqtt_client.Client, deviceId: str, topic: str, command: Any) -> None:
+        self._messageid += 1
+        command["messageId"] = self._messageid
+        command["deviceId"] = deviceId
+        command["timestamp"] = int(datetime.now().timestamp())
+        payload = json.dumps(command, default=lambda o: o.__dict__)
+        client.publish(topic, payload=payload)
+
+    def mqtt_message(self, client: mqtt_client.Client, _userdata: Any, msg: mqtt_client.MQTTMessage) -> None:
         """Handle Zendure mqtt messages."""
         if msg.payload is None or not msg.payload:
             return
@@ -179,6 +199,8 @@ class Api:
             deviceId = topics[2]
             try:
                 payload = json.loads(msg.payload)
+                if "isHA" in payload:
+                    return
                 _LOGGER.info("Topic: %s => %s", msg.topic, payload)
             except json.JSONDecodeError as err:
                 _LOGGER.error("Failed to decode JSON from device %s: %s", deviceId, err)
@@ -187,21 +209,32 @@ class Api:
                 _LOGGER.error("Failed to decode payload encoding from device %s: %s", deviceId, err)
                 return
 
-            if (device := self.devices.get(deviceId, None)) is not None:
-                match topics[3]:
-                    case "properties/report":
-                        asyncio.run_coroutine_threadsafe(device.entityRead(payload), self.hass.loop)
-                    case "register":
-                        device.mqttRegister(payload)
-                    case "function/invoke/reply" | "properties/write/reply":
-                        device.ready = datetime.min
-                    case _:
-                        pass
+            if (topic := topics[3]) == "time-sync":
+                reply = json.dumps({"zoneOffset": "01:00", "timestamp": int(datetime.now().timestamp()), "messageId": payload.get("messageId", "none")})
+                client.publish(f"iot{msg.topic}/reply", reply)
+                return
 
-                # if self.mqttLogging:
-                # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
-            else:
-                asyncio.run_coroutine_threadsafe(self.mqtt_device(topics[1].lower(), deviceId, payload), self.hass.loop)
+            match topic:
+                case "properties/report":
+                    asyncio.run_coroutine_threadsafe(self.mqtt_device(topics[1], deviceId, payload), self.hass.loop)
+                case "register":
+                    if (params := payload.get("params")) is not None and (token := params.get("token")) is not None:
+                        self.mqttPublish(client, topics[2], f"iot{msg.topic}/replay", {"token": token, "result": 0})
+                case "time-sync":
+                    self.mqttPublish(client, topics[2], f"iot{msg.topic}/replay", {"zoneOffset": "01:00"})
+                case "function/invoke/reply" | "properties/write/reply":
+                    if (device := self.devices.get(deviceId, None)) is not None:
+                        device.ready = datetime.min
+                case "log":
+                    if self.devices.get(deviceId, None) is None:
+                        asyncio.run_coroutine_threadsafe(self.mqtt_device(topics[1], deviceId, payload), self.hass.loop)
+                case _:
+                    pass
+
+            #     # if self.mqttLogging:
+            #     # _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
+            # else:
+            #     asyncio.run_coroutine_threadsafe(self.mqtt_device(topics[1].lower(), deviceId, payload), self.hass.loop)
 
         except Exception as err:
             _LOGGER.error(f"Error mqtt_message_received {err}!")
@@ -209,7 +242,9 @@ class Api:
 
     async def mqtt_device(self, prodKey: str, deviceId: str, payload: dict) -> None:
         """Get device by ID."""
-        if (lg := payload.get("log")) is not None and (sn := lg.get("sn")) is not None and (prod := self.models.get(prodKey)) is not None:
+        if (device := self.devices.get(deviceId, None)) is not None:
+            await device.entityRead(payload)
+        elif (prod := self.models.get(prodKey.lower())) and ((sn := payload.get("deviceSn")) or ((lg := payload.get("log")) and (sn := lg.get("sn")))):
             _LOGGER.info("New device found: %s => %s", deviceId, prodKey)
             self.devices[deviceId] = prod[1](self.hass, deviceId, sn, prod[0], prodKey)
         else:

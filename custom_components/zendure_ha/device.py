@@ -119,22 +119,35 @@ class ZendureDevice(ZendureEntities):
 
     async def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
+        from .api import Api
+
+        packNum = 0
         if (properties := payload.get("properties")) and len(properties) > 0:
             for key, value in properties.items():
-                self.entityUpdate(key, value)
+                if key == "packNum":
+                    packNum = value
+                else:
+                    self.entityUpdate(key, value)
 
         if batprops := payload.get("packData"):
+            if packNum == len(batprops):
+                self.batteries.clear()
+
             for b in batprops:
                 if (sn := b.get("sn", None)) is None:
                     continue
 
                 if (bat := self.batteries.get(sn, None)) is None:
-                    self.batteries[sn] = ZendureBattery(self.hass, self.name, sn)
-                    self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
-                    self.batteryUpdate()
-                    self.setStatus(datetime.now(), DeviceState.ACTIVE)
+                    if (bat := Api.devices.get(sn, None)) is None or not isinstance(bat, ZendureBattery):
+                        Api.devices[sn] = bat = ZendureBattery(self.hass, self.name, sn)
+                    self.batteries[sn] = bat
                 elif bat and b:
                     bat.entityRead(b)
+
+            if packNum == len(batprops):
+                self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
+                self.batteryUpdate()
+                self.setStatus(datetime.now(), DeviceState.ACTIVE)
 
     def entityUpdate(self, key: str, value: Any) -> None:
         def home(value: int) -> None:

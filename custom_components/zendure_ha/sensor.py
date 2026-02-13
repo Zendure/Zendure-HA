@@ -50,7 +50,7 @@ class ZendureSensor(ZendureEntity, SensorEntity):
         disabled: bool = False,
     ) -> None:
         """Initialize a Zendure entity."""
-        super().__init__(device, uniqueid, "sensor")
+        super().__init__(device, uniqueid)
         self.entity_description = SensorEntityDescription(
             key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon, entity_registry_enabled_default=not disabled
         )

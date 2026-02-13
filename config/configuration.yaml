@@ -11,17 +11,6 @@ logger:
   logs:
     custom_components.zendure_ha: debug
 
-sensor:
-  - platform: rest
-    resource: http://192.168.2.97:8123/api/states/sensor.power_actual
-    name: power_actual
-    unique_id: power_actual
-    scan_interval: 2
-    device_class: power
-    value_template: "{{ value_json.state }}"
-    headers:
-      Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMmNlNzYyZGFjZjY0MGM4YWEwNmJjN2YxMjIxM2UxZSIsImlhdCI6MTc0MzI5ODAxNywiZXhwIjoyMDU4NjU4MDE3fQ.juJNrxIo5tSmSiCeA8shKpPPEg4AAlA8zMHa--VJw1Q
-
 template:
   - trigger:
       - trigger: time_pattern

@@ -29,16 +29,15 @@ class ZendureEntity(Entity):
         self,
         device: ZendureEntities,
         uniqueid: str,
-        entitytype: str,
     ) -> None:
         """Initialize a Zendure entity."""
         self._attr_has_entity_name = True
         self._attr_should_poll = False
         self._attr_available = True
         self.device_info = device.attr_device_info
+        self._attr_unique_id = snakecase(f"{device.name.lower()}_{uniqueid}").replace("__", "_")
+        self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
-        self._attr_unique_id = f"{device.name.lower()}_{self._attr_translation_key}"
-        # self.entity_id = f"{entitytype}.{snakecase(f'{device.name.lower()}_{uniqueid}')}"
 
     def update_value(self, _value: Any) -> bool:
         """Update the entity value."""
@@ -58,7 +57,7 @@ class ZendureEntities:
     def __init__(self, hass: HomeAssistant, model: str, device_id: str, device_sn: str | None = None, model_id: str | None = None, parent: str | None = None) -> None:
         """Initialize the Zendure device."""
         self.hass = hass
-        self.name = f"{model.replace(' ', '').replace('SolarFlow', 'SF')} {device_sn[-2:] if device_sn is not None else ''}".strip()
+        self.name = f"{model.replace(' ', '').replace('SolarFlow', 'SF')} {device_sn[-2:] if device_sn is not None else ''}".strip() if model_id else device_id
 
         self.prodKey = model_id if model_id is not None else ""
         self.deviceId = device_id
@@ -91,13 +90,6 @@ class ZendureEntities:
 
     async def entityRead(self, payload: dict) -> None:
         """Handle incoming MQTT message for the device."""
-
-    def mqttRegister(self, payload: dict) -> None:
-        """Handle device registration."""
-        if (params := payload.get("params")) is not None and (token := params.get("token")) is not None:
-            self.mqttPublish(f"iot/{self.prodKey}/{self.deviceId}/register/replay", {"token": token, "result": 0})
-        else:
-            _LOGGER.warning(f"MQTT register failed for device {self.name}: no token in payload")
 
     def mqttPublish(self, topic: str, command: Any) -> None:
         self._messageid += 1
