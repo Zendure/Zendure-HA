@@ -1,4 +1,4 @@
-"""Module for the Hyper2000 device integration in Home Assistant."""
+"""Module for the Hub2000 device integration in Home Assistant."""
 
 import logging
 from typing import Any
@@ -14,8 +14,11 @@ class Hub2000(ZendureLegacy):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
         """Initialise Hub2000."""
         super().__init__(hass, deviceId, definition["deviceName"], prodName, definition)
-        self.setLimits(-800, 800)
-        self.maxSolar = -800
+        """can get power from superbase V or satellite battery up to 1200W"""
+        """power from ACE 1500 up to 900W"""
+        """power to micro inverter up to 1200W"""
+        self.setLimits(-1200, 1200)
+        self.maxSolar = -2400
 
     def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:
         self.powerMin = -1800 if len(batteries) > 1 else -1200 if batteries[0].kWh > 1 else -800
