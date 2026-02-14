@@ -371,7 +371,8 @@
           "manual": "Manuelle Leistungsregelung",
           "smart": "Smarte Leistungsregelung",
           "smart_discharging": "Smartes nur Entladen",
-          "smart_charging": "Smartes nur Laden"
+          "smart_charging": "Smartes nur Laden | PV -> Haus",
+          "smart_charging_bat": "Smartes nur Laden | PV -> Bat"
         }
       },
       "pass_mode": {
