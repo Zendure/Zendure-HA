@@ -4,7 +4,6 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.zendure_ha.battery import ZendureBattery
 from custom_components.zendure_ha.device import ZendureDevice
 
 _LOGGER = logging.getLogger(__name__)

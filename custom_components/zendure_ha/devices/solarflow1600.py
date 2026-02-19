@@ -17,4 +17,4 @@ class SolarFlow1600AC(ZendureDevice):
         self.setLimits(-1600, 1600)
         self.maxSolar = -1600
         self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
-        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrOffGridTotal", None, "kWh", "energy", "total_increasing", 2)
+        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrOffGrid", None, "kWh", "energy", "total_increasing", 2)

@@ -6,8 +6,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.sensor import ZendureSensor
 
-from .const import DOMAIN
-from .entity import ZendureEntities, ZendureEntity
+from .entity import ZendureEntities
 
 
 class ZendureBattery(ZendureEntities):

@@ -44,7 +44,7 @@ class ZendureDevice(ZendureEntities):
 
         super().__init__(hass, model, device_id, device_sn, model_id, parent)
         self.mqttcloud: mqtt_client.Client
-        self.batteries: dict[str, ZendureBattery | None] = {}
+        self.batteries: dict[str, ZendureBattery] = {}
         self.kWh = 0.0
         self.limit = [0, 0]
         self.level = 0
@@ -66,7 +66,7 @@ class ZendureDevice(ZendureEntities):
         self.offGrid: ZendureSensor | None = None
 
         self.solarPower = ZendureSensor(self, "solarPower", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=solarcnt == 0)
-        self.aggrSolar = ZendureRestoreSensor(self, "aggrSolarTotal", None, "kWh", "energy", "total_increasing", 2, disabled=solarcnt == 0)
+        self.aggrSolar = ZendureRestoreSensor(self, "aggrSolar", None, "kWh", "energy", "total_increasing", 2, disabled=solarcnt == 0)
         if solarcnt > 0:
             self.solarPower1 = ZendureSensor(self, "solarPower1", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
             self.solarPower2 = ZendureSensor(self, "solarPower2", None, "W", "power", "measurement", icon="mdi:solar-panel", disabled=True)
@@ -101,10 +101,12 @@ class ZendureDevice(ZendureEntities):
         self.outputLimit = ZendureNumber(self, "outputLimit", self.entityWrite, None, "W", "power", self.limit[1], 0, NumberMode.SLIDER)
 
         self.hyperTmp = ZendureSensor(self, "Temp", ZendureSensor.temp, "°C", "temperature", "measurement")
+        self.heatState = ZendureBinarySensor(self, "heatState", disabled=True)
+        self.lowTemperature = ZendureBinarySensor(self, "lowTemperature", disabled=True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.connectionStatus = ZendureSensor(self, "connectionStatus", state=0)
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement", disabled=True)
-        self.byPass = ZendureBinarySensor(self, "pass")
+        self.byPass = ZendureBinarySensor(self, "pass", disabled=True)
         self.hemsState = ZendureBinarySensor(self, "hemsState", disabled=True)
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", self.fuseGroups, None)
         self.fuseGroupMax = ZendureRestoreNumber(self, "fuseGroupMax", self.setFusegroup, None, "W", "power", 3600, 0, NumberMode.SLIDER, disabled=True, native_value=2400)
