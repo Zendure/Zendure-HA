@@ -167,7 +167,7 @@ class EntityDevice:
             self.attr_device_info["via_device"] = (DOMAIN, parent)
 
     @staticmethod
-    def renameDevice(hass: HomeAssistant, entity_registry: er.EntityRegistry, deviceid: str, device_name: str) -> None:
+    def renameDevice(hass: HomeAssistant, entity_registry: er.EntityRegistry, deviceid: str, device_name: str, domain: str) -> None:
         # Update the device entities
         entities = er.async_entries_for_device(entity_registry, deviceid, True)
         data = rs.async_get(hass)
@@ -183,7 +183,8 @@ class EntityDevice:
                     if (rstate := data.last_states.pop(entity.entity_id, None)) is not None:
                         data.last_states[entityid] = rstate
 
-                    entity_registry.async_update_entity(entity.entity_id, new_unique_id=unique_id, new_entity_id=entityid, translation_key=uniqueid)
+                    if entity.platform == domain:
+                        entity_registry.async_update_entity(entity.entity_id, new_unique_id=unique_id, new_entity_id=entityid, translation_key=uniqueid)
                     _LOGGER.debug("Updated entity %s unique_id to %s", entity.entity_id, uniqueid)
             except Exception as e:
                 entity_registry.async_remove(entity.entity_id)

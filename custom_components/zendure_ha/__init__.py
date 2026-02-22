@@ -99,7 +99,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ZendureConfigEntry) ->
                     name = f"{device.model.replace(' ', '').replace('SolarFlow', 'Sf')} {device.serial_number[-3:] if device.serial_number is not None else ''}".strip().lower()
                 if device.name != name:
                     device_registry.async_update_device(device.id, name_by_user=device.name, name=name, new_identifiers={(DOMAIN, name)})
-                EntityDevice.renameDevice(hass, entity_registry, device.id, name)
+                EntityDevice.renameDevice(hass, entity_registry, device.id, name, entry.domain)
 
             await rs.RestoreStateData.async_save_persistent_states(hass)
             hass.config_entries.async_update_entry(entry, version=1, minor_version=2)
