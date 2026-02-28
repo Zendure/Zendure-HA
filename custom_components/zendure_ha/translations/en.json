@@ -242,6 +242,9 @@
       "power": {
         "name": "Power"
       },
+      "max_battery_output_power": {
+        "name": "Maximum Battery Output Power"
+      },
       "pass": {
         "name": "Bypass",
         "state": {
