@@ -49,8 +49,26 @@ Each device is a Zendure battery unit that can both charge (absorb power from th
 - **`offGrid`**: if the device has a 220V off-grid socket in use, this represents the power flowing through it. A negative value means the socket is delivering power (e.g. bypassing country export limits such as the German 800W rule); a positive value means it is consuming power from the device independently.
 - **`fuseGrp`**: the fuse group the device belongs to (see below).
 
+#### Device capabilities
+| Device name | AC charge | Solar input | offGrid socket | AC ouput |
+|---|---|---|---|---|
+| AIO 2400 | no | yes | no | yes |
+| HUB 1200 | no | yes | no | yes [^1] |
+| HUB 2000 | no | yes | no | yes [^1] |
+| ACE 1500 | yes | yes | yes | no [^2] |
+| HYPER 2000 | yes | yes | no [^3] | yes |
+| SF 800 | yes | yes | no | yes |
+| SF 800 plus| yes | yes | no | yes |
+| SF 800 pro | yes | yes | yes | yes |
+| SF 1600 AC+| yes | no | yes | yes |
+| SF 2400 AC(+) | yes | no | yes | yes |
+| SF 2400 pro | yes | yes | yes | yes |
+
+[^1]: via Micro-Inverter
+[^2]: only via Hub and Micro-Inverter
+[^3]: it exists a satelite plug, but then the devices is standalone
 ### Fuse Groups
-Multiple devices may share the same electrical circuit, which has a maximum total power capacity (the fuse limit). The `fuseGrp` object tracks the combined power of all devices in the group and ensures no single device is assigned more power than the group's remaining headroom allows. **The fuse group limit is a legal hard cap and must never be exceeded under any circumstances**, including during device startup windows.
+Multiple devices may share the same electrical circuit, which has a maximum total power capacity (the fuse limit). The `fuseGrp` object tracks the combined power of all devices in the group and ensures no single device is assigned more power than the group's remaining headroom allows. **The fuse group limit is a legal hard cap and must never be exceeded under any circumstances**, including during device startup windows. It not necessarily means, that devices in one fusegroup need to be connected to one fuse or same electrical circuit. The fusegroups can be used to fullfil the 800W limitation if using several devices. 
 
 ### Response Times
 - A device takes approximately **4 seconds** to respond to a power command.
@@ -69,8 +87,12 @@ Multiple devices may share the same electrical circuit, which has a maximum tota
 | **MATCHING_DISCHARGE** | Devices only discharge. The setpoint is clamped to a minimum of zero. Devices cover home consumption but never charge from the grid. Used when electricity prices are high and maximum self-consumption is desired. |
 | **MATCHING_CHARGE** | Devices only charge. The setpoint is clamped to a maximum of zero. Devices absorb surplus power but never discharge. Used when electricity prices are low. |
 | **MANUAL** | A fixed power setpoint is used, as specified by the user via a Home Assistant entity. Typically used for maximum-speed charging during cheap electricity periods, independent of the P1 meter reading. In MANUAL mode the deadband does not apply. |
+> [!NOTE]
+> Need to define the behavior of the PV and offGrid inputs for MATCHING DISCHARGE and MATCHING CHARGE
 
-When switching to OFF mode, all devices are instructed to stop. If no devices are online when attempting to start any other mode, a persistent Home Assistant notification is raised and the mode change is rejected. Mode and strategy changes take effect immediately on the next 2-second update cycle.
+When switching to OFF mode, all devices are instructed to stop. If no devices are online when attempting to start any other mode, a persistent Home Assistant notification is raised and the mode change is rejected. Mode and strategy changes take effect immediately on the next 2-second update cycle. Any attached PV will load the batteries.
+> [!NOTE]
+> What happens in bypass if export of power is allowed and the batteries are full? 
 
 ---
 
@@ -83,6 +105,9 @@ The strategy controls how many devices are kept active simultaneously. It is a c
 | **As many as possible** | Keep all devices active as long as each is above the absolute minimum. Maximises responsiveness to sudden demand spikes. | 20% of device limit |
 | **As few as possible** | Concentrate power on the fewest devices that can cover the setpoint, keeping others in reserve. | 80% of device limit |
 | **Optimal** | Use enough devices so that each operates in the inverter's optimal efficiency range. | 25% of device limit |
+
+> [!NOTE]
+> My experiance is, that 25% is too low, a good choice in my opinion is device limit / 2.5 == 40%. Especially the SF 2400 does not work efficiently with too low power.
 
 The start threshold (when to add a new device) is **80% average load across active devices**, the same for all strategies. The difference between strategies is entirely in the stop threshold — how low a device is allowed to run before the stop timer begins counting down. Strategy changes take effect immediately on the next update cycle.
 
