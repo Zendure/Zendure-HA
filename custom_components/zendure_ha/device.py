@@ -137,6 +137,7 @@ class ZendureDevice(EntityDevice):
         self.hemsState = ZendureBinarySensor(self, "hemsState")
         self.hemsStateUpdate = datetime.min
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
+        self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy", "measurement", 2)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.connection: ZendureRestoreSelect
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
@@ -308,13 +309,17 @@ class ZendureDevice(EntityDevice):
 
                 if (bat := self.batteries.get(sn, None)) is None:
                     self.batteries[sn] = ZendureBattery(self.hass, sn, self)
-                    self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
-                    self.availableKwh.update_value((self.electricLevel.asNumber - self.minSoc.asNumber) / 100 * self.kWh)
 
                 elif bat and b:
                     for key, value in b.items():
                         if key != "sn":
                             bat.entityUpdate(key, value)
+
+            # Recalculate total capacity after every packData update
+            # (covers both new batteries and potential pack changes)
+            self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
+            self.totalKwh.update_value(self.kWh)
+            self.availableKwh.update_value((self.electricLevel.asNumber - self.minSoc.asNumber) / 100 * self.kWh)
 
     def mqttMessage(self, topic: str, payload: Any) -> bool:
         try:

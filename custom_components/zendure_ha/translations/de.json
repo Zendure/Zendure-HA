@@ -91,6 +91,9 @@
       "available_kwh": {
         "name": "Verfügbare Energie"
       },
+      "total_kwh": {
+        "name": "Gesamtkapazität Batterie"
+      },
       "auto_model": {
         "name": "Energieplan",
         "state": {
