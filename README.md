@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://zendure.com/cdn/shop/files/zendure-logo-infinity-charge_240x.png?v=1717728038" alt="Logo">
+  <img src="https://zendure.com/cdn/shop/files/logo.svg" alt="Logo">
 </p>
 
 # Zendure Home Assistant Integration
