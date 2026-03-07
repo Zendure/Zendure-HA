@@ -227,6 +227,9 @@
       "pack_input_power": {
         "name": "Batterij Ontladen"
       },
+      "max_battery_output_power": {
+        "name": "Maximum Batterij Uitgangsvermogen"
+      },
       "output_pack_power": {
         "name": "Batterij Laden"
       },

@@ -235,6 +235,9 @@
       "power": {
         "name": "Puissance"
       },
+      "max_battery_output_power": {
+        "name": "Puissance maximale cumulée des batteries"
+      },
       "pass": {
         "name": "Dérivation ( bypass )",
         "state": {
