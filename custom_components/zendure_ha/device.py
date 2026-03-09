@@ -255,7 +255,7 @@ class ZendureDevice(EntityDevice):
 
         _LOGGER.info(f"Writing property {self.name} {entity.name} => {value}")
         self._messageid += 1
-        property_name = entity.translation_key.replace("_", "")
+        property_name = getattr(entity, "command_key", entity.translation_key.replace("_", ""))
         payload = json.dumps(
             {
                 "deviceId": self.deviceId,
@@ -584,7 +584,7 @@ class ZendureZenSdk(ZendureDevice):
         if self.online and self.connection.value == 0:
             await super().entityWrite(entity, value)
         else:
-            property_name = entity.translation_key.replace("_", "")
+            property_name = getattr(entity, "command_key", entity.translation_key.replace("_", ""))
             _LOGGER.info(f"Writing property {self.name} {property_name} => {value}")
             await self.httpPost("properties/write", {"properties": {property_name: value}})
 

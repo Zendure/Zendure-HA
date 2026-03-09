@@ -42,6 +42,8 @@ class EntityZendure(Entity):
         self._attr_unique_id = snakecase(f"{self.device.name.lower()}_{uniqueid}").replace("__", "_")
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
+        # Keep the original key for write commands (for example acMode vs ac_mode).
+        self.command_key = uniqueid
         device.entities[uniqueid] = self
 
     @property
