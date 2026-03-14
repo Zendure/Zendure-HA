@@ -101,6 +101,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
+        self.max_battery_output_power = ZendureSensor(self, "max_battery_output_power", None, "W", "power", "measurement", 0)
 
         # load devices
         for dev in data["deviceList"]:
@@ -234,6 +235,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 for d in fg.devices:
                     d.fuseGrp = fg
                 self.fuseGroups.append(fg)
+                
+        self.max_battery_output_power.update_value(sum(min(sum(d.discharge_limit for d in fg.devices if d.kWh > 0), fg.maxpower) for fg in self.fuseGroups))
 
     async def update_operation(self, entity: ZendureSelect, _operation: Any) -> None:
         operation = ManagerMode(entity.value)
@@ -440,6 +443,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # Update the power entities
         self.power.update_value(power)
         self.availableKwh.update_value(availableKwh)
+        self.max_battery_output_power.update_value(sum(min(sum(d.discharge_limit for d in fg.devices if d.kWh > 0), fg.maxpower) for fg in self.fuseGroups))
         if self.discharge_bypass > setpoint:
             setpoint -= self.discharge_bypass
 
