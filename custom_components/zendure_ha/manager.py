@@ -421,7 +421,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge.append(d)
                     self.charge_limit += d.fuseGrp.charge_limit(d)
                     self.charge_optimal += d.charge_optimal
-                    self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
+                    self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt) * max(d.kWh, 1.0)
                     setpoint += home
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
                 elif (home := d.homeOutput.asInt) > 0:
@@ -430,7 +430,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced
-                    self.discharge_weight += d.pwr_max * d.electricLevel.asInt
+                    self.discharge_weight += d.pwr_max * d.electricLevel.asInt * max(d.kWh, 1.0)
                     setpoint += home
 
                 else:
@@ -510,8 +510,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         limit = self.charge_limit
         setpoint = max(limit, setpoint)
         for i, d in enumerate(sorted(self.charge, key=lambda d: d.electricLevel.asInt, reverse=True)):
-            pwr = int(setpoint * (d.pwr_max * (100 - d.electricLevel.asInt)) / self.charge_weight)
-            self.charge_weight -= d.pwr_max * (100 - d.electricLevel.asInt)
+            pwr = int(setpoint * (d.pwr_max * (100 - d.electricLevel.asInt) * max(d.kWh, 1.0)) / self.charge_weight)
+            self.charge_weight -= d.pwr_max * (100 - d.electricLevel.asInt) * max(d.kWh, 1.0)
 
             # adjust the limit, make sure we have 'enough' power to charge
             limit -= d.pwr_max
@@ -561,9 +561,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         setpoint = min(limit, setpoint)
         for i, d in enumerate(sorted(self.discharge, key=lambda d: d.electricLevel.asInt, reverse=False)):
             # calculate power to discharge
-            if (pwr := int(setpoint * (d.pwr_max * d.electricLevel.asInt) / self.discharge_weight)) < -d.pwr_produced and d.state == DeviceState.SOCFULL:
+            if (pwr := int(setpoint * (d.pwr_max * d.electricLevel.asInt * max(d.kWh, 1.0)) / self.discharge_weight)) < -d.pwr_produced and d.state == DeviceState.SOCFULL:
                 pwr = -d.pwr_produced
-            self.discharge_weight -= d.pwr_max * d.electricLevel.asInt
+            self.discharge_weight -= d.pwr_max * d.electricLevel.asInt * max(d.kWh, 1.0)
 
             # adjust the limit, make sure we have 'enough' power to discharge
             limit -= -d.pwr_produced if solaronly else d.pwr_max
