@@ -617,10 +617,13 @@ class ZendureDevice(EntityDevice):
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
         power = max(0, min(power, self.discharge_limit))
-        if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
+        offgrid = max(0, self.pwr_offgrid)
+        actual = min(power + offgrid, self.discharge_limit)
+        if abs(actual - self.homeOutput.asInt - offgrid + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.info(f"Power discharge {self.name} => no action [power {power}]")
             return self.homeOutput.asInt
-        return await self.discharge(power)
+        await self.discharge(actual)
+        return power
 
     async def power_off(self) -> None:
         """Set the power off."""

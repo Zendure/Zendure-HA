@@ -424,14 +424,14 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
                     setpoint += -d.homeInput.asInt  # use gridInputPower directly; offgrid consumers are invisible to P1
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
-                elif (home := d.homeOutput.asInt) > 0:
+                elif (home := d.homeOutput.asInt + max(0, d.pwr_offgrid)) > 0:
                     self.discharge.append(d)
                     self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced
                     self.discharge_weight += d.pwr_max * d.electricLevel.asInt
-                    setpoint += home
+                    setpoint += d.homeOutput.asInt  # use outputHomePower directly; offgrid consumers are invisible to P1
 
                 else:
                     self.idle.append(d)
