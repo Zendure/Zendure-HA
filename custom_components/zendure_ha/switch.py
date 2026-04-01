@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Zendure switch."""
-    ZendureSwitch.add = async_add_entities
+    ZendureSwitch.register_adder(async_add_entities)
 
 
 class ZendureSwitch(EntityZendure, SwitchEntity):
@@ -44,7 +44,7 @@ class ZendureSwitch(EntityZendure, SwitchEntity):
         self._onwrite = onwrite
         if value is not None:
             self._attr_is_on = value
-        self.add([self])
+        self.add_to_platform()
 
     def update_value(self, value: Any) -> bool:
         try:

@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Zendure sensor."""
-    ZendureSensor.add = async_add_entities
+    ZendureSensor.register_adder(async_add_entities)
 
 
 class ZendureSensor(EntityZendure, SensorEntity):
@@ -50,7 +50,7 @@ class ZendureSensor(EntityZendure, SensorEntity):
         if state is not None:
             self._attr_native_value = state
         self.factor = factor
-        self.add([self])
+        self.add_to_platform()
 
     def update_value(self, value: Any) -> bool:
         try:

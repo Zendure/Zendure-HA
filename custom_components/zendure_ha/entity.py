@@ -51,6 +51,7 @@ class EntityZendure(Entity):
     """Common elements for all Zendure entities."""
 
     _attr_has_entity_name = True
+    _pending_entities: dict[type[Entity], list[Entity]] = {}
 
     def __init__(
         self,
@@ -70,6 +71,21 @@ class EntityZendure(Entity):
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
+
+    @classmethod
+    def register_adder(cls, add_entities: Any) -> None:
+        """Register the platform adder and flush any pending entities."""
+        cls.add = add_entities
+        if pending := EntityZendure._pending_entities.pop(cls, None):
+            add_entities(pending)
+
+    def add_to_platform(self) -> None:
+        """Add the entity immediately or defer until the platform is ready."""
+        add_entities = getattr(type(self), "add", None)
+        if add_entities is None:
+            EntityZendure._pending_entities.setdefault(type(self), []).append(self)
+            return
+        add_entities([self])
 
     @property
     def device_info(self) -> DeviceInfo | None:

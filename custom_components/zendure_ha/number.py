@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Zendure number."""
-    ZendureNumber.add = async_add_entities
+    ZendureNumber.register_adder(async_add_entities)
 
 
 class ZendureNumber(EntityZendure, NumberEntity):
@@ -55,7 +55,7 @@ class ZendureNumber(EntityZendure, NumberEntity):
         self._attr_mode = mode
         self.factor = factor
         self.doupdate = doupdate
-        self.add([self])
+        self.add_to_platform()
 
     def update_value(self, value: Any) -> bool:
         try:

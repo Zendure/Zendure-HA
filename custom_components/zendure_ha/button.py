@@ -15,7 +15,7 @@ from .entity import EntityDevice, EntityZendure
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Zendure button."""
-    ZendureButton.add = async_add_entities
+    ZendureButton.register_adder(async_add_entities)
 
 
 class ZendureButton(EntityZendure, ButtonEntity):
@@ -26,7 +26,7 @@ class ZendureButton(EntityZendure, ButtonEntity):
         super().__init__(device, uniqueid)
         self.entity_description = ButtonEntityDescription(key=uniqueid, name=uniqueid)
         self._onpress = onpress
-        self.add([self])
+        self.add_to_platform()
 
     async def async_press(self) -> None:
         """Press the button."""

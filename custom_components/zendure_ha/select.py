@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the Zendure select."""
-    ZendureSelect.add = async_add_entities
+    ZendureSelect.register_adder(async_add_entities)
 
 
 class ZendureSelect(EntityZendure, SelectEntity):
@@ -37,7 +37,7 @@ class ZendureSelect(EntityZendure, SelectEntity):
         else:
             self._attr_current_option = self._attr_options[0]
         self.onchanged = onchanged
-        self.add([self])
+        self.add_to_platform()
 
     def setDict(self, options: dict[Any, str]) -> None:
         """Set the options for the select entity."""
