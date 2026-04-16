@@ -44,6 +44,7 @@ This Home Assistant integration connects your Zendure devices to Home Assistant,
 
 - **Device Automation:**
   - Cheap hours.
+  - [Example: Zero-Export Power Distribution](#example-zero-export-power-distribution)
 
 ## Minimum Requirements
 - [Home Assistant](https://github.com/home-assistant/core) 2025.5+
@@ -63,6 +64,93 @@ To install via HACS:
 
    [![Set up a new integration in Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=zendure_ha)
 
+
+## Example: Zero-Export Power Distribution
+
+This automation adjusts a SolarFlow 800 Pro's output limit every 5 seconds to match household consumption (read from an external smart meter), while protecting LiFePO4 battery lifetime with a configurable low-SoC taper.
+
+**How it works**
+- Triggers on a 5-second rolling average of grid power (positive = importing from grid)
+- Incrementally adjusts `output_limit`: `new = current_limit + grid − 10W` (safety buffer against feed-in)
+- Below `soc_minimum`: output forced to 0
+- Between `soc_minimum` and `soc_minimum + 10%`: linear taper from 0 to full
+- Above: full match to consumption
+- Clamped to `[0, maximum_inverter_power]`
+- Skips the API call if change is < 10 W (dead band)
+
+**Guard conditions** — the automation only runs when:
+- Both sensors are available
+- Operation mode is `manual` (otherwise the integration's own smart logic would fight the automation)
+- Bypass is off (during bypass, `output_limit` has no effect)
+- HEMS is inactive
+
+**Required sensors/entities**
+- `sensor.iot05_current_power_5s_avg` — your smart-meter reading, 5 s average (replace with your own grid-power sensor)
+- `sensor.solarflow_800_pro_battery_soc` — battery state of charge (`electricLevel`)
+- `number.solarflow_800_pro_soc_minimum` / `_soc_maximum` — SoC bounds (`minSoc` / `socSet`)
+- `number.solarflow_800_pro_output_limit` — the inverter output limit (`outputLimit`)
+- `sensor.solarflow_800_pro_maximum_inverter_power` — max inverter output (`inverseMaxPower`)
+- `select.solarflow_800_pro_operation_mode` — Zendure operation mode
+- `binary_sensor.solarflow_800_pro_bypass` / `_hems_active` — bypass & HEMS state
+
+Rename entity IDs to match your device. Paste the YAML below into the automation's **Edit in YAML** view (replace the whole body).
+
+```yaml
+alias: Power Distribution
+mode: single
+trigger:
+  - platform: state
+    entity_id: sensor.iot05_current_power_5s_avg
+condition:
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: sensor.iot05_current_power_5s_avg
+        state:
+          - unavailable
+          - unknown
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: sensor.solarflow_800_pro_battery_soc
+        state:
+          - unavailable
+          - unknown
+  - condition: state
+    entity_id: select.solarflow_800_pro_operation_mode
+    state: manual
+  - condition: state
+    entity_id: binary_sensor.solarflow_800_pro_bypass
+    state: "off"
+  - condition: state
+    entity_id: binary_sensor.solarflow_800_pro_hems_active
+    state: "off"
+action:
+  - variables:
+      taper_width: 10
+      grid: "{{ states('sensor.iot05_current_power_5s_avg') | float(0) }}"
+      soc: "{{ states('sensor.solarflow_800_pro_battery_soc') | float(0) }}"
+      soc_min: "{{ states('number.solarflow_800_pro_soc_minimum') | float(10) }}"
+      current_limit: "{{ states('number.solarflow_800_pro_output_limit') | float(0) }}"
+      max_power: "{{ states('sensor.solarflow_800_pro_maximum_inverter_power') | float(800) }}"
+      raw_target: "{{ current_limit + grid - 10 }}"
+      target: |
+        {% if soc <= soc_min %}
+          0
+        {% elif soc <= soc_min + taper_width %}
+          {{ raw_target * ((soc - soc_min) / taper_width) }}
+        {% else %}
+          {{ raw_target }}
+        {% endif %}
+      clamped: "{{ [[target | float, 0] | max, max_power] | min | round(0) }}"
+  - condition: template
+    value_template: "{{ (soc <= soc_min and current_limit > 0) or (clamped | float - current_limit) | abs > 10 }}"
+  - service: number.set_value
+    target:
+      entity_id: number.solarflow_800_pro_output_limit
+    data:
+      value: "{{ clamped }}"
+```
 
 ## Contributing
 
