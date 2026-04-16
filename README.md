@@ -71,7 +71,7 @@ This automation adjusts a SolarFlow 800 Pro's output limit every 5 seconds to ma
 
 **How it works**
 - Triggers on a 5-second rolling average of grid power (positive = importing from grid)
-- Incrementally adjusts `output_limit`: `new = current_limit + grid − 10W` (safety buffer against feed-in)
+- Incrementally adjusts `output_limit`: `new = current_limit + grid − feed_buffer` (buffer against feed-in; default 40 W)
 - Below `soc_minimum`: output forced to 0
 - Between `soc_minimum` and `soc_minimum + 10%`: linear taper from 0 to full
 - Above: full match to consumption
@@ -110,12 +110,13 @@ condition:
           - unknown
 action:
   - variables:
+      feed_buffer: 40
       grid: "{{ states('sensor.iot05_current_power_5s_avg') | float(0) }}"
       soc: "{{ states('sensor.solarflow_800_pro_battery_soc') | float(0) }}"
       soc_min: "{{ states('number.solarflow_800_pro_soc_minimum') | float(10) }}"
       current_limit: "{{ states('number.solarflow_800_pro_output_limit') | float(0) }}"
       max_power: "{{ states('sensor.solarflow_800_pro_maximum_inverter_power') | float(800) }}"
-      raw_target: "{{ current_limit + grid - 10 }}"
+      raw_target: "{{ current_limit + grid - feed_buffer }}"
       taper_zone: "{{ soc_min + 10 }}"
       target: >-
         {% if soc <= soc_min %} 0
