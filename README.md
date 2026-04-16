@@ -78,22 +78,14 @@ This automation adjusts a SolarFlow 800 Pro's output limit every 5 seconds to ma
 - Clamped to `[0, maximum_inverter_power]`
 - Skips the API call if change is < 10 W (dead band)
 
-**Guard conditions** — the automation only runs when:
-- Both sensors are available
-- Operation mode is `manual` (otherwise the integration's own smart logic would fight the automation)
-- Bypass is off (during bypass, `output_limit` has no effect)
-- HEMS is inactive
-
 **Required sensors/entities**
 - `sensor.iot05_current_power_5s_avg` — your smart-meter reading, 5 s average (replace with your own grid-power sensor)
 - `sensor.solarflow_800_pro_battery_soc` — battery state of charge (`electricLevel`)
-- `number.solarflow_800_pro_soc_minimum` / `_soc_maximum` — SoC bounds (`minSoc` / `socSet`)
+- `number.solarflow_800_pro_soc_minimum` — SoC lower bound (`minSoc`)
 - `number.solarflow_800_pro_output_limit` — the inverter output limit (`outputLimit`)
 - `sensor.solarflow_800_pro_maximum_inverter_power` — max inverter output (`inverseMaxPower`)
-- `select.solarflow_800_pro_operation_mode` — Zendure operation mode
-- `binary_sensor.solarflow_800_pro_bypass` / `_hems_active` — bypass & HEMS state
 
-Rename entity IDs to match your device. Paste the YAML below into the automation's **Edit in YAML** view (replace the whole body).
+Rename entity IDs to match your device. Make sure the integration's **Operation Mode** is set to `Manual Power` — otherwise the integration's own smart logic will fight the automation. Paste the YAML below into the automation's **Edit in YAML** view (replace the whole body).
 
 ```yaml
 alias: Power Distribution
@@ -116,35 +108,23 @@ condition:
         state:
           - unavailable
           - unknown
-  - condition: state
-    entity_id: select.solarflow_800_pro_operation_mode
-    state: manual
-  - condition: state
-    entity_id: binary_sensor.solarflow_800_pro_bypass
-    state: "off"
-  - condition: state
-    entity_id: binary_sensor.solarflow_800_pro_hems_active
-    state: "off"
 action:
   - variables:
-      taper_width: 10
       grid: "{{ states('sensor.iot05_current_power_5s_avg') | float(0) }}"
       soc: "{{ states('sensor.solarflow_800_pro_battery_soc') | float(0) }}"
       soc_min: "{{ states('number.solarflow_800_pro_soc_minimum') | float(10) }}"
       current_limit: "{{ states('number.solarflow_800_pro_output_limit') | float(0) }}"
       max_power: "{{ states('sensor.solarflow_800_pro_maximum_inverter_power') | float(800) }}"
       raw_target: "{{ current_limit + grid - 10 }}"
-      target: |
-        {% if soc <= soc_min %}
-          0
-        {% elif soc <= soc_min + taper_width %}
-          {{ raw_target * ((soc - soc_min) / taper_width) }}
-        {% else %}
-          {{ raw_target }}
+      taper_zone: "{{ soc_min + 10 }}"
+      target: >-
+        {% if soc <= soc_min %} 0
+        {% elif soc <= taper_zone %} {{ (raw_target | float) * ((soc - soc_min) / 10) }}
+        {% else %} {{ raw_target }}
         {% endif %}
       clamped: "{{ [[target | float, 0] | max, max_power] | min | round(0) }}"
   - condition: template
-    value_template: "{{ (soc <= soc_min and current_limit > 0) or (clamped | float - current_limit) | abs > 10 }}"
+    value_template: "{{ clamped | float != current_limit and (soc <= soc_min or (clamped | float - current_limit) | abs > 10) }}"
   - service: number.set_value
     target:
       entity_id: number.solarflow_800_pro_output_limit
