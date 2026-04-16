@@ -19,9 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
     """Set up Zendure as config entry."""
     manager = ZendureManager(hass, entry)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await manager.loadDevices()
     entry.runtime_data = manager
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await manager.async_config_entry_first_refresh()
     entry.async_on_unload(entry.add_update_listener(update_listener))
     return True

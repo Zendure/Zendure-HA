@@ -60,8 +60,8 @@ class ZendureBattery(EntityDevice):
                 model = "AB1000S"
                 self.kWh = 0.96
             case "C":
-                # CO4A => internal battery of SF800+/SF1600AC+
-                model = "I1920" if sn[1:4] == "O4A" else "AB2000" + ("S" if sn[3] == "F" else "X" if sn[3] == "E" else "")
+                # External AB2000X and internal AB2000X of SF800+/SF800Pro/SF1600AC+ starting with CO4A. They are also described as additional battery in the Zendure App, even when they are integrated into the device.
+                model = "AB2000" + ("S" if sn[3] == "F" else "X" if sn[3] == "E" else "")
                 self.kWh = 1.92
             case "F":
                 model = "AB3000"
