@@ -71,51 +71,62 @@ This automation adjusts a SolarFlow 800 Pro's output limit every 5 seconds to ma
 
 **How it works**
 - Triggers on a 5-second rolling average of grid power (positive = importing from grid)
-- Incrementally adjusts `output_limit`: `new = current_limit + grid − feed_buffer` (buffer against feed-in; default 40 W)
+- Incrementally adjusts `output_limit`: `new = current_limit + grid − feed_buffer`
 - Below `soc_minimum`: output forced to 0
 - Between `soc_minimum` and `soc_minimum + 10%`: linear taper from 0 to full
 - Above: full match to consumption
 - Clamped to `[0, maximum_inverter_power]`
-- Skips the API call if change is < 10 W (dead band)
 
-**Required sensors/entities**
-- `sensor.iot05_current_power_5s_avg` — your smart-meter reading, 5 s average (replace with your own grid-power sensor)
-- `sensor.solarflow_800_pro_battery_soc` — battery state of charge (`electricLevel`)
-- `number.solarflow_800_pro_soc_minimum` — SoC lower bound (`minSoc`)
-- `number.solarflow_800_pro_output_limit` — the inverter output limit (`outputLimit`)
-- `sensor.solarflow_800_pro_maximum_inverter_power` — max inverter output (`inverseMaxPower`)
+**Tunable knobs**
+- `feed_buffer` (default 40 W) — how much the automation deliberately *undershoots* household demand. A higher value means more sustained grid import but a safer margin against export spikes between updates. Lower if your meter and load are stable, raise if you still see feed-in.
+- `dead_band` (default 10 W) — the minimum change in `output_limit` needed to trigger an API call. Skipping small adjustments reduces chatter to the Zendure cloud/device. If the SoC is at or below `soc_minimum`, the dead band is bypassed (emergency shutdown always fires).
 
-Rename entity IDs to match your device. Make sure the integration's **Operation Mode** is set to `Manual Power` — otherwise the integration's own smart logic will fight the automation. Paste the YAML below into the automation's **Edit in YAML** view (replace the whole body).
+**Required sensors/entities** (replace the `<...>` placeholders with your actual entity IDs)
+- `sensor.<GRID_POWER_SENSOR>` — your smart-meter reading of grid power, ideally a short rolling average (positive = import, negative = export)
+- `sensor.<ZENDURE_DEVICE>_battery_soc` — battery state of charge (`electricLevel`)
+- `number.<ZENDURE_DEVICE>_soc_minimum` — SoC lower bound (`minSoc`)
+- `number.<ZENDURE_DEVICE>_output_limit` — the inverter output limit (`outputLimit`)
+- `sensor.<ZENDURE_DEVICE>_maximum_inverter_power` — max inverter output (`inverseMaxPower`)
+
+Before enabling the automation, make sure the integration's **Operation Mode** is set to `Manual Power` — otherwise the integration's own smart logic will fight the automation. Paste the YAML below into the automation's **Edit in YAML** view (replace the whole body), then search-and-replace the two placeholders.
 
 ```yaml
 alias: Power Distribution
 mode: single
-trigger:
-  - platform: state
-    entity_id: sensor.iot05_current_power_5s_avg
-condition:
+triggers:
+  - trigger: state
+    entity_id: sensor.<GRID_POWER_SENSOR>
+conditions:
   - condition: not
     conditions:
       - condition: state
-        entity_id: sensor.iot05_current_power_5s_avg
+        entity_id: sensor.<GRID_POWER_SENSOR>
         state:
           - unavailable
           - unknown
   - condition: not
     conditions:
       - condition: state
-        entity_id: sensor.solarflow_800_pro_battery_soc
+        entity_id: sensor.<ZENDURE_DEVICE>_battery_soc
         state:
           - unavailable
           - unknown
-action:
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: number.<ZENDURE_DEVICE>_output_limit
+        state:
+          - unavailable
+          - unknown
+actions:
   - variables:
       feed_buffer: 40
-      grid: "{{ states('sensor.iot05_current_power_5s_avg') | float(0) }}"
-      soc: "{{ states('sensor.solarflow_800_pro_battery_soc') | float(0) }}"
-      soc_min: "{{ states('number.solarflow_800_pro_soc_minimum') | float(10) }}"
-      current_limit: "{{ states('number.solarflow_800_pro_output_limit') | float(0) }}"
-      max_power: "{{ states('sensor.solarflow_800_pro_maximum_inverter_power') | float(800) }}"
+      dead_band: 10
+      grid: "{{ states('sensor.<GRID_POWER_SENSOR>') | float(0) }}"
+      soc: "{{ states('sensor.<ZENDURE_DEVICE>_battery_soc') | float(0) }}"
+      soc_min: "{{ states('number.<ZENDURE_DEVICE>_soc_minimum') | float(10) }}"
+      current_limit: "{{ states('number.<ZENDURE_DEVICE>_output_limit') | float(0) }}"
+      max_power: "{{ states('sensor.<ZENDURE_DEVICE>_maximum_inverter_power') | float(800) }}"
       raw_target: "{{ current_limit + grid - feed_buffer }}"
       taper_zone: "{{ soc_min + 10 }}"
       target: >-
@@ -125,10 +136,10 @@ action:
         {% endif %}
       clamped: "{{ [[target | float, 0] | max, max_power] | min | round(0) }}"
   - condition: template
-    value_template: "{{ clamped | float != current_limit and (soc <= soc_min or (clamped | float - current_limit) | abs > 10) }}"
-  - service: number.set_value
+    value_template: "{{ clamped | float != current_limit and (soc <= soc_min or (clamped | float - current_limit) | abs > dead_band) }}"
+  - action: number.set_value
     target:
-      entity_id: number.solarflow_800_pro_output_limit
+      entity_id: number.<ZENDURE_DEVICE>_output_limit
     data:
       value: "{{ clamped }}"
 ```
