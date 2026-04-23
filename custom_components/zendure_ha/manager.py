@@ -24,6 +24,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
+from . import ble as ble_transport
 from .api import Api
 from .const import (
     CONF_AUTO_MQTT_USER,
@@ -267,28 +268,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                             await d.power_off()
 
     async def _async_update_data(self) -> None:
-
-        def isBleDevice(device: ZendureDevice, si: bluetooth.BluetoothServiceInfoBleak) -> bool:
-            for d in si.manufacturer_data.values():
-                try:
-                    if d is None or len(d) <= 1:
-                        continue
-                    sn = d.decode("utf8")[:-1]
-                    if device.snNumber.endswith(sn):
-                        _LOGGER.info("Found Zendure Bluetooth device: %s", si)
-                        device.attr_device_info["connections"] = {("bluetooth", str(si.address))}
-                        return True
-                except Exception:  # noqa: S112
-                    continue
-            return False
-
         time = datetime.now()
         kwh = 0
         for device in self.devices:
             kwh += device.kWh
-            if isinstance(device, ZendureLegacy) and device.bleMac is None:
+            if isinstance(device, ZendureLegacy) and ble_transport.ble_mac(device) is None:
                 for si in bluetooth.async_discovered_service_info(self.hass, False):
-                    if isBleDevice(device, si):
+                    if ble_transport.discover_ble_mac(device, si):
                         break
 
             _LOGGER.debug("Update device: %s (%s)", device.name, device.deviceId)

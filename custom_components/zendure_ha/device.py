@@ -11,21 +11,13 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from aiohttp import ClientTimeout
-from bleak import BleakClient
-from bleak.exc import BleakError
-
-try:
-    from bleak_retry_connector import establish_connection
-except ImportError:
-    establish_connection = None
-
-from homeassistant.components import bluetooth, persistent_notification
 from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 from paho.mqtt import client as mqtt_client
 
+from . import ble as ble_transport
 from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
 from .const import DeviceState, SmartMode
@@ -38,7 +30,6 @@ _LOGGER = logging.getLogger(__name__)
 
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
-SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
 
 class ZendureBattery(EntityDevice):
@@ -378,216 +369,11 @@ class ZendureDevice(EntityDevice):
         self.mqtt = None
         if self.lastseen != datetime.min:
             if self.connection.value == 0:
-                await self.bleMqtt(Api.mqttCloud)
+                await ble_transport.ble_mqtt(self, Api.mqttCloud)
             elif self.connection.value == 1:
-                await self.bleMqtt(Api.mqttLocal)
+                await ble_transport.ble_mqtt(self, Api.mqttLocal)
 
         _LOGGER.debug("Mqtt selected %s", self.name)
-
-    @property
-    def bleMac(self) -> str | None:
-        if (conn := self.attr_device_info.get("connections", None)) is not None:
-            for connection_type, mac_address in conn:
-                if connection_type == "bluetooth":
-                    return mac_address
-        return None
-
-    @staticmethod
-    def _scanner_source(scanner_device: Any) -> str | None:
-        """Extract scanner source identifier from a BluetoothScannerDevice-like object."""
-        source = getattr(scanner_device, "source", None)
-        if source:
-            return str(source)
-
-        if scanner := getattr(scanner_device, "scanner", None):
-            source = getattr(scanner, "source", None)
-            if source:
-                return str(source)
-
-        if service_info := getattr(scanner_device, "service_info", None):
-            source = getattr(service_info, "source", None)
-            if source:
-                return str(source)
-
-        return None
-
-    @staticmethod
-    def _scanner_ble_device(scanner_device: Any) -> Any | None:
-        """Extract BLEDevice from a BluetoothScannerDevice-like object."""
-        device = getattr(scanner_device, "ble_device", None)
-        if device is not None:
-            return device
-
-        device = getattr(scanner_device, "device", None)
-        if device is not None:
-            return device
-
-        if service_info := getattr(scanner_device, "service_info", None):
-            device = getattr(service_info, "device", None)
-            if device is not None:
-                return device
-
-        return None
-
-    def ble_sources(self) -> list[str]:
-        """Get available Bluetooth source identifiers from Home Assistant."""
-        sources: set[str] = set()
-        ble_mac = self.bleMac
-
-        # Prefer scanner sources for this specific device.
-        try:
-            if ble_mac and (scanner_devices_by_address := getattr(bluetooth, "async_scanner_devices_by_address", None)):
-                for scanner_device in scanner_devices_by_address(self.hass, ble_mac, True):
-                    if source := self._scanner_source(scanner_device):
-                        sources.add(source)
-        except Exception as err:
-            _LOGGER.debug("Could not read bluetooth scanner sources for %s: %s", self.name, err)
-
-        # Fallback: derive sources from all discovered connectable advertisements.
-        try:
-            if discovered_service_info := getattr(bluetooth, "async_discovered_service_info", None):
-                for info in discovered_service_info(self.hass, True):
-                    if source := getattr(info, "source", None):
-                        sources.add(str(source))
-        except Exception as err:
-            _LOGGER.debug("Could not derive bluetooth sources for %s: %s", self.name, err)
-
-        return sorted(sources)
-
-    def ble_device_from_source(self, ble_mac: str, source: str) -> Any | None:
-        """Return a BLEDevice for an address constrained to a specific scanner source."""
-        if scanner_devices_by_address := getattr(bluetooth, "async_scanner_devices_by_address", None):
-            try:
-                for scanner_device in scanner_devices_by_address(self.hass, ble_mac, True):
-                    if self._scanner_source(scanner_device) != source:
-                        continue
-                    if device := self._scanner_ble_device(scanner_device):
-                        return device
-            except Exception as err:
-                _LOGGER.debug("Could not get BLE device for %s on source %s: %s", self.name, source, err)
-
-        return None
-
-    def ble_adapter_options(self) -> dict[int, str]:
-        """Build selectable BLE adapter/source options for this device."""
-        options = {0: "auto"}
-        for idx, source in enumerate(self.ble_sources(), start=1):
-            options[idx] = source
-        return options
-
-    def selected_ble_source(self) -> str | None:
-        """Return configured BLE source for this device or None for auto selection."""
-        if self.bleAdapter is None:
-            return None
-
-        self.bleAdapter.setDict(self.ble_adapter_options())
-        source = self.bleAdapter.current_option
-        return None if source in (None, "", "auto") else str(source)
-
-    async def bleMqtt(self, mqtt: mqtt_client.Client) -> bool:
-        """Set the MQTT server for the device via BLE."""
-        from .api import Api
-
-        msg: str | None = None
-        try:
-            if Api.wifipsw == "" or Api.wifissid == "":
-                msg = "No WiFi credentials or connections found"
-                return False
-
-            if (ble_mac := self.bleMac) is None:
-                msg = "No BLE MAC address available"
-                return False
-
-            # get the bluetooth device
-            ble_source = self.selected_ble_source()
-            device = None
-            if ble_source is not None:
-                device = self.ble_device_from_source(ble_mac, ble_source)
-
-            if device is None:
-                device = bluetooth.async_ble_device_from_address(self.hass, ble_mac, True)
-
-            if device is None:
-                msg = f"BLE device {ble_mac} not found"
-                if ble_source is not None:
-                    msg += f" on source {ble_source}"
-                return False
-
-            try:
-                _LOGGER.info("Set mqtt %s to %s", self.name, mqtt.host)
-                if establish_connection is not None:
-                    client = await establish_connection(BleakClient, device, self.name)
-                else:
-                    client = BleakClient(device)
-                    await client.connect()
-
-                try:
-                    await self.bleCommand(
-                        client,
-                        {
-                            "iotUrl": mqtt.host,
-                            "messageId": 1002,
-                            "method": "token",
-                            "password": Api.wifipsw,
-                            "ssid": Api.wifissid,
-                            "timeZone": "GMT+01:00",
-                            "token": "abcdefgh",
-                        },
-                    )
-
-                    await self.bleCommand(
-                        client,
-                        {
-                            "messageId": 1003,
-                            "method": "station",
-                        },
-                    )
-                finally:
-                    # Ensure stale BLE sessions do not leak if command execution fails unexpectedly.
-                    if client.is_connected:
-                        await client.disconnect()
-            except TimeoutError:
-                msg = "Timeout when trying to connect to the BLE device"
-                _LOGGER.warning(msg)
-            except (AttributeError, BleakError) as err:
-                msg = f"Could not connect to {self.name}: {err}"
-                _LOGGER.warning(msg)
-            except Exception as err:
-                msg = f"BLE error: {err}"
-                _LOGGER.warning(msg)
-            else:
-                self.mqtt = mqtt
-                if self.zendure is not None:
-                    self.zendure.loop_stop()
-                    self.zendure.disconnect()
-                    self.zendure = None
-
-                self.mqttPublish(self.topic_read, {"properties": ["getAll"]}, self.mqtt)
-                self.setStatus()
-
-                return True
-            return False
-
-        finally:
-            if msg is not None:
-                msg = f"Error setting the MQTT server on {self.name} to {mqtt.host}, {msg}"
-            else:
-                msg = f"Changing the MQTT server on {self.name} to {mqtt.host} was successful"
-
-            persistent_notification.async_create(self.hass, (msg), "Zendure", "zendure_ha")
-
-            _LOGGER.info("BLE update ready")
-
-    async def bleCommand(self, client: BleakClient, command: Any) -> None:
-        try:
-            self._messageid += 1
-            payload = json.dumps(command, default=lambda o: o.__dict__)
-            b = bytearray()
-            b.extend(map(ord, payload))
-            _LOGGER.info("BLE command: %s => %s", self.name, payload)
-            await client.write_gatt_char(SF_COMMAND_CHAR, b, response=False)
-        except Exception as err:
-            _LOGGER.warning("BLE error: %s", err)
 
     async def power_get(self) -> bool:
         if self.lastseen < datetime.now():
@@ -653,12 +439,12 @@ class ZendureLegacy(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 1: "local"}, self.mqttSelect, 0)
         self.mqttReset = ZendureButton(self, "mqttReset", self.button_press)
-        self.bleAdapter = ZendureRestoreSelect(self, "bleAdapter", self.ble_adapter_options(), self.bleAdapterSelect, 0)
+        self.bleAdapter = ZendureRestoreSelect(self, "bleAdapter", ble_transport.ble_adapter_options(self), self.bleAdapterSelect, 0)
 
     async def bleAdapterSelect(self, _select: ZendureRestoreSelect, _value: Any) -> None:
         # Refresh available sources whenever selection changes or is restored.
         if self.bleAdapter is not None:
-            self.bleAdapter.setDict(self.ble_adapter_options())
+            self.bleAdapter.setDict(ble_transport.ble_adapter_options(self))
 
     async def button_press(self, button: ZendureButton) -> None:
         from .api import Api
@@ -666,7 +452,7 @@ class ZendureLegacy(ZendureDevice):
         match button.translation_key:
             case "mqtt_reset":
                 _LOGGER.info("Resetting MQTT for %s", self.name)
-                await self.bleMqtt(Api.mqttCloud if self.connection.value == 0 else Api.mqttLocal)
+                await ble_transport.ble_mqtt(self, Api.mqttCloud if self.connection.value == 0 else Api.mqttLocal)
 
     async def dataRefresh(self, _update_count: int) -> None:
         """Refresh the device data."""
