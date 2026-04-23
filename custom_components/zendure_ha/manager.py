@@ -51,15 +51,14 @@ type ZendureConfigEntry = ConfigEntry[ZendureManager]
 class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
     """Class to regular update devices."""
 
-    devices: list[ZendureDevice] = []
-    fuseGroups: list[FuseGroup] = []
-    simulation: bool = False
-
     def __init__(self, hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Initialize Zendure Manager."""
         super().__init__(hass, _LOGGER, name="Zendure Manager", update_interval=SCAN_INTERVAL, config_entry=entry)
         EntityDevice.__init__(self, hass, "Zendure Manager", "Zendure Manager")
         self.api = Api()
+        self.devices: list[ZendureDevice] = []
+        self.fuseGroups: list[FuseGroup] = []
+        self.simulation: bool = False
         self.operation: ManagerMode = ManagerMode.OFF
         self.zero_next = datetime.min
         self.zero_fast = datetime.min
@@ -299,10 +298,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.update_count += 1
         self.totalKwh.update_value(kwh)
 
-        # Manually update the timer
-        if self.hass and self.hass.loop.is_running():
-            self._schedule_refresh()
-
     def update_p1meter(self, p1meter: str | None) -> None:
         """Update the P1 meter sensor."""
         _LOGGER.debug("Updating P1 meter to: %s", p1meter)
@@ -316,8 +311,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.p1meterEvent = None
 
     def writeSimulation(self, time: datetime, p1: int) -> None:
-        if Path("simulation.csv").exists() is False:
-            with Path("simulation.csv").open("w") as f:
+        sim_path = Path(self.hass.config.path("simulation.csv"))
+        if sim_path.exists() is False:
+            with sim_path.open("w") as f:
                 f.write(
                     "Time;P1;Operation;Battery;Solar;Home;SetPoint;--;"
                     + ";".join(
@@ -343,7 +339,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     + "\n"
                 )
 
-        with Path("simulation.csv").open("a") as f:
+        with sim_path.open("a") as f:
             data = ""
             tbattery = 0
             tsolar = 0

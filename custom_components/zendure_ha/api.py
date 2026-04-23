@@ -2,26 +2,20 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import secrets
-import traceback
-from base64 import b64decode
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from paho.mqtt import client as mqtt_client
 from paho.mqtt import enums as mqtt_enums
 
+from .api_auth import api_ha
+from . import mqtt_protocol
 from .const import (
-    CONF_APPTOKEN,
-    CONF_HAKEY,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
     CONF_MQTTPSW,
@@ -29,7 +23,6 @@ from .const import (
     CONF_MQTTUSER,
     CONF_WIFIPSW,
     CONF_WIFISSID,
-    DOMAIN,
 )
 from .device import ZendureDevice
 from .devices.ace1500 import ACE1500
@@ -85,13 +78,29 @@ class Api:
     wifipsw: str = ""
     wifissid: str = ""
 
+    def _setup_mqtt_client(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:
+        try:
+            client.on_connect = self.mqttConnect
+            client.on_disconnect = self.mqttDisconnect
+            client.on_message = self.mqttMsgCloud if client == Api.mqttCloud else self.mqttMsgLocal if client == Api.mqttLocal else self.mqttMsgDevice
+            client.suppress_exceptions = True
+            client.username_pw_set(user, psw)
+            client.connect(srv, int(port))
+            client.loop_start()
+        except Exception as e:
+            _LOGGER.error("Unable to connect to Zendure %s!", e)
+
     def Init(self, data: Mapping[str, Any], mqtt: Mapping[str, Any]) -> None:
         """Initialize Zendure Api."""
+        # Shutdown existing clients
+        self.shutdown()
+
+        # Re-create client objects instead of re-initializing
+        Api.mqttCloud = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
         Api.mqttLogging = data.get(CONF_MQTTLOG, False)
-        Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
         url = mqtt["url"]
         Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
-        self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+        self._setup_mqtt_client(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
 
         # Get wifi settings
         Api.wifissid = data.get(CONF_WIFISSID, "")
@@ -104,14 +113,14 @@ class Api:
         Api.localPassword = data.get(CONF_MQTTPSW, "")
         if Api.localServer != "":
             clientId = Api.localUser + str(secrets.randbelow(10000))
-            self.mqttLocal.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, clientId, True, "local", mqtt_enums.MQTTProtocolVersion.MQTTv31)
-            self.mqttInit(self.mqttLocal, Api.localServer, Api.localPort, Api.localUser, Api.localPassword)
+            Api.mqttLocal = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2, clientId, True, "local", mqtt_enums.MQTTProtocolVersion.MQTTv31)
+            self._setup_mqtt_client(Api.mqttLocal, Api.localServer, Api.localPort, Api.localUser, Api.localPassword)
 
     @staticmethod
     async def Connect(hass: HomeAssistant, data: dict[str, Any], reload: bool) -> dict[str, Any] | None:
         """Connect to the Zendure API."""
         try:
-            devices = await Api.ApiHA(hass, data)
+            devices = await api_ha(hass, data)
         except Exception:  # pylint: disable=broad-except
             _LOGGER.error("Failed to connect to Zendure API")
             return None
@@ -129,80 +138,12 @@ class Api:
 
         return devices
 
-    @staticmethod
-    async def ApiHA(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
-        session = async_get_clientsession(hass)
-
-        if (token := data.get(CONF_APPTOKEN)) is not None and len(token) > 1:
-            base64_url = b64decode(str(token)).decode("utf-8")
-            api_url, appKey = base64_url.rsplit(".", 1)
-        else:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_zendure_token")
-
-        try:
-            body = {
-                "appKey": appKey,
-            }
-
-            # Prepare signature parameters
-            timestamp = int(datetime.now().timestamp())
-            nonce = str(secrets.randbelow(90000) + 10000)
-
-            # Merge all parameters to be signed and sort by key in ascending order
-            sign_params = {
-                **body,
-                "timestamp": timestamp,
-                "nonce": nonce,
-            }
-
-            # Construct signature string
-            body_str = "".join(f"{k}{v}" for k, v in sorted(sign_params.items()))
-
-            # Calculate signature
-            sign_str = f"{CONF_HAKEY}{body_str}{CONF_HAKEY}"
-            sha1 = hashlib.sha1()  # noqa: S324
-            sha1.update(sign_str.encode("utf-8"))
-            sign = sha1.hexdigest().upper()
-
-            # Build request headers
-            headers = {
-                "Content-Type": "application/json",
-                "timestamp": str(timestamp),
-                "nonce": nonce,
-                "clientid": "zenHa",
-                "sign": sign,
-            }
-
-            result = await session.post(url=f"{api_url}/api/ha/deviceList", json=body, headers=headers)
-            data = await result.json()
-            if data.get("code") != 200:
-                _LOGGER.debug("Zendure API response: %s Message: %s", data.get("code"), data.get("msg"))
-            elif data.get("code") == 200 and len(data["data"]["deviceList"]) == 0:
-                _LOGGER.error("Zendure API does not reply any devices: %s", data)
-                return None
-            elif data.get("code") == 200 and len(data["data"]["mqtt"]) == 0:
-                _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
-                return None
-            if not data.get("success", False) or (result := data["data"]) is None:
-                return None
-            return dict(result)
-
-        except Exception as e:
-            _LOGGER.error("Unable to connect to Zendure %s!", e)
-            _LOGGER.error(traceback.format_exc())
-            return None
-
-    def mqttInit(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:
-        try:
-            client.on_connect = self.mqttConnect
-            client.on_disconnect = self.mqttDisconnect
-            client.on_message = self.mqttMsgCloud if client == self.mqttCloud else self.mqttMsgLocal if client == self.mqttLocal else self.mqttMsgDevice
-            client.suppress_exceptions = True
-            client.username_pw_set(user, psw)
-            client.connect(srv, int(port))
-            client.loop_start()
-        except Exception as e:
-            _LOGGER.error("Unable to connect to Zendure %s!", e)
+    def shutdown(self) -> None:
+        """Properly shutdown MQTT clients and stop background threads."""
+        for client in (self.mqttCloud, self.mqttLocal):
+            if client is not None and client.is_connected():
+                client.loop_stop()
+                client.disconnect()
 
     def mqttConnect(self, client: Any, userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
         _LOGGER.info("Client %s connected to MQTT broker, return code: %s", userdata, rc)
