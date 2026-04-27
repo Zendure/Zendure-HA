@@ -107,8 +107,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         )
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
-        self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
-        self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy", "measurement", 2)
+        self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
+        self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "total", 2)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
 
         # load devices

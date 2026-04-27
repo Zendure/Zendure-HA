@@ -151,8 +151,8 @@ class ZendureDevice(EntityDevice):
         self.heatState = ZendureBinarySensor(self, "heatState")
         self.hemsState = ZendureBinarySensor(self, "hemsState")
         self.hemsStateUpdated = datetime.min
-        self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy", None, 1)
-        self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy", "measurement", 2)
+        self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
+        self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "total", 2)
         self.connectionStatus = ZendureSensor(self, "connectionStatus")
         self.connection: ZendureRestoreSelect
         self.bleAdapter: ZendureRestoreSelect | None = None
