@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import restore_state as rs
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntry, DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityPlatformState
 from homeassistant.helpers.template import Template
 
@@ -34,17 +36,6 @@ def snakecase(value: str) -> str:
 _LOGGER = logging.getLogger(__name__)
 
 CONST_FACTOR = 2
-CONST_TEMPLATE_FIELDS = [
-    "state",
-    "availability",
-    "icon",
-    "picture",
-    "attributes",
-    "source",
-    "entity_id",
-    "entity_ids",
-    "entities",
-]
 
 
 class EntityZendure(Entity):
@@ -72,8 +63,8 @@ class EntityZendure(Entity):
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
-        if domain and (entity := f"{domain}.{{}}_{self._attr_translation_key}") not in device.checkEntity:
-            device.checkEntity.append(entity)
+        if domain and device.checkEntity is not None and self._attr_translation_key not in device.checkEntity:
+            device.checkEntity[self._attr_translation_key] = domain
 
     @property
     def device_info(self) -> DeviceInfo | None:
@@ -186,12 +177,7 @@ class EntityDevice:
         "ts": ("none"),
         "tsZone": ("none"),
     }
-    checkEntity: list[str] = [
-        f"{domain}.{{}}_{snakecase(key)}"
-        for key, info in createEntity.items()
-        for domain in [{"binary": "binary_sensor", "switch": "switch", "select": "select"}.get(info if isinstance(info, str) else info[0], "sensor")]
-        if (info if isinstance(info, str) else info[0]) != "none"
-    ]
+    checkEntity: dict[str, str] | None = None
 
     empty = EntityZendure(None, "empty")
 
@@ -229,26 +215,39 @@ class EntityDevice:
         device_registry = dr.async_get(self.hass)
         if di := device_registry.async_get_device(identifiers={(DOMAIN, sn)}):
             self.attr_device_info["connections"] = di.connections
+            self.check_entities(di, snakecase(self.name.lower()))
 
         if parent is not None:
             self.attr_device_info["via_device"] = (DOMAIN, parent)
 
-    def check_entities(self) -> None:
-        device_registry = dr.async_get(self.hass)
+    def check_entities(self, di: DeviceEntry, name: str) -> None:
+        if EntityDevice.checkEntity is None:
+            _t = json.loads((Path(__file__).parent / "translations" / "en.json").read_text())
+            EntityDevice.checkEntity = {key: domain for domain, keys in _t.get("entity", {}).items() for key in keys}
+
+        # Get all entities for this device and group them by translation_key if they match the current device and platform
         entity_registry = er.async_get(self.hass)
-        name = snakecase(self.name.lower())
-        # translation_key → expected entity_id for all known hard-coded entities
-        known = {p.split(".", 1)[1].replace("{}_", ""): p.format(name) for p in self.checkEntity}
-        # translation_keys that must never have a registry entry
-        none_keys = {snakecase(k) for k, info in self.createEntity.items() if (info if isinstance(info, str) else info[0]) == "none"}
-        di = device_registry.async_get_device(identifiers={(DOMAIN, self.sn)}) or device_registry.async_get_device(identifiers={(DOMAIN, self.deviceId)})
-        if di:
-            for entry in er.async_entries_for_device(entity_registry, di.id, True):
-                if entry.platform != DOMAIN or entry.translation_key is None:
-                    continue
-                if entry.translation_key in none_keys or (entry.translation_key in known and entry.entity_id != known[entry.translation_key]):
-                    _LOGGER.info("Removing stale entity %s", entry.entity_id)
-                    entity_registry.async_remove(entry.entity_id)
+        ed: dict[str, list[er.RegistryEntry]] = {}
+        for entity in er.async_entries_for_device(entity_registry, di.id, True):
+            if entity.platform == DOMAIN and (dn := self.checkEntity.get(entity.translation_key)) is not None and dn == entity.domain:
+                ed.setdefault(entity.translation_key, []).append(entity)
+
+        # check al entities
+        for key, entries in ed.items():
+            entityid = f"{entries[0].domain}.{name}_{key}"
+            if len(entries) == 1 and entries[0].entity_id == entityid:
+                continue
+            _LOGGER.info("Update entity %s", entityid)
+            if (found := next((x for x in entries if x.entity_id == entityid), entries[0])) is not None:
+                entries.remove(found)
+                if found.entity_id != entityid:
+                    _LOGGER.info("Updating entity %s -> %s", found.entity_id, entityid)
+                    entity_registry.async_update_entity(found.entity_id, new_entity_id=entityid)
+
+            # remove all other entities with same translation_key but different entity_id
+            for entry in entries:
+                _LOGGER.info("Removing entity %s", entry.entity_id)
+                entity_registry.async_remove(entry.entity_id)
 
     async def dataRefresh(self, _update_count: int) -> None:
         return

@@ -1,20 +1,23 @@
-
-# Loads default set of integrations. Do not remove.
+# https://www.home-assistant.io/integrations/default_config/
 default_config:
 
-# Load frontend themes from the themes folder
-frontend:
-  themes: !include_dir_merge_named themes
+# https://www.home-assistant.io/integrations/homeassistant/
+homeassistant:
+  debug: true
 
-automation: !include automations.yaml
-script: !include scripts.yaml
-scene: !include scenes.yaml
-
+# https://www.home-assistant.io/integrations/logger/
 logger:
   default: info
   logs:
-    homeassistant.components.cloud: debug
     custom_components.zendure_ha: debug
-    
-helper_fix:
 
+sensor:
+  - platform: rest
+    resource: http://192.168.2.97:8123/api/states/sensor.power_actual
+    name: power_actual
+    unique_id: power_actual
+    scan_interval: 2
+    device_class: power
+    value_template: "{{ value_json.state }}"
+    headers:
+      Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkMmNlNzYyZGFjZjY0MGM4YWEwNmJjN2YxMjIxM2UxZSIsImlhdCI6MTc0MzI5ODAxNywiZXhwIjoyMDU4NjU4MDE3fQ.juJNrxIo5tSmSiCeA8shKpPPEg4AAlA8zMHa--VJw1Q

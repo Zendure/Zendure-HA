@@ -255,9 +255,6 @@ class Api:
                     device.mqtt = client
                     device.setStatus()
 
-            else:
-                _LOGGER.debug("Unknown device: %s => %s", deviceId, msg.topic)
-
         except Exception:
             _LOGGER.exception("Unexpected error in MQTT cloud message handler")
 
