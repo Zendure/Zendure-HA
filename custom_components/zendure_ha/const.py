@@ -69,5 +69,5 @@ class SmartMode:
 
     HEMSOFF_TIMEOUT = 60  # Seconds before HEMS state is set to OFF if no updates are received
 
-    POWER_START = 50  # Minimum Power (W) for starting a device
+    POWER_START = 60  # Minimum Power (W) for starting a device
     POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating
