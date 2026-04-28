@@ -221,7 +221,8 @@
         "state": {
           "0": "Ruhezustand",
           "1": "Laden",
-          "2": "Entladen"
+          "2": "Entladen",
+          "3": "USV"
         }
       },
       "operation_state": {
@@ -270,7 +271,8 @@
         "state": {
           "0": "Aus",
           "1": "An",
-          "2": "Automatisch An"
+          "2": "An",
+          "3": "Direkte Netzversorgung"
         }
       },
       "hyper_2000_pass": {

@@ -199,7 +199,8 @@
         "state": {
           "0": "En veille",
           "1": "En charge",
-          "2": "En décharge"
+          "2": "En décharge",
+          "3": "ASI"
         }
       },
       "operation_state": {
@@ -251,7 +252,8 @@
         "state": {
           "0": "Désactivé",
           "1": "Activé",
-          "2": "Auto activé"
+          "2": "Activé",
+          "3": "Alimentation directe réseau"
         }
       },
       "hyper_2000_pass": {

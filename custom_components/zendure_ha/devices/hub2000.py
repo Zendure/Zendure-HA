@@ -17,22 +17,19 @@ class Hub2000(ZendureLegacy):
         """can get power from superbase V or satellite battery up to 1200W"""
         """power from ACE 1500 up to 900W"""
         """power to micro inverter up to 1200W"""
-        self.setLimits(-1200, 1200)
+        self.setLimits(0, 1200)
         self.maxSolar = -2400
 
-    def batteryUpdate(self, batteries: list[ZendureBattery]) -> None:
-        self.powerMin = -1800 if len(batteries) > 1 else -1200 if batteries[0].kWh > 1 else -800
-        self.limitInput.update_range(0, abs(self.powerMin))
-
     async def charge(self, power: int) -> int:
-        _LOGGER.info("Power charge %s => %s", self.name, power)
+        _LOGGER.info("AC Power charge %s not available => set power from %s to 0", self.name, power)
+        # The HUB family does not have AC charging possibility (even with ACE 1500), so set it to idle
         self.mqttInvoke(
             {
-                "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],
+                "arguments": [{"autoModelProgram": 0, "autoModelValue": 0, "msgType": 1, "autoModel": 0}],
                 "function": "deviceAutomation",
             }
         )
-        return power
+        return 0
 
     async def discharge(self, power: int) -> int:
         _LOGGER.info("Power discharge %s => %s", self.name, power)
