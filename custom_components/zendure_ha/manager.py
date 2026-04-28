@@ -428,6 +428,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # get power production
                 d.pwr_produced = min(0, d.batteryOutput.asInt + d.homeInput.asInt - d.batteryInput.asInt - d.homeOutput.asInt)
                 self.produced -= d.pwr_produced
+                grid_reverse_entity = d.entities.get("gridReverse")
+                grid_reverse = grid_reverse_entity.value if isinstance(grid_reverse_entity, ZendureSelect) else None
+                # SOCFULL bypass power should only be accounted when export is allowed
+                # (or the device does not expose gridReverse). With gridReverse=forbidden,
+                # produced solar follows requested output and must not be subtracted again.
+                socfull_bypass = d.state == DeviceState.SOCFULL and grid_reverse in (None, 1, "allow")
 
                 # only positive pwr_offgrid must be taken into account, negative values count a solarInput
                 if (home := -d.homeInput.asInt + max(0, d.pwr_offgrid)) < 0:
@@ -439,7 +445,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
                 elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
-                    self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
+                    self.discharge_bypass -= d.pwr_produced if socfull_bypass else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced
