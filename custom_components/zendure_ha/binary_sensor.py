@@ -30,7 +30,7 @@ class ZendureBinarySensor(EntityZendure, BinarySensorEntity):
         deviceclass: Any | None = None,
     ) -> None:
         """Initialize a binary sensor entity."""
-        super().__init__(device, uniqueid)
+        super().__init__(device, uniqueid, "binary_sensor")
         self.entity_description = BinarySensorEntityDescription(key=uniqueid, name=uniqueid, device_class=deviceclass)
         self._attr_is_on = False
         self._value_template: Template | None = template

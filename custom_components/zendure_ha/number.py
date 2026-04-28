@@ -40,7 +40,7 @@ class ZendureNumber(EntityZendure, NumberEntity):
         doupdate: bool = False,
     ) -> None:
         """Initialize a number entity."""
-        super().__init__(device, uniqueid)
+        super().__init__(device, uniqueid, "number")
         self.entity_description = NumberEntityDescription(
             key=uniqueid,
             name=uniqueid,
@@ -95,6 +95,11 @@ class ZendureNumber(EntityZendure, NumberEntity):
     def asNumber(self) -> int | float:
         """Return the current value of the sensor."""
         return self._attr_native_value if isinstance(self._attr_native_value, (int, float)) else 0
+
+    @property
+    def asInt(self) -> int:
+        """Return the current value as int."""
+        return int(self._attr_native_value) if isinstance(self._attr_native_value, (int, float)) else 0
 
 
 class ZendureRestoreNumber(ZendureNumber, RestoreEntity):

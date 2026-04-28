@@ -28,7 +28,7 @@ class ZendureSelect(EntityZendure, SelectEntity):
 
     def __init__(self, device: EntityDevice, uniqueid: str, options: dict[Any, str], onchanged: Callable | None, current: int | None = None) -> None:
         """Initialize a select entity."""
-        super().__init__(device, uniqueid)
+        super().__init__(device, uniqueid, "select")
         self.entity_description = SelectEntityDescription(key=uniqueid, name=uniqueid)
         self._options = options
         self._attr_options = list(options.values())

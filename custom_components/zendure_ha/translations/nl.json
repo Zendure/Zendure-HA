@@ -72,9 +72,6 @@
       "wifi_state": {
         "name": "Wifi Status"
       },
-      "pass": {
-        "name": "Bypass"
-      },
       "heat_state": {
         "name": "batterijverwarming"
       },

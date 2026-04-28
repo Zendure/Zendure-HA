@@ -36,7 +36,7 @@ class ZendureSwitch(EntityZendure, SwitchEntity):
         value: bool | None = None,
     ) -> None:
         """Initialize a switch entity."""
-        super().__init__(device, uniqueid)
+        super().__init__(device, uniqueid, "switch")
         self.entity_description = SwitchEntityDescription(key=uniqueid, name=uniqueid, device_class=deviceclass)
 
         self._attr_available = True

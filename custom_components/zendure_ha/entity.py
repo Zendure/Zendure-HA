@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import restore_state as rs
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntry, DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityPlatformState
 from homeassistant.helpers.template import Template
 
@@ -34,17 +36,6 @@ def snakecase(value: str) -> str:
 _LOGGER = logging.getLogger(__name__)
 
 CONST_FACTOR = 2
-CONST_TEMPLATE_FIELDS = [
-    "state",
-    "availability",
-    "icon",
-    "picture",
-    "attributes",
-    "source",
-    "entity_id",
-    "entity_ids",
-    "entities",
-]
 
 
 class EntityZendure(Entity):
@@ -56,13 +47,15 @@ class EntityZendure(Entity):
         self,
         device: EntityDevice | None,
         uniqueid: str,
+        domain: str = "",
     ) -> None:
         """Initialize a Zendure entity."""
         self._attr_has_entity_name = True
         self._attr_should_poll = False
         self._attr_available = True
         if device is None:
-            _LOGGER.warning("Entity %s has no device, skipping initialization.", uniqueid)
+            if uniqueid != "empty":
+                _LOGGER.warning("Entity %s has no device, skipping initialization.", uniqueid)
             return
         self.device = device
         self.propertyName = uniqueid
@@ -70,6 +63,8 @@ class EntityZendure(Entity):
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
+        if domain and device.checkEntity is not None and self._attr_translation_key not in device.checkEntity:
+            device.checkEntity[self._attr_translation_key] = domain
 
     @property
     def device_info(self) -> DeviceInfo | None:
@@ -150,7 +145,6 @@ class EntityDevice:
         "heatState": ("binary"),
         "restState": ("binary"),
         "reverseState": ("binary"),
-        "pass": ("binary"),
         "lowTemperature": ("binary"),
         "autoHeat": ("select", {0: "off", 1: "on"}, 1),
         "localState": ("binary"),
@@ -169,6 +163,9 @@ class EntityDevice:
         "ambientLightMode": ("none"),
         "ambientSwitch": ("none"),
         "PowerCycle": ("none"),
+        "faultLevel": ("none"),
+        "oldMode": ("none"),
+        "circuitCheckMode": ("none"),
         "acoutputPowerCycle": ("none"),
         "dcoutputPowerCycle": ("none"),
         "gridInputPowerCycle": ("none"),
@@ -180,6 +177,8 @@ class EntityDevice:
         "ts": ("none"),
         "tsZone": ("none"),
     }
+    checkEntity: dict[str, str] | None = None
+
     empty = EntityZendure(None, "empty")
 
     def __init__(
@@ -216,9 +215,39 @@ class EntityDevice:
         device_registry = dr.async_get(self.hass)
         if di := device_registry.async_get_device(identifiers={(DOMAIN, sn)}):
             self.attr_device_info["connections"] = di.connections
+            self.check_entities(di, snakecase(self.name.lower()))
 
         if parent is not None:
             self.attr_device_info["via_device"] = (DOMAIN, parent)
+
+    def check_entities(self, di: DeviceEntry, name: str) -> None:
+        if EntityDevice.checkEntity is None:
+            _t = json.loads((Path(__file__).parent / "translations" / "en.json").read_text())
+            EntityDevice.checkEntity = {key: domain for domain, keys in _t.get("entity", {}).items() for key in keys}
+
+        # Get all entities for this device and group them by translation_key if they match the current device and platform
+        entity_registry = er.async_get(self.hass)
+        ed: dict[str, list[er.RegistryEntry]] = {}
+        for entity in er.async_entries_for_device(entity_registry, di.id, True):
+            if entity.platform == DOMAIN and (dn := self.checkEntity.get(entity.translation_key)) is not None and dn == entity.domain:
+                ed.setdefault(entity.translation_key, []).append(entity)
+
+        # check al entities
+        for key, entries in ed.items():
+            entityid = f"{entries[0].domain}.{name}_{key}"
+            if len(entries) == 1 and entries[0].entity_id == entityid:
+                continue
+            _LOGGER.info("Update entity %s", entityid)
+            if (found := next((x for x in entries if x.entity_id == entityid), entries[0])) is not None:
+                entries.remove(found)
+                if found.entity_id != entityid:
+                    _LOGGER.info("Updating entity %s -> %s", found.entity_id, entityid)
+                    entity_registry.async_update_entity(found.entity_id, new_entity_id=entityid)
+
+            # remove all other entities with same translation_key but different entity_id
+            for entry in entries:
+                _LOGGER.info("Removing entity %s", entry.entity_id)
+                entity_registry.async_remove(entry.entity_id)
 
     async def dataRefresh(self, _update_count: int) -> None:
         return
@@ -303,7 +332,7 @@ class EntityDevice:
     def updateVersion(self, version: str) -> None:
         _LOGGER.info("Updating %s software version from %s to %s", self.name, self.attr_device_info.get("sw_version"), version)
         device_registry = dr.async_get(self.hass)
-        identifier = self.sn if self.sn else self.name
+        identifier = self.sn or self.name
         device_entry = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
         if device_entry is not None:
             device_registry.async_update_device(device_entry.id, sw_version=version)

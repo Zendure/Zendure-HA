@@ -64,6 +64,7 @@ class Api:
         "hyper2000_3.0": Hyper2000,
         "solarflow 800": SolarFlow800,
         "solarflow 800 pro": SolarFlow800Pro,
+        "solarflow 800 pro2": SolarFlow800Pro,
         "solarflow 800 plus": SolarFlow800Plus,
         "solarflow 1600 ac+": SolarFlow1600,
         "solarflow 2400 ac": SolarFlow2400AC,
@@ -184,6 +185,7 @@ class Api:
                 _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
                 return None
             if not data.get("success", False) or (result := data["data"]) is None:
+                _LOGGER.error("Zendure API returned failure or missing data: %s", data)
                 return None
             return dict(result)
 
@@ -252,9 +254,6 @@ class Api:
                 if device.mqttMessage(topics[3], payload) and device.mqtt != client:
                     device.mqtt = client
                     device.setStatus()
-
-            else:
-                _LOGGER.debug("Unknown device: %s => %s", deviceId, msg.topic)
 
         except Exception:
             _LOGGER.exception("Unexpected error in MQTT cloud message handler")
