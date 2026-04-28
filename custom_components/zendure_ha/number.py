@@ -96,6 +96,11 @@ class ZendureNumber(EntityZendure, NumberEntity):
         """Return the current value of the sensor."""
         return self._attr_native_value if isinstance(self._attr_native_value, (int, float)) else 0
 
+    @property
+    def asInt(self) -> int:
+        """Return the current value as int."""
+        return int(self._attr_native_value) if isinstance(self._attr_native_value, (int, float)) else 0
+
 
 class ZendureRestoreNumber(ZendureNumber, RestoreEntity):
     """Representation of a Zendure number entity with restore."""
