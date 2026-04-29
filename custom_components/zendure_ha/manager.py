@@ -459,12 +459,20 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.availableKwh.update_value(availableKwh)
 
         # discharge_bypass accumulates the solar-only power produced by SOCFULL devices.
-        # Subtract it from setpoint to avoid over-discharging from grid, but clamp so
-        # setpoint never goes below 0 when p1 >= 0: a SOCFULL device producing solar
-        # should still cover home demand, not trigger charge mode (fixes #1151 output
-        # cycling to 0W with bypass forbidden + 100% SoC).
+        # SOCFULL homeOutput is solar passthrough, not battery discharge, so it must be
+        # backed out of setpoint. How depends on what other devices are available:
+        #   - charge target present: subtract fully and let setpoint go negative so
+        #     power_charge() ramps the absorber to match the surplus.
+        #   - only SOCFULL devices in the discharge bucket: preserve #1151 — floor
+        #     setpoint at 0 when p1 >= 0 so SOCFULL devices aren't asked to charge.
+        #   - non-SOCFULL discharger present: skip the subtraction entirely. It would
+        #     force convergence to p1 = bypass (steady-state grid import equal to the
+        #     SOCFULL solar) when the non-SOCFULL device could close that gap.
         if self.discharge_bypass > 0:
-            setpoint = max(0 if p1 >= 0 else setpoint - self.discharge_bypass, setpoint - self.discharge_bypass)
+            if self.charge:
+                setpoint -= self.discharge_bypass
+            elif all(d.state == DeviceState.SOCFULL for d in self.discharge):
+                setpoint = max(0 if p1 >= 0 else setpoint - self.discharge_bypass, setpoint - self.discharge_bypass)
 
         # Update power distribution.
         _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW stored:%sW", p1, isFast, setpoint, self.produced)
@@ -576,10 +584,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.charge_time = datetime.max
             self.pwr_low = 0
 
-        # stop charging devices
-        for d in self.charge:
-            # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
-            await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
+        # stop charging devices only when there is meaningful discharge demand;
+        # below POWER_START the system is essentially balanced and tearing down an
+        # in-flight charge just to respond to a few watts of import causes oscillation.
+        if setpoint > SmartMode.POWER_START:
+            for d in self.charge:
+                # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
+                await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
 
         # distribute discharging devices, use produced power first, before adding another device
         dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
