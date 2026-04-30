@@ -550,6 +550,17 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 self.pwr_low = 0 if (delta := d.charge_start * 1.5 - pwr) >= 0 else self.pwr_low + int(-delta)
                 pwr = 0 if self.pwr_low < d.charge_optimal else pwr
 
+            # In acMode=1 the off-grid outlet is sourced from grid alongside
+            # battery charge, so homeInput ≈ |pwr| + pwr_offgrid. If the share
+            # we'd charge doesn't exceed the offgrid pull, the offgrid leg
+            # dominates and the surplus we wanted to absorb turns into net
+            # import. Switch to acMode=2 so battery supplies offgrid; the
+            # outputLimit=10 (vs 0) keeps the device in the discharge bucket
+            # next refresh instead of being reclassified as charging.
+            if d.pwr_offgrid > 0 and pwr > -d.pwr_offgrid:
+                await d.power_discharge(10)
+                continue
+
             setpoint -= await d.power_charge(pwr)
             dev_start += -1 if pwr != 0 and d.electricLevel.asInt > self.idle_lvlmin + 3 else 0
 
