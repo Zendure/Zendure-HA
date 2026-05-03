@@ -21,6 +21,15 @@ class ACE1500(ZendureLegacy):
         self.acSwitch = ZendureSwitch(self, "acSwitch", self.entityWrite, None, "switch",1)
         self.dcSwitch = ZendureSelect(self, "dcSwitch", {0: "off", 1: "on"}, self.entityWrite, 1)
 
+    @property
+    def ups_mode(self) -> bool:
+        """ACE 1500 reports packState=3 when AC input is available — i.e. the
+        AC load runs as grid passthrough with the battery on standby for an
+        outage. packState falls to 2 (discharging) when AC is disconnected,
+        and to 0 (sleeping) when DC input takes over."""
+        pack_state = self.entities.get("packState")
+        return pack_state is not None and pack_state.asInt == 3
+
     async def charge(self, power: int) -> int:
         _LOGGER.info("Power charge %s => %s", self.name, power)
         self.mqttInvoke(

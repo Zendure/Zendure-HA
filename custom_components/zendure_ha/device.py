@@ -644,6 +644,13 @@ class ZendureDevice(EntityDevice):
         """Get the offgrid power."""
         return 0
 
+    @property
+    def ups_mode(self) -> bool:
+        """True when the device is acting as a UPS (grid passthrough with
+        battery backup). The manager uses this to maintain a charge reserve
+        from grid when no surplus is available."""
+        return False
+
 
 class ZendureLegacy(ZendureDevice):
     """Zendure Legacy class for devices."""
