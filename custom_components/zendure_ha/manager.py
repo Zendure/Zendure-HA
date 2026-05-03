@@ -408,7 +408,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 self.produced = 0
                 for fg in self.fuseGroups:
                     fg.initPower = True
-                await self.powerChanged(p1, isFast, time)
+                # Pass an averaged p1 to dampen proportional overshoot from the
+                # control loop's per-cycle re-distribution. On a fast change the
+                # history was just cleared and holds only the current sample, so
+                # the average equals p1 — fast updates stay responsive.
+                p1_smooth = int(sum(self.p1_history) / len(self.p1_history))
+                await self.powerChanged(p1_smooth, isFast, time)
             except Exception as err:
                 _LOGGER.error(err)
                 _LOGGER.error(traceback.format_exc())
