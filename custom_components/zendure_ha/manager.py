@@ -581,8 +581,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
             await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
 
-        # distribute discharging devices, use produced power first, before adding another device
-        dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
+        # distribute discharging devices, use produced power first, before adding another device.
+        # The discharge_optimal*2 buffer reflects "let small loads go to grid before
+        # waking idle devices". Devices with grid export forbidden don't benefit from
+        # that — their unmet demand becomes import, not export — so contribute 0.
+        discharge_slack = sum(
+            0 if isinstance(gr := d.entities.get("gridReverse"), ZendureSelect) and gr.value in (2, "forbidden")
+            else d.discharge_optimal * 2
+            for d in self.discharge
+        )
+        dev_start = max(0, setpoint - discharge_slack - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
         solaronly = self.discharge_produced >= setpoint
         limit = self.discharge_produced if solaronly else self.discharge_limit
         setpoint = min(limit, setpoint)
@@ -611,8 +619,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 pwr = max(setpoint - limit, 0 if d.state != DeviceState.SOCFULL else -d.pwr_produced)
             pwr = min(pwr, setpoint, d.pwr_max)
 
-            # make sure we have devices in optimal working range
-            if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL:
+            # make sure we have devices in optimal working range — but skip the
+            # suppression when this device forbids grid export. The hysteresis
+            # trades device efficiency at low power against grid absorption,
+            # which only pays off when the alternative is free export.
+            if (
+                len(self.discharge) > 1
+                and i == 0
+                and d.state != DeviceState.SOCFULL
+                and not (isinstance(gr := d.entities.get("gridReverse"), ZendureSelect) and gr.value in (2, "forbidden"))
+            ):
                 self.pwr_low = 0 if (delta := d.discharge_start * 1.5 - pwr) <= 0 else self.pwr_low + int(delta)
                 pwr = 0 if self.pwr_low > d.discharge_optimal else pwr
 
