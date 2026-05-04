@@ -373,6 +373,13 @@
           "off": "Off/Input"
         }
       },
+      "hub_mode": {
+        "name": "Hub Mode",
+        "state": {
+          "paired": "Paired with Hub",
+          "standalone": "Standalone"
+        }
+      },
       "hems_state": {
         "name": "HEMS State",
         "state": {

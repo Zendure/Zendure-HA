@@ -362,6 +362,13 @@
           "off": "Aus/Eingang"
         }
       },
+      "hub_mode": {
+        "name": "Hub-Modus",
+        "state": {
+          "paired": "Mit Hub gekoppelt",
+          "standalone": "Eigenständig"
+        }
+      },
       "hems_state": {
         "name": "HEMS-Status",
         "state": {
