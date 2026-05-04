@@ -278,6 +278,13 @@
           "off": "Uit/Invoer"
         }
       },
+      "hub_mode": {
+        "name": "Hub-modus",
+        "state": {
+          "paired": "Gekoppeld met hub",
+          "standalone": "Standalone"
+        }
+      },
       "hems_state": {
         "name": "HEMS Status",
         "state": {

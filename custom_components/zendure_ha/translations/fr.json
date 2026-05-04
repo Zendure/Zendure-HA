@@ -334,6 +334,13 @@
           "off": "Marche/Entrée"
         }
       },
+      "hub_mode": {
+        "name": "Mode Hub",
+        "state": {
+          "paired": "Couplé avec Hub",
+          "standalone": "Autonome"
+        }
+      },
       "hems_state": {
         "name": "État HEMS",
         "state": {
