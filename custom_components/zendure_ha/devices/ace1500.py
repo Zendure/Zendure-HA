@@ -1,6 +1,7 @@
 """Module for the ACE1500 device integration in Home Assistant."""
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -10,6 +11,12 @@ from custom_components.zendure_ha.select import ZendureRestoreSelect, ZendureSel
 from custom_components.zendure_ha.switch import ZendureSwitch
 
 _LOGGER = logging.getLogger(__name__)
+
+# inputLimit writes go to the ACE 1500's flash memory. Quantize to 50 W
+# steps and throttle to one write per 30s so a long surplus-tracking
+# session doesn't burn through flash endurance.
+_INPUT_LIMIT_STEP_W = 50
+_INPUT_LIMIT_MIN_INTERVAL = timedelta(seconds=30)
 
 
 class ACE1500(ZendureLegacy):
@@ -31,6 +38,10 @@ class ACE1500(ZendureLegacy):
         # Default is "paired" to preserve existing behavior; users without a
         # Hub need to flip this to "standalone" for charge/discharge to work.
         self.hubMode = ZendureRestoreSelect(self, "hubMode", {0: "paired", 1: "standalone"}, None, 0)
+        # Track the last inputLimit value/time so standalone charge writes can
+        # be quantized and rate-limited to protect device flash.
+        self._last_input_limit: int | None = None
+        self._last_input_limit_time = datetime.min
 
     async def charge(self, power: int) -> int:
         _LOGGER.info("Power charge %s => %s", self.name, power)
@@ -94,27 +105,45 @@ class ACE1500(ZendureLegacy):
         )
 
     def _chargeStandalone(self, power: int) -> None:
-        """Standalone path: park the device in autoModel=0 (None program) and
-        drive inputLimit through a properties/write. The Smart Matching /
+        """Standalone charge: park the device in autoModel=0 (None program)
+        and drive inputLimit through a properties/write. Smart Matching /
         Battery Priority / Smart CT modes all need a Hub heartbeat we can't
-        supply, leaving the device in standby — so we route around them."""
-        self._setAutoModelNone()
-        self._messageid += 1
-        self.mqttPublish(
-            self.topic_write,
-            {"properties": {"acMode": 1, "inputLimit": -power}},
-        )
+        supply, so we route around them via direct property writes."""
+        self._writeInputLimit(-power)
 
-    def _dischargeStandalone(self, power: int) -> None:
-        """Standalone path: same idea as _chargeStandalone but driving
-        outputLimit, with inputLimit cleared so the firmware doesn't try to
-        charge simultaneously."""
+    def _dischargeStandalone(self, _power: int) -> None:
+        """Standalone 'discharge' is effectively just stop-charging. The ACE
+        1500 standalone has no AC home output (only off-grid socket / USB /
+        XT-60, none of which the integration can power-control), so the
+        outputLimit property has no effect. We just clear inputLimit to
+        ensure the device isn't pulling from grid."""
+        self._writeInputLimit(0)
+
+    def _writeInputLimit(self, target: int) -> None:
+        """Write inputLimit via properties/write, with quantization
+        and rate-limiting. Each property write goes to the ACE 1500's flash
+        memory, so an unguarded 5-second control loop would burn through
+        endurance in months. Quantize to 50 W steps and throttle to one
+        write per 30 s. target=0 (stop charging) is exempted from the rate
+        limit so we can drop charging promptly when surplus disappears."""
+        target = (target // _INPUT_LIMIT_STEP_W) * _INPUT_LIMIT_STEP_W
+        now = datetime.now()
+        if target == self._last_input_limit:
+            return
+        if (
+            target != 0
+            and self._last_input_limit is not None
+            and now - self._last_input_limit_time < _INPUT_LIMIT_MIN_INTERVAL
+        ):
+            return
         self._setAutoModelNone()
         self._messageid += 1
         self.mqttPublish(
             self.topic_write,
-            {"properties": {"acMode": 2, "outputLimit": max(0, power), "inputLimit": 0}},
+            {"properties": {"inputLimit": target}},
         )
+        self._last_input_limit = target
+        self._last_input_limit_time = now
 
     def _setAutoModelNone(self) -> None:
         """Park the device in autoModel=0 (None program). Standalone ACE 1500
