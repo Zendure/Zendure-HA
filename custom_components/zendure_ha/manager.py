@@ -299,6 +299,20 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.update_count += 1
         self.totalKwh.update_value(kwh)
 
+        # Force-charge UPS-mode devices that have drifted below their reserve
+        # target. Target is the midpoint between minSoc and socSet, keeping
+        # half the usable capacity in reserve for a grid outage. Runs every
+        # SCAN_INTERVAL so it covers all manager modes (OFF, MATCHING with
+        # surplus, MATCHING_CHARGE, STORE_SOLAR, MANUAL with negative power)
+        # — UPS reserve is a hard constraint independent of how the manager
+        # is otherwise dispatching power.
+        for device in self.devices:
+            if not device.online or not device.ups_mode:
+                continue
+            target = (device.minSoc.asNumber + device.socSet.asNumber) / 2
+            if device.electricLevel.asNumber < target:
+                await device.power_charge(-SmartMode.POWER_START)
+
         # Manually update the timer
         if self.hass and self.hass.loop.is_running():
             self._schedule_refresh()
@@ -628,15 +642,3 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if (dev_start := dev_start - d.discharge_optimal * 2) <= 0:
                         break
             self.pwr_low: int = 0
-
-        # Force-charge UPS-mode devices that have drifted below their reserve
-        # target. Target is the midpoint between minSoc and socSet, keeping
-        # half the usable capacity in reserve for a grid outage. Runs after
-        # the regular dispatch so this command wins over the power_discharge(0)
-        # the top loop sent.
-        for d in self.devices:
-            if not d.online or not d.ups_mode:
-                continue
-            target = (d.minSoc.asNumber + d.socSet.asNumber) / 2
-            if d.electricLevel.asNumber < target:
-                await d.power_charge(-SmartMode.POWER_START)
