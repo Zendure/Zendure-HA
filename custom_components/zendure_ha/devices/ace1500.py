@@ -23,7 +23,6 @@ class ACE1500(ZendureLegacy):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any, parent: str | None = None) -> None:
         """Initialise Ace1500."""
         super().__init__(hass, deviceId, prodName, definition["productModel"], definition, parent)
-        self.setLimits(-900, 800)
         self.maxSolar = -900
         self.acSwitch = ZendureSwitch(self, "acSwitch", self.entityWrite, None, "switch",1)
         self.dcSwitch = ZendureSelect(self, "dcSwitch", {0: "off", 1: "on"}, self.entityWrite, 1)
@@ -37,11 +36,32 @@ class ACE1500(ZendureLegacy):
         #     can't supply, so they sit in standby when no Hub is present.
         # Default is "paired" to preserve existing behavior; users without a
         # Hub need to flip this to "standalone" for charge/discharge to work.
-        self.hubMode = ZendureRestoreSelect(self, "hubMode", {0: "paired", 1: "standalone"}, None, 0)
+        self.hubMode = ZendureRestoreSelect(self, "hubMode", {0: "paired", 1: "standalone"}, self._onHubModeChange, 0)
         # Track the last inputLimit value/time so standalone charge writes can
         # be quantized and rate-limited to protect device flash.
         self._last_input_limit: int | None = None
         self._last_input_limit_time = datetime.min
+        # Initial limits set for the default (paired) mode. _onHubModeChange
+        # will adjust them after state restore if hubMode comes back as
+        # "standalone".
+        self.setLimits(-900, 800)
+
+    async def _onHubModeChange(self, select: Any, _value: Any) -> None:
+        """Adjust device limits when the user toggles hubMode. Standalone
+        mode has no AC home output (off-grid socket / USB / XT-60 only), so
+        discharge_limit must be 0 — otherwise the manager would distribute
+        home-discharge demand to this device, expecting up to 800 W of
+        contribution that never materializes, and the other devices would
+        under-discharge to compensate.
+
+        Read the current value off `select` rather than `self.hubMode`:
+        this callback fires from `ZendureRestoreSelect.async_added_to_hass`
+        during state restore, which can run before `self.hubMode = ...`
+        finishes assigning on the device."""
+        if select.value == 1:
+            self.setLimits(-900, 0)
+        else:
+            self.setLimits(-900, 800)
 
     async def charge(self, power: int) -> int:
         _LOGGER.info("Power charge %s => %s", self.name, power)
