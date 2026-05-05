@@ -424,6 +424,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         setpoint = p1
         power = 0
         totalStoredKwh = 0
+        onlineKwh = 0
 
         for d in self.devices:
             if await d.power_get():
