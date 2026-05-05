@@ -217,6 +217,9 @@
       "soc_level": {
         "name": "Elektriciteitsniveau (SoC)"
       },
+      "global_soc": {
+         "name": "Globale batterij SOC" 
+      },
       "max_temp": {
         "name": "Hoogste celtemperatuur"
       },
@@ -261,6 +264,9 @@
       },
       "masterhaer_version": {
         "name": "Hardwareversie"
+      },
+      "delta_voltage": {
+        "name": "Spanningsverschil"
       }
     },
     "select": {

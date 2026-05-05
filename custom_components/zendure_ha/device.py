@@ -85,6 +85,20 @@ class ZendureBattery(EntityDevice):
         name, model, self.kWh = ZendureBattery.get_battery_type(sn)
         super().__init__(hass, sn, name, model, "", sn, parent.sn)
         self.attr_device_info["serial_number"] = sn
+        self.deltaVoltage = ZendureSensor(self, "deltaVoltage", None, "V", "voltage", "measurement", 3)
+
+    def entityUpdate(self, key: Any, value: Any) -> bool:
+        """Update entity state and recalculate deltaVoltage when maxVol or minVol changes."""
+        changed = super().entityUpdate(key, value)
+        if changed and key in {"maxVol", "minVol"}:
+            max_vol = self.entities.get("maxVol")
+            min_vol = self.entities.get("minVol")
+            if max_vol is not None and min_vol is not None:
+                max_val = max_vol.asNumber
+                min_val = min_vol.asNumber
+                if max_val != 0 or min_val != 0:
+                    self.deltaVoltage.update_value(round(max_val - min_val, 3))
+        return changed
 
 
 class ZendureDevice(EntityDevice):

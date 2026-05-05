@@ -110,6 +110,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
+        self.globalSoc = ZendureSensor(self, "global_soc", None, "%", "battery", "measurement", 1)
 
         # load devices
         for dev in data["deviceList"]:
@@ -422,6 +423,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         availableKwh = 0
         setpoint = p1
         power = 0
+        totalStoredKwh = 0
 
         for d in self.devices:
             if await d.power_get():
@@ -453,10 +455,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
                 availableKwh += d.actualKwh
                 power += d.pwr_offgrid + home + d.pwr_produced
+                totalStoredKwh += d.electricLevel.asNumber / 100 * d.kWh
+                onlineKwh += d.kWh
 
         # Update the power entities
         self.power.update_value(power)
         self.availableKwh.update_value(availableKwh)
+        if onlineKwh > 0:
+            self.globalSoc.update_value((totalStoredKwh / onlineKwh) * 100)
+        else:
+            self.globalSoc.update_value(0)
 
         # discharge_bypass accumulates the solar-only power produced by SOCFULL devices.
         # Subtract it from setpoint to avoid over-discharging from grid, but clamp so

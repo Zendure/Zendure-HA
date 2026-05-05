@@ -255,6 +255,9 @@
       "soc_level": {
         "name": "Electricity Level (SoC)"
       },
+      "global_soc": { 
+        "name": "Global Battery SOC" 
+      },
       "max_temp": {
         "name": "Highest Cell Temperature"
       },
@@ -356,6 +359,9 @@
           "6": "BossWerk",
           "7": "TSun"
         }
+      },
+      "delta_voltage": {
+        "name": "Delta Voltage"
       }
     },
     "select": {
