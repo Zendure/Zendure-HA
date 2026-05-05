@@ -436,8 +436,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge_optimal += d.charge_optimal
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
                     setpoint += -d.homeInput.asInt  # use gridInputPower directly; offgrid consumers are invisible to P1
-                # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
-                elif (home := d.homeOutput.asInt) > 0:
+                # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid.
+                # Also include devices that are producing solar (pwr_produced < 0) but currently route it all to battery (homeOutput == 0).
+                # Without this, such devices land in the idle bucket where they are never engaged for small home demand, leaving solar to
+                # charge the device's own battery while home imports from grid. Bucketing them as discharge gives them a setpoint share so
+                # the manager can ramp homeOutput up; once homeOutput > 0 the original condition keeps them here on subsequent cycles.
+                elif (home := d.homeOutput.asInt) > 0 or d.pwr_produced < 0:
                     self.discharge.append(d)
                     self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
@@ -610,6 +614,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             if limit < setpoint - pwr:
                 pwr = max(setpoint - limit, 0 if d.state != DeviceState.SOCFULL else -d.pwr_produced)
             pwr = min(pwr, setpoint, d.pwr_max)
+            # Devices that entered the discharge bucket solely via solar production
+            # (homeOutput still 0) must not drain battery: cap to solar output.
+            if d.homeOutput.asInt == 0 and d.pwr_produced < 0:
+                pwr = min(pwr, -d.pwr_produced)
 
             # make sure we have devices in optimal working range
             if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL:
