@@ -96,7 +96,7 @@ class ZendureBattery(EntityDevice):
             if max_vol is not None and min_vol is not None:
                 max_val = max_vol.asNumber
                 min_val = min_vol.asNumber
-                if max_val != 0 or min_val != 0:
+                if max_val != 0 and min_val != 0:
                     self.deltaVoltage.update_value(round(max_val - min_val, 3))
         return changed
 
