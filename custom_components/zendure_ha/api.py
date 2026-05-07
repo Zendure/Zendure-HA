@@ -230,6 +230,7 @@ class Api:
                 "deviceList": [{
                     "deviceKey": sn,
                     "productModel": product,
+                    "productKey": sn,
                     "deviceName": product,
                     "snNumber": sn,
                     "ip": device_ip,
