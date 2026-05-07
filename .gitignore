@@ -27,3 +27,4 @@ config/*
 # Home Assistant configuration
 custom_components/*
 !custom_components/zendure_ha
+.DS_Store
