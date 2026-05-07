@@ -191,10 +191,10 @@ class ZendureDevice(EntityDevice):
                 self.connectionStatus.update_value(1)
             elif self.hemsState.is_on:
                 self.connectionStatus.update_value(2)
-            elif self.fuseGroup.value == 0:
-                self.connectionStatus.update_value(3)
             elif self.connection.value == SmartMode.ZENSDK:
                 self.connectionStatus.update_value(12)
+            elif self.fuseGroup.value == 0:
+                self.connectionStatus.update_value(3)
             elif self.mqtt is not None and self.mqtt.host == Api.localServer:
                 self.connectionStatus.update_value(11)
             else:
