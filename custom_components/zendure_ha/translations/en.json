@@ -13,6 +13,7 @@
       "user": {
         "data": {
           "token": "Zendure Token",
+          "device_ip": "Device IP address (required for SolarFlow 800 Pro 2, optional otherwise)",
           "p1meter": "P1 Sensor for smart matching",
           "mqttlog": "Log MQTT communication",
           "mqttlocal": "Use local MQTT",
@@ -35,6 +36,7 @@
       "reconfigure": {
         "data": {
           "token": "Zendure Token",
+          "device_ip": "Device IP address (required for SolarFlow 800 Pro 2, optional otherwise)",
           "p1meter": "P1 Sensor for smart matching",
           "mqttlog": "Log MQTT communication",
           "mqttlocal": "Use local MQTT",

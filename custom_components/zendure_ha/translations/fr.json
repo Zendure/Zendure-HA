@@ -13,6 +13,7 @@
       "user": {
         "data": {
           "token": "Clé cloud d'autorisation Zendure",
+          "device_ip": "Adresse IP de l'appareil (requis pour SolarFlow 800 Pro 2, sinon optionnel)",
           "username": "Nom d'utilisateur Zendure",
           "password": "Mot de passe Zendure",
           "p1meter": "Capteur P1 pour le couplage intelligent",
@@ -37,6 +38,7 @@
       "reconfigure": {
         "data": {
           "token": "Clé cloud d'autorisation Zendure",
+          "device_ip": "Adresse IP de l'appareil (requis pour SolarFlow 800 Pro 2, sinon optionnel)",
           "username": "Nom d'utilisateur Zendure",
           "password": "Mot de passe Zendure",
           "p1meter": "Capteur P1 pour le couplage intelligent",
