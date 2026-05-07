@@ -723,7 +723,9 @@ class ZendureZenSdk(ZendureDevice):
             await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
 
     async def dataRefresh(self, update_count: int) -> None:
-        if update_count == 0 and not self.online:
+        # Always poll via HTTP for local-only devices (no cloud MQTT); fall back to
+        # a one-time poll on first cycle when the device is offline.
+        if self.connection.value == 2 or (update_count == 0 and not self.online):
             json = await self.httpGet("properties/report")
             await self.mqttProperties(json)
 

@@ -21,6 +21,7 @@ from paho.mqtt import enums as mqtt_enums
 
 from .const import (
     CONF_APPTOKEN,
+    CONF_DEVICE_IP,
     CONF_HAKEY,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -65,6 +66,7 @@ class Api:
         "solarflow 800": SolarFlow800,
         "solarflow 800 pro": SolarFlow800Pro,
         "solarflow 800 pro2": SolarFlow800Pro,
+        "solarflow800pro2": SolarFlow800Pro,
         "solarflow 800 plus": SolarFlow800Plus,
         "solarflow 1600 ac+": SolarFlow1600,
         "solarflow 2400 ac": SolarFlow2400AC,
@@ -89,10 +91,13 @@ class Api:
     def Init(self, data: Mapping[str, Any], mqtt: Mapping[str, Any]) -> None:
         """Initialize Zendure Api."""
         Api.mqttLogging = data.get(CONF_MQTTLOG, False)
-        Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
-        url = mqtt["url"]
-        Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
-        self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+        if mqtt.get("clientId"):
+            Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
+            url = mqtt["url"]
+            Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
+            self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+        else:
+            _LOGGER.info("No cloud MQTT credentials — skipping cloud MQTT setup (local-only mode)")
 
         # Get wifi settings
         Api.wifissid = data.get(CONF_WIFISSID, "")
@@ -132,6 +137,7 @@ class Api:
 
     @staticmethod
     async def ApiHA(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
+        config = data
         session = async_get_clientsession(hass)
 
         if (token := data.get(CONF_APPTOKEN)) is not None and len(token) > 1:
@@ -179,7 +185,14 @@ class Api:
             if data.get("code") != 200:
                 _LOGGER.debug("Zendure API response: %s Message: %s", data.get("code"), data.get("msg"))
             elif data.get("code") == 200 and len(data["data"]["deviceList"]) == 0:
-                _LOGGER.error("Zendure API does not reply any devices: %s", data)
+                _LOGGER.warning(
+                    "Zendure cloud returned empty device list (known issue for SF800 Pro 2 and similar). "
+                    "Trying local zenSDK discovery. See https://github.com/Zendure/Zendure-HA/issues/1263"
+                )
+                device_ip = config.get(CONF_DEVICE_IP, "")
+                if device_ip:
+                    return await Api.LocalDiscovery(hass, device_ip)
+                _LOGGER.error("Set device_ip in integration config to enable local discovery fallback.")
                 return None
             elif data.get("code") == 200 and len(data["data"]["mqtt"]) == 0:
                 _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
@@ -192,6 +205,38 @@ class Api:
         except Exception as e:
             _LOGGER.error("Unable to connect to Zendure %s!", e)
             _LOGGER.error(traceback.format_exc())
+            return None
+
+    @staticmethod
+    async def LocalDiscovery(hass: HomeAssistant, device_ip: str) -> dict[str, Any] | None:
+        """Discover a device via the local zenSDK HTTP API (no cloud auth required)."""
+        from aiohttp import ClientTimeout
+
+        session = async_get_clientsession(hass)
+        try:
+            response = await session.get(
+                f"http://{device_ip}/properties/report",
+                timeout=ClientTimeout(total=4),
+            )
+            payload = await response.json(content_type=None)
+            sn = payload.get("sn")
+            product = payload.get("product")  # e.g. "solarFlow800Pro2"
+            if not sn or not product:
+                _LOGGER.error("LocalDiscovery at %s: missing sn or product in response: %s", device_ip, payload)
+                return None
+            _LOGGER.info("LocalDiscovery: found %s (%s) at %s", product, sn, device_ip)
+            return {
+                "mqtt": {},
+                "deviceList": [{
+                    "deviceKey": sn,
+                    "productModel": product,
+                    "deviceName": product,
+                    "snNumber": sn,
+                    "ip": device_ip,
+                }],
+            }
+        except Exception as e:
+            _LOGGER.error("LocalDiscovery failed for %s: %s", device_ip, e)
             return None
 
     def mqttInit(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:

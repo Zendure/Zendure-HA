@@ -15,6 +15,7 @@ from .api import Api
 from .const import (
     CONF_APPTOKEN,
     CONF_AUTO_MQTT_USER,
+    CONF_DEVICE_IP,
     CONF_MQTTLOCAL,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -44,6 +45,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): selector.EntitySelector(),
             vol.Required(CONF_MQTTLOG): bool,
             vol.Required(CONF_MQTTLOCAL): bool,
+            vol.Optional(CONF_DEVICE_IP, description={"suggested_value": ""}): str,
         }
     )
     mqtt_schema = vol.Schema(
