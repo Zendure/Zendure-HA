@@ -38,7 +38,7 @@ class SolarFlow2400AC(ZendureZenSdk):
     @property
     def pwr_offgrid(self) -> int:
         """Get the offgrid power."""
-        return self.offGrid.asInt
+        return self.batteryOutput.asInt + self.homeInput.asInt - self.batteryInput.asInt - self.homeOutput.asInt
 
 
 class SolarFlow2400Pro(ZendureZenSdk):
