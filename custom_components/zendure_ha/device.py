@@ -735,6 +735,20 @@ class ZendureZenSdk(ZendureDevice):
 
         return await super().power_get()
 
+    async def power_charge(self, power: int) -> int:
+        """Set charge power for ZenSDK devices.
+
+        homeInput is reported as a positive value (grid consumption) for these
+        devices, so the inherited tolerance check (power - homeInput) would
+        never reach zero during charging.  Use power + homeInput instead,
+        which converges to zero when the device has settled at inputLimit=-power.
+        """
+        power = min(0, max(power, self.charge_limit))
+        if power < 0 and abs(power + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
+            _LOGGER.info("Power charge %s => no action [power %s]", self.name, power)
+            return power
+        return await self.charge(power)
+
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
         _LOGGER.info("Power charge %s => %s", self.name, power)
