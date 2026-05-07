@@ -247,6 +247,9 @@
       "global_soc": { 
         "name": "Globaler Akku-SOC" 
       },
+      "efficiency": { 
+        "name": "Wirkungsgrad" 
+      },
       "max_temp": {
         "name": "Höchste Zelltemperatur"
       },

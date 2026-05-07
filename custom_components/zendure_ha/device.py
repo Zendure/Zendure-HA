@@ -175,6 +175,7 @@ class ZendureDevice(EntityDevice):
 
         self.aggrCharge = ZendureRestoreSensor(self, "aggrCharge", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischarge", None, "kWh", "energy", "total_increasing", 2)
+        self.efficiency = ZendureSensor(self, "efficiency", None, "%", None, "measurement", 1) 
         self.aggrHomeInput = ZendureRestoreSensor(self, "aggrGridInputPower", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeOut = ZendureRestoreSensor(self, "aggrOutputHome", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSolar = ZendureRestoreSensor(self, "aggrSolar", None, "kWh", "energy", "total_increasing", 2)
@@ -234,10 +235,12 @@ class ZendureDevice(EntityDevice):
                             self.aggrCharge.aggregate(dt_util.now(), value)
                         self.aggrDischarge.aggregate(dt_util.now(), 0)
                         self.batInOut.update_value(self.batteryOutput.asInt - self.batteryInput.asInt)
+                        self._update_efficiency()
                     case "packInputPower":
                         self.aggrCharge.aggregate(dt_util.now(), 0)
                         self.aggrDischarge.aggregate(dt_util.now(), value)
                         self.batInOut.update_value(self.batteryOutput.asInt - self.batteryInput.asInt)
+                        self._update_efficiency()
                     case "solarInputPower":
                         self.aggrSolar.aggregate(dt_util.now(), value)
                     case "gridInputPower":
@@ -263,6 +266,13 @@ class ZendureDevice(EntityDevice):
             _LOGGER.error(traceback.format_exc())
 
         return changed
+
+    def _update_efficiency(self) -> None:
+        charge = self.aggrCharge.asNumber
+        if charge > 0:
+            self.efficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1))
+        else:
+            self.efficiency.update_value(0)
 
     def calcRemainingTime(self) -> float:
         """Calculate the remaining time."""

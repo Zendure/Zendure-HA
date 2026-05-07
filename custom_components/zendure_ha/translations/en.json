@@ -258,6 +258,9 @@
       "global_soc": { 
         "name": "Global Battery SOC" 
       },
+      "efficiency": { 
+        "name": "Efficiency" 
+      }, 
       "max_temp": {
         "name": "Highest Cell Temperature"
       },

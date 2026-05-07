@@ -225,6 +225,9 @@
       "global_soc": { 
         "name": "SOC global" 
       },
+      "efficiency": { 
+        "name": "Rendement" 
+      },
       "max_temp": {
         "name": "Température maximale"
       },
