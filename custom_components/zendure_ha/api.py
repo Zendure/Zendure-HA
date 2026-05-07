@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -9,7 +10,7 @@ import secrets
 import traceback
 from base64 import b64decode
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
@@ -45,6 +46,7 @@ from .devices.superbasev4600 import SuperBaseV4600
 from .devices.superbasev6400 import SuperBaseV6400
 
 _LOGGER = logging.getLogger(__name__)
+_ZENSDK_BOOL = {"ON": 1, "OFF": 0, "yes": 1, "no": 0, "not_heating": 0, "heating": 1}
 
 ZENDURE_MANAGER_STORAGE_VERSION = 1
 ZENDURE_DEVICES = "devices"
@@ -326,18 +328,24 @@ class Api:
                     return  # skip availability subtopics
                 if (device := self.devices.get(device_id)) is not None:
                     value: Any = msg.payload.decode()
-                    try:
-                        value = int(value)
-                    except ValueError:
+                    if value in _ZENSDK_BOOL:
+                        value = _ZENSDK_BOOL[value]
+                    else:
                         try:
-                            value = float(value)
+                            value = int(value)
                         except ValueError:
-                            pass
-                    device.entityUpdate(prop, value)
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                pass
                     device.lastseen = datetime.now() + timedelta(minutes=5)
                     if device.mqtt != client:
                         device.mqtt = client
                         device.setStatus()
+                    asyncio.run_coroutine_threadsafe(
+                        device.mqttProperties({"properties": {prop: value}}),
+                        device.hass.loop,
+                    )
                 return
 
             deviceId = topics[2]
