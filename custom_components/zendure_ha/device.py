@@ -268,7 +268,7 @@ class ZendureDevice(EntityDevice):
         return changed
 
     def _update_efficiency(self) -> None:
-        charge = self.aggrCharge.asNumber
+        charge = self.aggrCharge.asNumber + self.availableKwh.asNumber
         if charge > 0:
             self.efficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1))
         else:
