@@ -8,7 +8,7 @@ import logging
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 from aiohttp import ClientTimeout
 from bleak import BleakClient
@@ -723,8 +723,8 @@ class ZendureZenSdk(ZendureDevice):
             await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
 
     async def dataRefresh(self, update_count: int) -> None:
-        # Always poll via HTTP for local-only devices (no cloud MQTT); fall back to
-        # a one-time poll on first cycle when the device is offline.
+        if self.mqtt is not None:
+            return  # MQTT push active, no polling needed
         if self.connection.value == 2 or (update_count == 0 and not self.online):
             json = await self.httpGet("properties/report")
             await self.mqttProperties(json)
@@ -756,8 +756,19 @@ class ZendureZenSdk(ZendureDevice):
         """Set the power off."""
         await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}})
 
+    _MQTT_CATEGORY: ClassVar[dict[str, str]] = {
+        "outputLimit": "number", "inputLimit": "number",
+        "socSet": "number", "minSoc": "number", "inverseMaxPower": "number",
+        "acMode": "select", "gridOffMode": "select", "gridReverse": "select",
+        "lampSwitch": "switch", "smartMode": "switch",
+    }
+
     async def doCommand(self, command: Any) -> None:
-        if self.connection.value != 0:
+        if self.connection.value == 2 and self.mqtt is not None:
+            for prop, value in command.get("properties", {}).items():
+                category = self._MQTT_CATEGORY.get(prop, "number")
+                self.mqtt.publish(f"Zendure/{category}/{self.deviceId}/{prop}/set", str(value))
+        elif self.connection.value != 0:
             await self.httpPost("properties/write", command)
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)

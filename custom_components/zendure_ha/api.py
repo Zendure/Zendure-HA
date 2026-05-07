@@ -38,7 +38,7 @@ from .devices.aio2400 import AIO2400
 from .devices.hub1200 import Hub1200
 from .devices.hub2000 import Hub2000
 from .devices.hyper2000 import Hyper2000
-from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro
+from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro, SolarFlow800Pro2
 from .devices.solarflow1600 import SolarFlow1600
 from .devices.solarflow2400 import SolarFlow2400AC, SolarFlow2400AC_Plus, SolarFlow2400Pro
 from .devices.superbasev4600 import SuperBaseV4600
@@ -65,8 +65,8 @@ class Api:
         "hyper2000_3.0": Hyper2000,
         "solarflow 800": SolarFlow800,
         "solarflow 800 pro": SolarFlow800Pro,
-        "solarflow 800 pro2": SolarFlow800Pro,
-        "solarflow800pro2": SolarFlow800Pro,
+        "solarflow 800 pro2": SolarFlow800Pro2,
+        "solarflow800pro2": SolarFlow800Pro2,
         "solarflow 800 plus": SolarFlow800Plus,
         "solarflow 1600 ac+": SolarFlow1600,
         "solarflow 2400 ac": SolarFlow2400AC,
@@ -262,8 +262,12 @@ class Api:
                     Api.mqttCloud.unsubscribe(f"iot/{device.prodkey}/{device.deviceId}/#")
         else:
             for device in self.devices.values():
-                client.subscribe(f"/{device.prodkey}/{device.deviceId}/#")
-                client.subscribe(f"iot/{device.prodkey}/{device.deviceId}/#")
+                from .device import ZendureZenSdk
+                if isinstance(device, ZendureZenSdk) and device.connection.value == 2:
+                    client.subscribe(f"Zendure/+/{device.deviceId}/#")
+                else:
+                    client.subscribe(f"/{device.prodkey}/{device.deviceId}/#")
+                    client.subscribe(f"iot/{device.prodkey}/{device.deviceId}/#")
 
     def mqttDisconnect(self, _client: Any, userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
         _LOGGER.info("Client %s disconnected to MQTT broker, return code: %s", userdata, rc)
@@ -310,9 +314,30 @@ class Api:
         try:
             topics = msg.topic.split("/", 3)
 
-            # Validate topic format before accessing indices
             if len(topics) < 4:
                 _LOGGER.warning("Invalid local MQTT topic format: %s (expected 4 segments)", msg.topic)
+                return
+
+            # Handle zenSDK devices: Zendure/{type}/{SN}/{property}
+            if topics[0] == "Zendure":
+                device_id = topics[2]
+                prop = topics[3]
+                if "/" in prop:
+                    return  # skip availability subtopics
+                if (device := self.devices.get(device_id)) is not None:
+                    value: Any = msg.payload.decode()
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        try:
+                            value = float(value)
+                        except ValueError:
+                            pass
+                    device.entityUpdate(prop, value)
+                    device.lastseen = datetime.now() + timedelta(minutes=5)
+                    if device.mqtt != client:
+                        device.mqtt = client
+                        device.setStatus()
                 return
 
             deviceId = topics[2]

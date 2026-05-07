@@ -494,8 +494,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # Manual power into or from home
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
                     await self.power_discharge(setpoint)
+                    for d in self.idle:
+                        await d.power_discharge(setpoint)
                 else:
                     await self.power_charge(setpoint, time)
+                    for d in self.idle:
+                        await d.power_charge(setpoint)
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)

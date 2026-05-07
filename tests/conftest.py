@@ -98,7 +98,8 @@ _stub("homeassistant.auth.providers.homeassistant",
 # helpers — use real base classes where inherited
 _dr = _stub("homeassistant.helpers.device_registry",
             async_get=MagicMock(), DeviceEntry=MagicMock, DeviceInfo=dict)
-_er = _stub("homeassistant.helpers.entity_registry", async_get=MagicMock())
+_er = _stub("homeassistant.helpers.entity_registry", async_get=MagicMock(),
+            async_entries_for_device=MagicMock(return_value=[]))
 _rs = _stub("homeassistant.helpers.restore_state",
             RestoreEntity=_RestoreEntity, ExtraStoredData=MagicMock)
 _sel = _stub("homeassistant.helpers.selector",
