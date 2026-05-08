@@ -35,7 +35,9 @@ class TestApiHAFallback:
         result = await Api.ApiHA(hass, {"token": self.TOKEN, CONF_DEVICE_IP: "192.168.10.80"})
 
         mock_local.assert_called_once_with(hass, "192.168.10.80")
-        assert result == local_result
+        assert result is not None
+        sns = {d["snNumber"] for d in result["deviceList"]}
+        assert "EOD1NLN9P010318" in sns
 
     @pytest.mark.asyncio
     async def test_returns_none_without_device_ip(
@@ -44,10 +46,14 @@ class TestApiHAFallback:
         """Empty cloud list + no device_ip → None."""
         from custom_components.zendure_ha.api import Api
 
+        import custom_components.zendure_ha.api as api_mod
+
         session = mocker.MagicMock()
         session.post = _mock_http_response(mocker, CLOUD_EMPTY)
-        mocker.patch("custom_components.zendure_ha.api.async_get_clientsession", return_value=session)
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+        mock_local = mocker.patch.object(Api, "LocalDiscovery", new=mocker.AsyncMock(return_value=None))
 
         result = await Api.ApiHA(hass, {"token": self.TOKEN})
 
+        mock_local.assert_not_called()
         assert result is None

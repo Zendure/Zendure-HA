@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import pytest
 from pytest_mock import MockerFixture
 
@@ -44,7 +45,7 @@ CLOUD_WITH_HYPER = {
 def _mock_http_response(mocker: MockerFixture, payload: dict) -> object:
     """Async mock for `await session.get/post(...)` — returns response directly."""
     resp = mocker.MagicMock()
-    resp.json = mocker.AsyncMock(return_value=payload)
+    resp.json = mocker.AsyncMock(side_effect=lambda *_, **__: copy.deepcopy(payload))
     resp.status = 200
     return mocker.AsyncMock(return_value=resp)
 

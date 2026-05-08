@@ -203,10 +203,10 @@ class Api:
                     "Zendure cloud returned empty device list (known issue for SF800 Pro 2 and similar). "
                     "Trying local zenSDK discovery. See https://github.com/Zendure/Zendure-HA/issues/1263"
                 )
-                if device_ip:
-                    return await Api.LocalDiscovery(hass, device_ip)
-                _LOGGER.error("Set device_ip in integration config to enable local discovery fallback.")
-                return None
+                if not device_ip:
+                    _LOGGER.error("Set device_ip in integration config to enable local discovery fallback.")
+                    return None
+                # Fall through — cloud MQTT credentials are kept; local device merged below
             elif data.get("code") == 200 and len(data["data"]["mqtt"]) == 0:
                 _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
                 return None
