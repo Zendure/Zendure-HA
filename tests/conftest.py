@@ -103,8 +103,8 @@ _er = _stub("homeassistant.helpers.entity_registry", async_get=MagicMock(),
 _rs = _stub("homeassistant.helpers.restore_state",
             RestoreEntity=_RestoreEntity, ExtraStoredData=MagicMock)
 _sel = _stub("homeassistant.helpers.selector",
-             EntitySelector=MagicMock, TextSelector=MagicMock,
-             TextSelectorConfig=MagicMock, TextSelectorType=MagicMock())
+             EntitySelector=MagicMock, TextSelector=MagicMock(),
+             TextSelectorConfig=MagicMock(), TextSelectorType=MagicMock())
 _ha_helpers = _stub("homeassistant.helpers",
       device_registry=_dr, entity_registry=_er, restore_state=_rs, selector=_sel)
 _ha_helpers.__path__ = []  # make it look like a package

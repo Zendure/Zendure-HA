@@ -48,6 +48,11 @@ from .devices.superbasev6400 import SuperBaseV6400
 _LOGGER = logging.getLogger(__name__)
 _ZENSDK_BOOL = {"ON": 1, "OFF": 0, "yes": 1, "no": 0, "not_heating": 0, "heating": 1}
 
+
+def find_zensdk_sn(device_list: list, device_ip: str) -> str:
+    """Return snNumber of the device matching device_ip, or '' if not found."""
+    return next((d["snNumber"] for d in device_list if d.get("ip") == device_ip), "")
+
 ZENDURE_MANAGER_STORAGE_VERSION = 1
 ZENDURE_DEVICES = "devices"
 

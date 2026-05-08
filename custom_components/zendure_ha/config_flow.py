@@ -11,7 +11,7 @@ from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
-from .api import Api
+from .api import Api, find_zensdk_sn
 from .const import (
     CONF_APPTOKEN,
     CONF_AUTO_MQTT_SETUP,
@@ -120,7 +120,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 elif user_input.get(CONF_AUTO_MQTT_SETUP, False):
                     device_ip = self._user_input.get(CONF_DEVICE_IP, "")
                     device_list = devices.get("deviceList", [])
-                    sn = device_list[0]["snNumber"] if device_list else ""
+                    sn = find_zensdk_sn(device_list, device_ip)
                     if device_ip and sn:
                         await Api.ZenSdkMqttSetup(
                             self.hass,
