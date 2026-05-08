@@ -132,7 +132,7 @@ class Api:
         # Open the storage
         if reload:
             store = Store(hass, ZENDURE_MANAGER_STORAGE_VERSION, f"{DOMAIN}.storage")
-            if devices is None or len(devices) == 0:
+            if devices is None or len(devices.get("deviceList", [])) == 0:
                 # load configuration from storage
                 if (storage := await store.async_load()) and isinstance(storage, dict):
                     devices = storage.get(ZENDURE_DEVICES, {})
