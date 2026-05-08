@@ -21,42 +21,37 @@ def _make_zensdk_device_with_mqtt(mocker: MockerFixture) -> MockType:
     return device
 
 
-class TestDoCommandMqttPublish:
-    """Verify that doCommand routes to mqttPublish on topic_write when MQTT is active."""
+class TestDoCommandZenSdkRouting:
+    """Verify that doCommand uses httpPost for zenSDK devices (connection=2)."""
 
     @pytest.mark.asyncio
-    async def test_acmode_1_calls_mqttpublish_on_topic_write(self, mocker: MockerFixture) -> None:
-        """connection=2 + mqtt set → mqttPublish called with topic_write and acMode=1."""
+    async def test_acmode_1_calls_httppost(self, mocker: MockerFixture) -> None:
+        """connection=2 → httpPost with acMode=1, not mqttPublish."""
         device = _make_zensdk_device_with_mqtt(mocker)
 
         await device.doCommand({"properties": {"acMode": 1}})
 
-        device.mqttPublish.assert_called_once_with(
-            device.topic_write,
-            {"properties": {"acMode": 1}},
-            device.mqtt,
-        )
+        device.httpPost.assert_called_once_with("properties/write", {"properties": {"acMode": 1}})
+        device.mqttPublish.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_acmode_2_calls_mqttpublish_on_topic_write(self, mocker: MockerFixture) -> None:
-        """connection=2 + mqtt set → mqttPublish called with topic_write and acMode=2."""
+    async def test_acmode_2_calls_httppost(self, mocker: MockerFixture) -> None:
+        """connection=2 → httpPost with acMode=2, not mqttPublish."""
         device = _make_zensdk_device_with_mqtt(mocker)
 
         await device.doCommand({"properties": {"acMode": 2}})
 
-        device.mqttPublish.assert_called_once_with(
-            device.topic_write,
-            {"properties": {"acMode": 2}},
-            device.mqtt,
-        )
+        device.httpPost.assert_called_once_with("properties/write", {"properties": {"acMode": 2}})
+        device.mqttPublish.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_mqtt_falls_back_to_httppost(self, mocker: MockerFixture) -> None:
-        """When mqtt is None → httpPost called instead of mqttPublish."""
+    async def test_cloud_mode_calls_mqttpublish(self, mocker: MockerFixture) -> None:
+        """connection=0 (cloud) → mqttPublish on topic_write, not httpPost."""
         device = _make_zensdk_device_with_mqtt(mocker)
-        device.mqtt = None
+        device.connection.value = 0
+        command = {"properties": {"acMode": 1}}
 
-        await device.doCommand({"properties": {"acMode": 1}})
+        await device.doCommand(command)
 
-        device.httpPost.assert_called_once()
-        device.mqttPublish.assert_not_called()
+        device.mqttPublish.assert_called_once_with(device.topic_write, command, device.mqtt)
+        device.httpPost.assert_not_called()

@@ -7,7 +7,7 @@ from pytest_mock import MockerFixture
 
 
 def _make_manager_with_real_docommand(mocker: MockerFixture, *, zensdk_devices: int = 1) -> tuple:
-    """Build a manager stub where each zenSDK device runs real doCommand with a mocked MQTT client."""
+    """Build a manager stub where each zenSDK device runs real doCommand with httpPost mocked."""
     from custom_components.zendure_ha.const import ManagerMode
     from custom_components.zendure_ha.device import ZendureZenSdk
     from custom_components.zendure_ha.manager import ZendureManager
@@ -42,54 +42,48 @@ def _entity(mocker: MockerFixture, value: int) -> object:
     return e
 
 
-class TestUpdateOperationMqttPublish:
-    """Verify update_operation triggers mqttPublish on topic_write end-to-end."""
+class TestUpdateOperationHttpPost:
+    """Verify update_operation triggers httpPost with correct acMode end-to-end."""
 
     @pytest.mark.asyncio
-    async def test_smart_charging_publishes_acmode_input(self, mocker: MockerFixture) -> None:
-        """smart_charging (4) → mqttPublish on topic_write with acMode=1."""
+    async def test_smart_charging_posts_acmode_input(self, mocker: MockerFixture) -> None:
+        """smart_charging (4) → httpPost with acMode=1."""
         manager, zen_devs = _make_manager_with_real_docommand(mocker)
 
         await manager.update_operation(_entity(mocker, 4), None)
 
-        zen_devs[0].mqttPublish.assert_called_once_with(
-            zen_devs[0].topic_write,
-            {"properties": {"acMode": 1}},
-            zen_devs[0].mqtt,
+        zen_devs[0].httpPost.assert_called_once_with(
+            "properties/write", {"properties": {"acMode": 1}}
         )
 
     @pytest.mark.asyncio
-    async def test_smart_discharging_publishes_acmode_output(self, mocker: MockerFixture) -> None:
-        """smart_discharging (3) → mqttPublish on topic_write with acMode=2."""
+    async def test_smart_discharging_posts_acmode_output(self, mocker: MockerFixture) -> None:
+        """smart_discharging (3) → httpPost with acMode=2."""
         manager, zen_devs = _make_manager_with_real_docommand(mocker)
 
         await manager.update_operation(_entity(mocker, 3), None)
 
-        zen_devs[0].mqttPublish.assert_called_once_with(
-            zen_devs[0].topic_write,
-            {"properties": {"acMode": 2}},
-            zen_devs[0].mqtt,
+        zen_devs[0].httpPost.assert_called_once_with(
+            "properties/write", {"properties": {"acMode": 2}}
         )
 
     @pytest.mark.asyncio
-    async def test_smart_mode_does_not_publish_acmode(self, mocker: MockerFixture) -> None:
-        """smart (2) → no mqttPublish for acMode."""
+    async def test_smart_mode_does_not_post_acmode(self, mocker: MockerFixture) -> None:
+        """smart (2) → no httpPost for acMode."""
         manager, zen_devs = _make_manager_with_real_docommand(mocker)
 
         await manager.update_operation(_entity(mocker, 2), None)
 
-        zen_devs[0].mqttPublish.assert_not_called()
+        zen_devs[0].httpPost.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_multiple_devices_all_publish_acmode(self, mocker: MockerFixture) -> None:
-        """All zenSDK devices publish acMode on topic_write — not just the first."""
+    async def test_multiple_devices_all_post_acmode(self, mocker: MockerFixture) -> None:
+        """All zenSDK devices receive httpPost for acMode — not just the first."""
         manager, zen_devs = _make_manager_with_real_docommand(mocker, zensdk_devices=3)
 
         await manager.update_operation(_entity(mocker, 4), None)
 
         for d in zen_devs:
-            d.mqttPublish.assert_called_once_with(
-                d.topic_write,
-                {"properties": {"acMode": 1}},
-                d.mqtt,
+            d.httpPost.assert_called_once_with(
+                "properties/write", {"properties": {"acMode": 1}}
             )

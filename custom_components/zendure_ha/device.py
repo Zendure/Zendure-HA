@@ -764,11 +764,7 @@ class ZendureZenSdk(ZendureDevice):
     }
 
     async def doCommand(self, command: Any) -> None:
-        if self.connection.value == 2 and self.mqtt is not None:
-            for prop, value in command.get("properties", {}).items():
-                category = self._MQTT_CATEGORY.get(prop, "number")
-                self.mqtt.publish(f"Zendure/{category}/{self.deviceId}/{prop}/set", str(value))
-        elif self.connection.value != 0:
+        if self.connection.value != 0:
             await self.httpPost("properties/write", command)
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)

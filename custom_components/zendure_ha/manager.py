@@ -34,7 +34,7 @@ from .const import (
     ManagerState,
     SmartMode,
 )
-from .device import DeviceSettings, ZendureDevice, ZendureLegacy
+from .device import DeviceSettings, ZendureDevice, ZendureLegacy, ZendureZenSdk
 from .entity import EntityDevice
 from .fusegroup import FuseGroup
 from .number import ZendureRestoreNumber
@@ -254,6 +254,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
 
         self.operation = operation
+
+        # Set acMode immediately for zenSDK devices, independent of p1meter
+        for d in self.devices:
+            if isinstance(d, ZendureZenSdk):
+                match operation:
+                    case ManagerMode.MATCHING_CHARGE:
+                        await d.doCommand({"properties": {"acMode": 1}})
+                    case ManagerMode.MATCHING_DISCHARGE:
+                        await d.doCommand({"properties": {"acMode": 2}})
+
         if self.p1meterEvent is not None:
             if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
                 _LOGGER.warning("No devices online, not possible to start the operation")
