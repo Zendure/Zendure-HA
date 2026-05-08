@@ -206,3 +206,177 @@ class TestApiHAFallback:
         result = await Api.ApiHA(hass, {"token": self.TOKEN})
 
         assert result is None
+
+
+# ── ApiHA → mixed legacy + zenSDK ────────────────────────────────────────────
+
+CLOUD_WITH_HYPER = {
+    "code": 200,
+    "success": True,
+    "data": {
+        "mqtt": {"clientId": "c1", "url": "mqtt.zendure.tech:1883", "username": "u", "password": "p"},
+        "deviceList": [
+            {"deviceKey": "HYP001", "productModel": "hyper2000", "deviceName": "Hyper 2000",
+             "snNumber": "HYP001", "ip": ""},
+        ],
+    },
+    "msg": "Operation successful",
+}
+
+
+class TestApiHAMixedScenario:
+    """Cloud has legacy devices + device_ip points to a zenSDK device → both in result."""
+
+    TOKEN = "aHR0cHM6Ly9hcHAuemVuZHVyZS50ZWNoL2V1LjQ4clFLRGFUOQ=="
+
+    LOCAL_SF_PRO2 = {
+        "mqtt": {},
+        "deviceList": [
+            {"deviceKey": "EOD1NLN9P010318", "productModel": "solarFlow800Pro2",
+             "deviceName": "solarFlow800Pro2", "snNumber": "EOD1NLN9P010318", "ip": "192.168.10.80"},
+        ],
+    }
+
+    @pytest.mark.asyncio
+    async def test_zensdk_device_merged_into_cloud_list(
+        self, hass: object, mocker: MockerFixture
+    ) -> None:
+        """Cloud returns Hyper 2000 + device_ip set → SF800Pro2 appended, total 2 devices."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+        from custom_components.zendure_ha.const import CONF_DEVICE_IP
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, CLOUD_WITH_HYPER)
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+        mocker.patch.object(Api, "LocalDiscovery", new=mocker.AsyncMock(return_value=self.LOCAL_SF_PRO2))
+
+        result = await Api.ApiHA(hass, {"token": self.TOKEN, CONF_DEVICE_IP: "192.168.10.80"})
+
+        assert result is not None
+        sns = {d["snNumber"] for d in result["deviceList"]}
+        assert "HYP001" in sns
+        assert "EOD1NLN9P010318" in sns
+        assert len(result["deviceList"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_duplicate_sn_not_added_twice(
+        self, hass: object, mocker: MockerFixture
+    ) -> None:
+        """If zenSDK device SN already in cloud list, it must not be duplicated."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+        from custom_components.zendure_ha.const import CONF_DEVICE_IP
+
+        cloud_with_same_sn = {
+            "code": 200,
+            "success": True,
+            "data": {
+                "mqtt": {"clientId": "c1", "url": "mqtt.zendure.tech:1883", "username": "u", "password": "p"},
+                "deviceList": [
+                    {"deviceKey": "EOD1NLN9P010318", "productModel": "solarFlow800Pro2",
+                     "deviceName": "solarFlow800Pro2", "snNumber": "EOD1NLN9P010318", "ip": ""},
+                ],
+            },
+            "msg": "Operation successful",
+        }
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, cloud_with_same_sn)
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+        mocker.patch.object(Api, "LocalDiscovery", new=mocker.AsyncMock(return_value=self.LOCAL_SF_PRO2))
+
+        result = await Api.ApiHA(hass, {"token": self.TOKEN, CONF_DEVICE_IP: "192.168.10.80"})
+
+        assert result is not None
+        assert len(result["deviceList"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_token_free_with_device_ip(
+        self, hass: object, mocker: MockerFixture
+    ) -> None:
+        """No token + device_ip → LocalDiscovery only, no cloud call."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+        from custom_components.zendure_ha.const import CONF_DEVICE_IP
+
+        mocker.patch.object(api_mod, "async_get_clientsession")
+        mock_local = mocker.patch.object(Api, "LocalDiscovery", new=mocker.AsyncMock(return_value=self.LOCAL_SF_PRO2))
+
+        result = await Api.ApiHA(hass, {CONF_DEVICE_IP: "192.168.10.80"})
+
+        mock_local.assert_called_once_with(hass, "192.168.10.80")
+        assert result == self.LOCAL_SF_PRO2
+        api_mod.async_get_clientsession.assert_not_called()
+
+
+# ── ZenSdkMqttSetup ──────────────────────────────────────────────────────────
+
+class TestZenSdkMqttSetup:
+    """Tests for the HA.Mqtt.SetConfig RPC call."""
+
+    @pytest.mark.asyncio
+    async def test_success_returns_true(self, hass: object, mocker: MockerFixture) -> None:
+        """Device responds without error field → True."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, {"result": "ok"})
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+
+        result = await Api.ZenSdkMqttSetup(hass, "192.168.10.80", "SN001",
+                                            "192.168.1.10", 1883, "user", "pass")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_error_response_returns_false(self, hass: object, mocker: MockerFixture) -> None:
+        """Device responds with error field → False."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, {"error": {"code": -1, "message": "unknown method"}})
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+
+        result = await Api.ZenSdkMqttSetup(hass, "192.168.10.80", "SN001",
+                                            "192.168.1.10", 1883, "user", "pass")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_network_error_returns_false(self, hass: object, mocker: MockerFixture) -> None:
+        """Network exception → False, no propagation."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+
+        session = mocker.MagicMock()
+        session.post = mocker.MagicMock(side_effect=OSError("unreachable"))
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+
+        result = await Api.ZenSdkMqttSetup(hass, "192.168.10.80", "SN001",
+                                            "192.168.1.10", 1883, "user", "pass")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_correct_payload_sent(self, hass: object, mocker: MockerFixture) -> None:
+        """Verify the RPC payload contains the correct method and config keys."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, {"result": "ok"})
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+
+        await Api.ZenSdkMqttSetup(hass, "192.168.10.80", "SN001",
+                                   "192.168.1.10", 1883, "mqttuser", "mqttpass")
+
+        call_kwargs = session.post.call_args
+        sent_json = call_kwargs[1]["json"]
+        assert sent_json["method"] == "HA.Mqtt.SetConfig"
+        assert sent_json["sn"] == "SN001"
+        cfg = sent_json["params"]["config"]
+        assert cfg["server"] == "192.168.1.10"
+        assert cfg["port"] == 1883
+        assert cfg["username"] == "mqttuser"
+        assert cfg["password"] == "mqttpass"
+        assert cfg["enable"] is True

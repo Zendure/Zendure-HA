@@ -139,21 +139,21 @@ class Api:
 
     @staticmethod
     async def ApiHA(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
-        config = data
-
-        # If device_ip is set, skip cloud entirely and go directly to local discovery
         device_ip = data.get(CONF_DEVICE_IP, "")
-        if device_ip:
-            _LOGGER.info("device_ip set — skipping cloud, using local zenSDK discovery at %s", device_ip)
-            return await Api.LocalDiscovery(hass, device_ip)
+
+        token = data.get(CONF_APPTOKEN)
+        has_token = token is not None and len(token) > 1
+
+        # Token-free: only local zenSDK device, no cloud needed
+        if not has_token:
+            if device_ip:
+                _LOGGER.info("No token — using local zenSDK discovery at %s", device_ip)
+                return await Api.LocalDiscovery(hass, device_ip)
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_zendure_token")
 
         session = async_get_clientsession(hass)
-
-        if (token := data.get(CONF_APPTOKEN)) is not None and len(token) > 1:
-            base64_url = b64decode(str(token)).decode("utf-8")
-            api_url, appKey = base64_url.rsplit(".", 1)
-        else:
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_zendure_token")
+        base64_url = b64decode(str(token)).decode("utf-8")
+        api_url, appKey = base64_url.rsplit(".", 1)
 
         try:
             body = {
@@ -198,7 +198,6 @@ class Api:
                     "Zendure cloud returned empty device list (known issue for SF800 Pro 2 and similar). "
                     "Trying local zenSDK discovery. See https://github.com/Zendure/Zendure-HA/issues/1263"
                 )
-                device_ip = config.get(CONF_DEVICE_IP, "")
                 if device_ip:
                     return await Api.LocalDiscovery(hass, device_ip)
                 _LOGGER.error("Set device_ip in integration config to enable local discovery fallback.")
@@ -209,7 +208,17 @@ class Api:
             if not data.get("success", False) or (result := data["data"]) is None:
                 _LOGGER.error("Zendure API returned failure or missing data: %s", data)
                 return None
-            return dict(result)
+            result = dict(result)
+            # Mixed scenario: merge zenSDK local device into cloud device list
+            if device_ip:
+                local = await Api.LocalDiscovery(hass, device_ip)
+                if local and local.get("deviceList"):
+                    cloud_sns = {d.get("snNumber") for d in result.get("deviceList", [])}
+                    for dev in local["deviceList"]:
+                        if dev.get("snNumber") not in cloud_sns:
+                            _LOGGER.info("Adding zenSDK device %s from local discovery to device list", dev.get("snNumber"))
+                            result.setdefault("deviceList", []).append(dev)
+            return result
 
         except Exception as e:
             _LOGGER.error("Unable to connect to Zendure %s!", e)
