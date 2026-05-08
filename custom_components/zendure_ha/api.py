@@ -330,6 +330,9 @@ class Api:
 
     def mqttDisconnect(self, _client: Any, userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
         _LOGGER.info("Client %s disconnected to MQTT broker, return code: %s", userdata, rc)
+        for device in self.devices.values():
+            if device.mqtt is _client:
+                device.mqtt = None
 
     def mqttMsgCloud(self, client: Any, _userdata: Any, msg: Any) -> None:
         if msg.payload is None or not msg.payload:
