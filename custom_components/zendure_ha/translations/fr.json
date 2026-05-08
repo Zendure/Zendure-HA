@@ -31,6 +31,7 @@
           "mqttuser": "Utilisateur MQTT",
           "mqttpsw": "Mot de passe MQTT",
           "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT",
+          "auto_mqtt_setup": "Configurer automatiquement le MQTT de l'appareil zenSDK (nécessite l'IP de l'appareil)",
           "wifissid": "SSID Wi-Fi",
           "wifipsw": "Mot de passe Wi-Fi"
         }

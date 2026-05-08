@@ -22,6 +22,18 @@
           "wifipsw": "Wifi Passwort"
         }
       },
+      "local": {
+        "data": {
+          "mqttserver": "MQTT Server",
+          "mqttport": "MQTT Port",
+          "mqttuser": "MQTT Benutzer",
+          "mqttpsw": "MQTT Passwort",
+          "auto_mqtt_user": "MQTT-Benutzer automatisch verwalten",
+          "auto_mqtt_setup": "zenSDK-Gerät MQTT automatisch konfigurieren (erfordert Geräte-IP)",
+          "wifissid": "WLAN SSID",
+          "wifipsw": "Wifi Passwort"
+        }
+      },
       "reconfigure": {
         "data": {
           "token": "Zendure Token",

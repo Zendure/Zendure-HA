@@ -14,6 +14,7 @@ from homeassistant.helpers import selector
 from .api import Api
 from .const import (
     CONF_APPTOKEN,
+    CONF_AUTO_MQTT_SETUP,
     CONF_AUTO_MQTT_USER,
     CONF_DEVICE_IP,
     CONF_MQTTLOCAL,
@@ -41,7 +42,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     _input_data: dict[str, Any]
     data_schema = vol.Schema(
         {
-            vol.Required(CONF_APPTOKEN): str,
+            vol.Optional(CONF_APPTOKEN, description={"suggested_value": ""}): str,
             vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): selector.EntitySelector(),
             vol.Required(CONF_MQTTLOG): bool,
             vol.Required(CONF_MQTTLOCAL): bool,
@@ -59,6 +60,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             ),
             vol.Optional(CONF_AUTO_MQTT_USER, default=False): bool,
+            vol.Optional(CONF_AUTO_MQTT_SETUP, default=False): bool,
             vol.Optional(CONF_WIFISSID): str,
             vol.Optional(CONF_WIFIPSW): selector.TextSelector(
                 selector.TextSelectorConfig(
@@ -100,8 +102,23 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None and user_input.get(CONF_MQTTSERVER, None) is not None:
             try:
                 self._user_input = self._user_input | user_input if self._user_input else user_input
-                if await Api.Connect(self.hass, self._user_input, False) is None:
+                devices = await Api.Connect(self.hass, self._user_input, False)
+                if devices is None:
                     errors["base"] = "invalid input"
+                elif user_input.get(CONF_AUTO_MQTT_SETUP, False):
+                    device_ip = self._user_input.get(CONF_DEVICE_IP, "")
+                    device_list = devices.get("deviceList", [])
+                    sn = device_list[0]["snNumber"] if device_list else ""
+                    if device_ip and sn:
+                        await Api.ZenSdkMqttSetup(
+                            self.hass,
+                            device_ip,
+                            sn,
+                            user_input[CONF_MQTTSERVER],
+                            user_input[CONF_MQTTPORT],
+                            user_input.get(CONF_MQTTUSER, ""),
+                            user_input.get(CONF_MQTTPSW, ""),
+                        )
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
             else:

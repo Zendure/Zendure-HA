@@ -140,6 +140,13 @@ class Api:
     @staticmethod
     async def ApiHA(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
         config = data
+
+        # If device_ip is set, skip cloud entirely and go directly to local discovery
+        device_ip = data.get(CONF_DEVICE_IP, "")
+        if device_ip:
+            _LOGGER.info("device_ip set — skipping cloud, using local zenSDK discovery at %s", device_ip)
+            return await Api.LocalDiscovery(hass, device_ip)
+
         session = async_get_clientsession(hass)
 
         if (token := data.get(CONF_APPTOKEN)) is not None and len(token) > 1:
@@ -208,6 +215,42 @@ class Api:
             _LOGGER.error("Unable to connect to Zendure %s!", e)
             _LOGGER.error(traceback.format_exc())
             return None
+
+    @staticmethod
+    async def ZenSdkMqttSetup(hass: HomeAssistant, device_ip: str, sn: str, server: str, port: int, username: str, password: str) -> bool:
+        """Configure the zenSDK device to use a local MQTT broker via HA.Mqtt.SetConfig RPC."""
+        from aiohttp import ClientTimeout
+
+        session = async_get_clientsession(hass)
+        payload = {
+            "sn": sn,
+            "method": "HA.Mqtt.SetConfig",
+            "params": {
+                "config": {
+                    "enable": True,
+                    "server": server,
+                    "port": port,
+                    "protocol": "mqtt",
+                    "username": username,
+                    "password": password,
+                }
+            },
+        }
+        try:
+            response = await session.post(
+                f"http://{device_ip}/rpc",
+                json=payload,
+                timeout=ClientTimeout(total=5),
+            )
+            result = await response.json(content_type=None)
+            if result.get("error"):
+                _LOGGER.error("ZenSdkMqttSetup failed: %s", result)
+                return False
+            _LOGGER.info("ZenSdkMqttSetup: MQTT configured on %s → %s:%s", device_ip, server, port)
+            return True
+        except Exception as e:
+            _LOGGER.error("ZenSdkMqttSetup error: %s", e)
+            return False
 
     @staticmethod
     async def LocalDiscovery(hass: HomeAssistant, device_ip: str) -> dict[str, Any] | None:

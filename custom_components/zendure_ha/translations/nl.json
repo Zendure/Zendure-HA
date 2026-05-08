@@ -30,6 +30,7 @@
           "mqttuser": "MQTT Gebruiker",
           "mqttpsw": "MQTT Wachtwoord",
           "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
+          "auto_mqtt_setup": "zenSDK-apparaat MQTT automatisch configureren (vereist apparaat-IP)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Wachtwoord"
         }
