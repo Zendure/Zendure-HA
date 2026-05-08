@@ -1,9 +1,16 @@
 {
-    "files.associations": {
-        "*.yaml": "home-assistant"
-    },
-    "files.autoSave": "afterDelay",
-    "files.watcherPolling": {
-        "**": { "pollingInterval": 1000 }
+  "files.associations": {
+    "*.yaml": "home-assistant"
+  },
+  "files.autoSave": "afterDelay",
+  "files.watcherPolling": {
+    "**": {
+      "pollingInterval": 1000
     }
+  },
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

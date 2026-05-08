@@ -292,6 +292,25 @@ class TestApiHAMixedScenario:
         assert len(result["deviceList"]) == 1
 
     @pytest.mark.asyncio
+    async def test_cloud_only_without_device_ip(
+        self, hass: object, mocker: MockerFixture
+    ) -> None:
+        """Token set, no device_ip → cloud result returned as-is, LocalDiscovery not called."""
+        import custom_components.zendure_ha.api as api_mod
+        from custom_components.zendure_ha.api import Api
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, CLOUD_WITH_HYPER)
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+        mock_local = mocker.patch.object(Api, "LocalDiscovery", new=mocker.AsyncMock())
+
+        result = await Api.ApiHA(hass, {"token": self.TOKEN})
+
+        mock_local.assert_not_called()
+        assert result is not None
+        assert result["deviceList"][0]["snNumber"] == "HYP001"
+
+    @pytest.mark.asyncio
     async def test_token_free_with_device_ip(
         self, hass: object, mocker: MockerFixture
     ) -> None:

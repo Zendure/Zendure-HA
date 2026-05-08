@@ -81,6 +81,18 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             self._user_input = user_input
 
             try:
+                token = user_input.get(CONF_APPTOKEN, "")
+                device_ip = user_input.get(CONF_DEVICE_IP, "")
+                token_free = not token or len(token) <= 1
+
+                # Token-free with device_ip: skip cloud connect, go straight to local MQTT config
+                if token_free and device_ip:
+                    if user_input.get(CONF_MQTTLOCAL, False):
+                        return await self.async_step_local()
+                    await self.async_set_unique_id("Zendure", raise_on_progress=False)
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(title="Zendure", data=self._user_input)
+
                 if await Api.Connect(self.hass, self._user_input, False) is None:
                     errors["base"] = "invalid input"
                 else:
