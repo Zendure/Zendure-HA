@@ -191,10 +191,14 @@ class ZendureDevice(EntityDevice):
                 self.connectionStatus.update_value(1)
             elif self.hemsState.is_on:
                 self.connectionStatus.update_value(2)
+            elif self.fuseGroup.value == 0:
+                # fuseGroup=0 ("unused") is the intentional way to disable a device inside a
+                # multi-device FuseGroup setup. This check MUST come before the zenSDK check so
+                # that setting fuseGroup to "unused" reliably disables the device regardless of
+                # its connection mode — otherwise zenSDK devices could never be soft-disabled.
+                self.connectionStatus.update_value(3)
             elif self.connection.value == SmartMode.ZENSDK:
                 self.connectionStatus.update_value(12)
-            elif self.fuseGroup.value == 0:
-                self.connectionStatus.update_value(3)
             elif self.mqtt is not None and self.mqtt.host == Api.localServer:
                 self.connectionStatus.update_value(11)
             else:

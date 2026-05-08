@@ -28,9 +28,15 @@ class TestSetStatusZenSDK:
 
         return device, status_holder
 
-    def test_zensdk_device_is_online_without_fusegroup(self, mocker: MockerFixture) -> None:
-        """Device in zenSDK mode (connection=2) must get connectionStatus=12 even without FuseGroup."""
+    def test_fusegroup_unused_disables_zensdk_device(self, mocker: MockerFixture) -> None:
+        """fuseGroup=0 ('unused') disables a device even in zenSDK mode — the only way to disable a grouped device."""
         device, status = self._make_device(mocker, connection_value=2, fusegroup_value=0)
+        device.setStatus()
+        assert status["value"] == 3
+
+    def test_zensdk_device_online_when_fusegroup_active(self, mocker: MockerFixture) -> None:
+        """zenSDK device with an active fuseGroup (non-zero) must get connectionStatus=12."""
+        device, status = self._make_device(mocker, connection_value=2, fusegroup_value=1)
         device.setStatus()
         assert status["value"] == 12
 

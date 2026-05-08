@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mixed device setup**: when `device_ip` is set alongside a token, cloud discovery (legacy devices: Hyper 2000, SF 800 Pro, SF 2400 AC) and local zenSDK discovery are merged automatically — deduplicated by serial number
 - **Token-free local setup**: when only `device_ip` is set (no token), the integration skips the cloud entirely and uses local zenSDK discovery only
 - `auto_mqtt_setup` checkbox in local config step: calls `HA.Mqtt.SetConfig` RPC automatically during setup — no manual MQTT configuration required
-- pytest suite covering local discovery, device mapping, API fallback, mixed scenario, ZenSdkMqttSetup, setStatus zenSDK order, fuseGrp guard, and Manual Power idle commanding — runs without Home Assistant installed
+- pytest suite covering local discovery, device mapping, API fallback, mixed scenario, ZenSdkMqttSetup, fuseGrp guard, and Manual Power idle commanding — runs without Home Assistant installed
 - `SolarFlow800Pro2` device class with `solarPower3`/`solarPower4` sensors (4 solar inputs vs 2 on Pro)
 - `SolarFlow800Pro` now explicitly defines `solarPower1`/`solarPower2` with correct metadata (W, power, measurement)
 - zenSDK local MQTT support via `HA.Mqtt.SetConfig` RPC endpoint (`POST /rpc`): device can be pointed at a local Mosquitto broker, publishes MQTT Auto Discovery to `homeassistant/` and state data to `Zendure/sensor/{SN}/`
@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - zenSDK MQTT message handler: `asyncio` and `timedelta` imports added (caused NameError on first message)
 - zenSDK MQTT message handler: string values `ON`/`OFF`/`yes`/`no`/`heating`/`not_heating` mapped to int before entity update
 - zenSDK MQTT entity updates run via `run_coroutine_threadsafe` to avoid event loop threading errors
-- `setStatus()` zenSDK online check now runs before `fuseGroup` check — devices without a FuseGroup were incorrectly marked offline
+- `setStatus()` `fuseGroup` check now correctly precedes the zenSDK online check — `fuseGroup=0` ("unused") is the intentional mechanism to disable a device in a multi-device group
 - `powerChanged()` crashed with `AttributeError: fuseGrp` for devices not assigned to a FuseGroup — now falls back to device limits directly
 - Missing `productKey` field in `LocalDiscovery` response caused `KeyError` on device init
 - Added `"solarflow800pro2"` / `"solarflow 800 pro2"` → `SolarFlow800Pro2` mapping in `createdevice`
