@@ -11,9 +11,10 @@ from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
-from .api import Api
+from .api import Api, find_zensdk_sn
 from .const import (
     CONF_APPTOKEN,
+    CONF_AUTO_MQTT_SETUP,
     CONF_AUTO_MQTT_USER,
     CONF_DEVICE_IP,
     CONF_MQTTLOCAL,
@@ -59,6 +60,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             ),
             vol.Optional(CONF_AUTO_MQTT_USER, default=False): bool,
+            vol.Optional(CONF_AUTO_MQTT_SETUP, default=False): bool,
             vol.Optional(CONF_WIFISSID): str,
             vol.Optional(CONF_WIFIPSW): selector.TextSelector(
                 selector.TextSelectorConfig(
@@ -117,6 +119,20 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 devices = await Api.Connect(self.hass, self._user_input, False)
                 if devices is None:
                     errors["base"] = "invalid input"
+                elif user_input.get(CONF_AUTO_MQTT_SETUP, False):
+                    device_ip = self._user_input.get(CONF_DEVICE_IP, "")
+                    device_list = devices.get("deviceList", [])
+                    sn = find_zensdk_sn(device_list, device_ip)
+                    if device_ip and sn:
+                        await Api.ZenSdkMqttSetup(
+                            self.hass,
+                            device_ip,
+                            sn,
+                            user_input[CONF_MQTTSERVER],
+                            user_input[CONF_MQTTPORT],
+                            user_input.get(CONF_MQTTUSER, ""),
+                            user_input.get(CONF_MQTTPSW, ""),
+                        )
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
             else:

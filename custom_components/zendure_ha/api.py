@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -9,7 +10,7 @@ import secrets
 import traceback
 from base64 import b64decode
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
@@ -45,6 +46,13 @@ from .devices.superbasev4600 import SuperBaseV4600
 from .devices.superbasev6400 import SuperBaseV6400
 
 _LOGGER = logging.getLogger(__name__)
+_ZENSDK_BOOL = {"ON": 1, "OFF": 0, "yes": 1, "no": 0, "not_heating": 0, "heating": 1}
+
+
+def find_zensdk_sn(device_list: list, device_ip: str) -> str:
+    """Return snNumber of the device matching device_ip, or '' if not found."""
+    return next((d["snNumber"] for d in device_list if d.get("ip") == device_ip), "")
+
 ZENDURE_MANAGER_STORAGE_VERSION = 1
 ZENDURE_DEVICES = "devices"
 
@@ -232,6 +240,42 @@ class Api:
             return None
 
     @staticmethod
+    async def ZenSdkMqttSetup(hass: HomeAssistant, device_ip: str, sn: str, server: str, port: int, username: str, password: str) -> bool:
+        """Configure the zenSDK device to use a local MQTT broker via HA.Mqtt.SetConfig RPC."""
+        from aiohttp import ClientTimeout
+
+        session = async_get_clientsession(hass)
+        payload = {
+            "sn": sn,
+            "method": "HA.Mqtt.SetConfig",
+            "params": {
+                "config": {
+                    "enable": True,
+                    "server": server,
+                    "port": port,
+                    "protocol": "mqtt",
+                    "username": username,
+                    "password": password,
+                }
+            },
+        }
+        try:
+            response = await session.post(
+                f"http://{device_ip}/rpc",
+                json=payload,
+                timeout=ClientTimeout(total=5),
+            )
+            result = await response.json(content_type=None)
+            if result.get("error"):
+                _LOGGER.error("ZenSdkMqttSetup failed: %s", result)
+                return False
+            _LOGGER.info("ZenSdkMqttSetup: MQTT configured on %s → %s:%s", device_ip, server, port)
+            return True
+        except Exception as e:
+            _LOGGER.error("ZenSdkMqttSetup error: %s", e)
+            return False
+
+    @staticmethod
     async def LocalDiscovery(hass: HomeAssistant, device_ip: str) -> dict[str, Any] | None:
         """Discover a device via the local zenSDK HTTP API (no cloud auth required)."""
         from aiohttp import ClientTimeout
@@ -353,17 +397,24 @@ class Api:
                     return  # skip availability subtopics
                 if (device := self.devices.get(device_id)) is not None:
                     value: Any = msg.payload.decode()
-                    try:
-                        value = int(value)
-                    except ValueError:
+                    if value in _ZENSDK_BOOL:
+                        value = _ZENSDK_BOOL[value]
+                    else:
                         try:
-                            value = float(value)
+                            value = int(value)
                         except ValueError:
-                            pass
-                    device.lastseen = datetime.now()
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                pass
+                    device.lastseen = datetime.now() + timedelta(minutes=5)
                     if device.mqtt != client:
                         device.mqtt = client
                         device.setStatus()
+                    asyncio.run_coroutine_threadsafe(
+                        device.mqttProperties({"properties": {prop: value}}),
+                        device.hass.loop,
+                    )
                 return
 
             deviceId = topics[2]
