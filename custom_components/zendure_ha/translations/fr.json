@@ -38,6 +38,11 @@
           "wifipsw": "Mot de passe Wi-Fi"
         }
       },
+      "zeroconf_confirm": {
+        "title": "Appareil Zendure trouvé",
+        "description": "Appareil Zendure **{sn}** trouvé à `{device_ip}`.\n\nRemarque : avec DHCP sans réservation d'adresse fixe, l'adresse peut changer après un redémarrage. Une IP statique ou une réservation DHCP est recommandée.",
+        "data": {}
+      },
       "reconfigure": {
         "data": {
           "token": "Clé cloud d'autorisation Zendure",

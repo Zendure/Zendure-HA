@@ -37,6 +37,11 @@
           "wifipsw": "Wifi Wachtwoord"
         }
       },
+      "zeroconf_confirm": {
+        "title": "Zendure-apparaat gevonden",
+        "description": "Zendure-apparaat **{sn}** gevonden op `{device_ip}`.\n\nOpmerking: bij DHCP zonder vaste IP-reservering kan het adres na een herstart wijzigen. Een statisch IP of DHCP-reservering wordt aanbevolen.",
+        "data": {}
+      },
       "reconfigure": {
         "data": {
           "username": "Zendure Gebruikersnaam",

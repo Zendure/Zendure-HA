@@ -36,6 +36,11 @@
           "wifipsw": "Wifi Passwort"
         }
       },
+      "zeroconf_confirm": {
+        "title": "Zendure-Gerät gefunden",
+        "description": "Zendure-Gerät **{sn}** unter `{device_ip}` gefunden.\n\nHinweis: Bei DHCP ohne feste IP-Zuweisung kann sich die Adresse nach einem Neustart ändern. Eine statische IP oder DHCP-Reservierung wird empfohlen.",
+        "data": {}
+      },
       "reconfigure": {
         "data": {
           "token": "Zendure Token",

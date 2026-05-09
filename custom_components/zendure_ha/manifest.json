@@ -18,5 +18,8 @@
     "paho-mqtt==2.1.0"
   ],
   "single_config_entry": true,
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "zeroconf": [
+    {"type": "_http._tcp.local.", "name": "Zendure-*"}
+  ]
 }

@@ -73,6 +73,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize."""
         self._user_input: dict[str, Any] = {}
+        self._discovered: dict[str, str] = {}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step when user initializes a integration."""
@@ -146,6 +147,30 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title="Zendure", data=self._user_input)
 
         return self.async_show_form(step_id="local", data_schema=self.mqtt_schema, errors=errors)
+
+    async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
+        """Handle mDNS discovery — called by HA when a Zendure device is found on the network."""
+        host = discovery_info.host
+        # Name format: Zendure-<Model>-<SerialNumber>._http._tcp.local.
+        # Split on "-" and take the last segment, stripping the mDNS suffix.
+        raw_name = discovery_info.name.replace("._http._tcp.local.", "")
+        sn = raw_name.split("-")[-1]
+
+        await self.async_set_unique_id(sn)
+        self._abort_if_unique_id_configured(updates={CONF_DEVICE_IP: host})
+
+        self._discovered = {"device_ip": host, "sn": sn}
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Confirmation step shown after mDNS discovery."""
+        if user_input is not None:
+            self._user_input[CONF_DEVICE_IP] = self._discovered["device_ip"]
+            return await self.async_step_user(self._user_input)
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            description_placeholders=self._discovered,
+        )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Add reconfigure step to allow to reconfigure a config entry."""

@@ -36,6 +36,11 @@
           "wifipsw": "Wifi Password"
         }
       },
+      "zeroconf_confirm": {
+        "title": "Zendure device found",
+        "description": "Found Zendure device **{sn}** at `{device_ip}`.\n\nNote: With DHCP and no fixed IP reservation the address may change after a restart. A static IP or DHCP reservation is recommended.",
+        "data": {}
+      },
       "reconfigure": {
         "data": {
           "token": "Zendure Token",
