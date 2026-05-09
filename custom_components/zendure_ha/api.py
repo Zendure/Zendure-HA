@@ -21,6 +21,7 @@ from paho.mqtt import enums as mqtt_enums
 
 from .const import (
     CONF_APPTOKEN,
+    CONF_DEVICE_IP,
     CONF_HAKEY,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -44,7 +45,6 @@ from .devices.superbasev4600 import SuperBaseV4600
 from .devices.superbasev6400 import SuperBaseV6400
 
 _LOGGER = logging.getLogger(__name__)
-
 ZENDURE_MANAGER_STORAGE_VERSION = 1
 ZENDURE_DEVICES = "devices"
 
@@ -90,10 +90,13 @@ class Api:
     def Init(self, data: Mapping[str, Any], mqtt: Mapping[str, Any]) -> None:
         """Initialize Zendure Api."""
         Api.mqttLogging = data.get(CONF_MQTTLOG, False)
-        Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
-        url = mqtt["url"]
-        Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
-        self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+        if mqtt.get("clientId"):
+            Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
+            url = mqtt["url"]
+            Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
+            self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+        else:
+            _LOGGER.info("No cloud MQTT credentials — skipping cloud MQTT setup (local-only mode)")
 
         # Get wifi settings
         Api.wifissid = data.get(CONF_WIFISSID, "")
@@ -121,7 +124,7 @@ class Api:
         # Open the storage
         if reload:
             store = Store(hass, ZENDURE_MANAGER_STORAGE_VERSION, f"{DOMAIN}.storage")
-            if devices is None or len(devices) == 0:
+            if devices is None or len(devices.get("deviceList", [])) == 0:
                 # load configuration from storage
                 if (storage := await store.async_load()) and isinstance(storage, dict):
                     devices = storage.get(ZENDURE_DEVICES, {})
@@ -133,13 +136,21 @@ class Api:
 
     @staticmethod
     async def ApiHA(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any] | None:
-        session = async_get_clientsession(hass)
+        device_ip = data.get(CONF_DEVICE_IP, "")
 
-        if (token := data.get(CONF_APPTOKEN)) is not None and len(token) > 1:
-            base64_url = b64decode(str(token)).decode("utf-8")
-            api_url, appKey = base64_url.rsplit(".", 1)
-        else:
+        token = data.get(CONF_APPTOKEN)
+        has_token = token is not None and len(token) > 1
+
+        # Token-free: only local zenSDK device, no cloud needed
+        if not has_token:
+            if device_ip:
+                _LOGGER.info("No token — using local zenSDK discovery at %s", device_ip)
+                return await Api.LocalDiscovery(hass, device_ip)
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="no_zendure_token")
+
+        session = async_get_clientsession(hass)
+        base64_url = b64decode(str(token)).decode("utf-8")
+        api_url, appKey = base64_url.rsplit(".", 1)
 
         try:
             body = {
@@ -180,19 +191,68 @@ class Api:
             if data.get("code") != 200:
                 _LOGGER.debug("Zendure API response: %s Message: %s", data.get("code"), data.get("msg"))
             elif data.get("code") == 200 and len(data["data"]["deviceList"]) == 0:
-                _LOGGER.error("Zendure API does not reply any devices: %s", data)
-                return None
+                _LOGGER.warning(
+                    "Zendure cloud returned empty device list (known issue for SF800 Pro 2 and similar). "
+                    "Trying local zenSDK discovery. See https://github.com/Zendure/Zendure-HA/issues/1263"
+                )
+                if not device_ip:
+                    _LOGGER.error("Set device_ip in integration config to enable local discovery fallback.")
+                    return None
+                # Fall through — cloud MQTT credentials are kept; local device merged below
             elif data.get("code") == 200 and len(data["data"]["mqtt"]) == 0:
                 _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
                 return None
             if not data.get("success", False) or (result := data["data"]) is None:
                 _LOGGER.error("Zendure API returned failure or missing data: %s", data)
                 return None
-            return dict(result)
+            result = dict(result)
+            # Mixed scenario: merge zenSDK local device into cloud device list
+            if device_ip:
+                local = await Api.LocalDiscovery(hass, device_ip)
+                if local and local.get("deviceList"):
+                    cloud_sns = {d.get("snNumber") for d in result.get("deviceList", [])}
+                    for dev in local["deviceList"]:
+                        if dev.get("snNumber") not in cloud_sns:
+                            _LOGGER.info("Adding zenSDK device %s from local discovery to device list", dev.get("snNumber"))
+                            result.setdefault("deviceList", []).append(dev)
+            return result
 
         except Exception as e:
             _LOGGER.error("Unable to connect to Zendure %s!", e)
             _LOGGER.error(traceback.format_exc())
+            return None
+
+    @staticmethod
+    async def LocalDiscovery(hass: HomeAssistant, device_ip: str) -> dict[str, Any] | None:
+        """Discover a device via the local zenSDK HTTP API (no cloud auth required)."""
+        from aiohttp import ClientTimeout
+
+        session = async_get_clientsession(hass)
+        try:
+            response = await session.get(
+                f"http://{device_ip}/properties/report",
+                timeout=ClientTimeout(total=4),
+            )
+            payload = await response.json(content_type=None)
+            sn = payload.get("sn")
+            product = payload.get("product")  # e.g. "solarFlow800Pro2"
+            if not sn or not product:
+                _LOGGER.error("LocalDiscovery at %s: missing sn or product in response: %s", device_ip, payload)
+                return None
+            _LOGGER.info("LocalDiscovery: found %s (%s) at %s", product, sn, device_ip)
+            return {
+                "mqtt": {},
+                "deviceList": [{
+                    "deviceKey": sn,
+                    "productModel": product,
+                    "productKey": sn,
+                    "deviceName": product,
+                    "snNumber": sn,
+                    "ip": device_ip,
+                }],
+            }
+        except Exception as e:
+            _LOGGER.error("LocalDiscovery failed for %s: %s", device_ip, e)
             return None
 
     def mqttInit(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:
@@ -217,11 +277,18 @@ class Api:
                     Api.mqttCloud.unsubscribe(f"iot/{device.prodkey}/{device.deviceId}/#")
         else:
             for device in self.devices.values():
-                client.subscribe(f"/{device.prodkey}/{device.deviceId}/#")
-                client.subscribe(f"iot/{device.prodkey}/{device.deviceId}/#")
+                from .device import ZendureZenSdk
+                if isinstance(device, ZendureZenSdk) and device.connection.value == 2:
+                    client.subscribe(f"Zendure/+/{device.deviceId}/#")
+                else:
+                    client.subscribe(f"/{device.prodkey}/{device.deviceId}/#")
+                    client.subscribe(f"iot/{device.prodkey}/{device.deviceId}/#")
 
     def mqttDisconnect(self, _client: Any, userdata: Any, _flags: Any, rc: Any, _props: Any) -> None:
         _LOGGER.info("Client %s disconnected to MQTT broker, return code: %s", userdata, rc)
+        for device in self.devices.values():
+            if device.mqtt is _client:
+                device.mqtt = None
 
     def mqttMsgCloud(self, client: Any, _userdata: Any, msg: Any) -> None:
         if msg.payload is None or not msg.payload:
@@ -265,9 +332,29 @@ class Api:
         try:
             topics = msg.topic.split("/", 3)
 
-            # Validate topic format before accessing indices
             if len(topics) < 4:
                 _LOGGER.warning("Invalid local MQTT topic format: %s (expected 4 segments)", msg.topic)
+                return
+
+            # Handle zenSDK devices: Zendure/{type}/{SN}/{property}
+            if topics[0] == "Zendure":
+                device_id = topics[2]
+                prop = topics[3]
+                if "/" in prop:
+                    return  # skip availability subtopics
+                if (device := self.devices.get(device_id)) is not None:
+                    value: Any = msg.payload.decode()
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        try:
+                            value = float(value)
+                        except ValueError:
+                            pass
+                    device.lastseen = datetime.now()
+                    if device.mqtt != client:
+                        device.mqtt = client
+                        device.setStatus()
                 return
 
             deviceId = topics[2]

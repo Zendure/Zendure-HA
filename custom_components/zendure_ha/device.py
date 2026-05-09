@@ -8,7 +8,7 @@ import logging
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 from aiohttp import ClientTimeout
 from bleak import BleakClient
@@ -192,6 +192,10 @@ class ZendureDevice(EntityDevice):
             elif self.hemsState.is_on:
                 self.connectionStatus.update_value(2)
             elif self.fuseGroup.value == 0:
+                # fuseGroup=0 ("unused") is the intentional way to disable a device inside a
+                # multi-device FuseGroup setup. This check MUST come before the zenSDK check so
+                # that setting fuseGroup to "unused" reliably disables the device regardless of
+                # its connection mode — otherwise zenSDK devices could never be soft-disabled.
                 self.connectionStatus.update_value(3)
             elif self.connection.value == SmartMode.ZENSDK:
                 self.connectionStatus.update_value(12)
@@ -723,7 +727,9 @@ class ZendureZenSdk(ZendureDevice):
             await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
 
     async def dataRefresh(self, update_count: int) -> None:
-        if update_count == 0 and not self.online:
+        if self.mqtt is not None:
+            return  # MQTT push active, no polling needed
+        if self.connection.value == 2 or (update_count == 0 and not self.online):
             json = await self.httpGet("properties/report")
             await self.mqttProperties(json)
 
@@ -753,6 +759,13 @@ class ZendureZenSdk(ZendureDevice):
     async def power_off(self) -> None:
         """Set the power off."""
         await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}})
+
+    _MQTT_CATEGORY: ClassVar[dict[str, str]] = {
+        "outputLimit": "number", "inputLimit": "number",
+        "socSet": "number", "minSoc": "number", "inverseMaxPower": "number",
+        "acMode": "select", "gridOffMode": "select", "gridReverse": "select",
+        "lampSwitch": "switch", "smartMode": "switch",
+    }
 
     async def doCommand(self, command: Any) -> None:
         if self.connection.value != 0:

@@ -34,7 +34,7 @@ from .const import (
     ManagerState,
     SmartMode,
 )
-from .device import DeviceSettings, ZendureDevice, ZendureLegacy
+from .device import DeviceSettings, ZendureDevice, ZendureLegacy, ZendureZenSdk
 from .entity import EntityDevice
 from .fusegroup import FuseGroup
 from .number import ZendureRestoreNumber
@@ -209,7 +209,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             except Exception as err:
                 _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", device.name, device.deviceId, err, exc_info=True)
 
-        # Update the fusegroups and select optins for each device
+        # Update the fusegroups and select options for each device
         for device in self.devices:
             try:
                 fusegroups: dict[Any, str] = {
@@ -254,6 +254,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
 
         self.operation = operation
+
+        # Set acMode immediately for zenSDK devices, independent of p1meter
+        for d in self.devices:
+            if isinstance(d, ZendureZenSdk):
+                match operation:
+                    case ManagerMode.MATCHING_CHARGE:
+                        await d.doCommand({"properties": {"acMode": 1}})
+                    case ManagerMode.MATCHING_DISCHARGE:
+                        await d.doCommand({"properties": {"acMode": 2}})
+
         if self.p1meterEvent is not None:
             if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
                 _LOGGER.warning("No devices online, not possible to start the operation")
@@ -432,7 +442,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # only positive pwr_offgrid must be taken into account, negative values count a solarInput
                 if (home := -d.homeInput.asInt + max(0, d.pwr_offgrid)) < 0:
                     self.charge.append(d)
-                    self.charge_limit += d.fuseGrp.charge_limit(d)
+                    self.charge_limit += d.fuseGrp.charge_limit(d) if hasattr(d, "fuseGrp") else d.charge_limit
                     self.charge_optimal += d.charge_optimal
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
                     setpoint += -d.homeInput.asInt  # use gridInputPower directly; offgrid consumers are invisible to P1
@@ -440,7 +450,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
                     self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
-                    self.discharge_limit += d.fuseGrp.discharge_limit(d)
+                    self.discharge_limit += d.fuseGrp.discharge_limit(d) if hasattr(d, "fuseGrp") else d.discharge_limit
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced
                     self.discharge_weight += d.pwr_max * d.electricLevel.asInt
@@ -494,8 +504,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # Manual power into or from home
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
                     await self.power_discharge(setpoint)
+                    for d in self.idle:
+                        await d.power_discharge(setpoint)
                 else:
                     await self.power_charge(setpoint, time)
+                    for d in self.idle:
+                        await d.power_charge(setpoint)
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)

@@ -15,6 +15,7 @@ from .api import Api
 from .const import (
     CONF_APPTOKEN,
     CONF_AUTO_MQTT_USER,
+    CONF_DEVICE_IP,
     CONF_MQTTLOCAL,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -40,10 +41,11 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     _input_data: dict[str, Any]
     data_schema = vol.Schema(
         {
-            vol.Required(CONF_APPTOKEN): str,
+            vol.Optional(CONF_APPTOKEN, description={"suggested_value": ""}): str,
             vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): selector.EntitySelector(),
             vol.Required(CONF_MQTTLOG): bool,
             vol.Required(CONF_MQTTLOCAL): bool,
+            vol.Optional(CONF_DEVICE_IP, description={"suggested_value": ""}): str,
         }
     )
     mqtt_schema = vol.Schema(
@@ -77,6 +79,21 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             self._user_input = user_input
 
             try:
+                token = user_input.get(CONF_APPTOKEN, "")
+                device_ip = user_input.get(CONF_DEVICE_IP, "")
+                token_free = not token or len(token) <= 1
+
+                # Token-free with device_ip: validate local device before creating entry
+                if token_free and device_ip:
+                    if await Api.Connect(self.hass, self._user_input, False) is None:
+                        errors["base"] = "invalid input"
+                    elif user_input.get(CONF_MQTTLOCAL, False):
+                        return await self.async_step_local()
+                    else:
+                        await self.async_set_unique_id("Zendure", raise_on_progress=False)
+                        self._abort_if_unique_id_configured()
+                        return self.async_create_entry(title="Zendure", data=self._user_input)
+
                 if await Api.Connect(self.hass, self._user_input, False) is None:
                     errors["base"] = "invalid input"
                 else:
@@ -98,7 +115,8 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None and user_input.get(CONF_MQTTSERVER, None) is not None:
             try:
                 self._user_input = self._user_input | user_input if self._user_input else user_input
-                if await Api.Connect(self.hass, self._user_input, False) is None:
+                devices = await Api.Connect(self.hass, self._user_input, False)
+                if devices is None:
                     errors["base"] = "invalid input"
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
