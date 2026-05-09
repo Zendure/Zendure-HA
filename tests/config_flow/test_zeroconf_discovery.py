@@ -1,12 +1,18 @@
 """Tests for mDNS/Zeroconf discovery flow."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.zendure_ha.config_flow import ZendureConfigFlow
 from custom_components.zendure_ha.const import CONF_DEVICE_IP
+
+_LOCAL_DISCOVERY_PATH = "custom_components.zendure_ha.config_flow.Api.LocalDiscovery"
+
+_DISCOVERY_RESPONSE = {
+    "deviceList": [{"snNumber": "EOD1NLN9P010318", "productModel": "solarFlow800Pro2"}]
+}
 
 
 def _make_discovery(host: str, name: str):
@@ -34,62 +40,83 @@ def _make_flow():
 
 
 class TestZeroconfSNExtraction:
-    """SN extraction and unique_id handling for both mDNS service types."""
+    """SN extraction, unique_id handling, and LocalDiscovery enrichment."""
 
     @pytest.mark.asyncio
     async def test_unique_id_always_zendure(self):
         """unique_id is always 'Zendure' — consistent with the manual config flow."""
         flow = _make_flow()
-        await flow.async_step_zeroconf(
-            _make_discovery(
-                "192.168.10.80",
-                "Zendure-solarFlow800Pro2-EOD1NLN9P010318._http._tcp.local.",
+        with patch(_LOCAL_DISCOVERY_PATH, AsyncMock(return_value=_DISCOVERY_RESPONSE)):
+            await flow.async_step_zeroconf(
+                _make_discovery(
+                    "192.168.10.80",
+                    "Zendure-solarFlow800Pro2-EOD1NLN9P010318._http._tcp.local.",
+                )
             )
-        )
         flow.async_set_unique_id.assert_awaited_once_with("Zendure")
 
     @pytest.mark.asyncio
-    async def test_sn_extracted_for_display_http_tcp(self):
-        """SN is stored in _discovered for UI display (not used as unique_id)."""
+    async def test_sn_confirmed_by_local_discovery(self):
+        """SN from LocalDiscovery overrides the mDNS-name-extracted SN."""
         flow = _make_flow()
-        await flow.async_step_zeroconf(
-            _make_discovery(
-                "192.168.10.80",
-                "Zendure-solarFlow800Pro2-EOD1NLN9P010318._http._tcp.local.",
+        with patch(_LOCAL_DISCOVERY_PATH, AsyncMock(return_value=_DISCOVERY_RESPONSE)):
+            await flow.async_step_zeroconf(
+                _make_discovery(
+                    "192.168.10.80",
+                    "Zendure-solarFlow800Pro2-EOD1NLN9P010318._http._tcp.local.",
+                )
             )
-        )
         assert flow._discovered["sn"] == "EOD1NLN9P010318"
 
     @pytest.mark.asyncio
-    async def test_sn_extracted_for_display_zendure_tcp(self):
+    async def test_model_stored_from_local_discovery(self):
+        """Model name from LocalDiscovery is stored for the confirm dialog."""
+        flow = _make_flow()
+        with patch(_LOCAL_DISCOVERY_PATH, AsyncMock(return_value=_DISCOVERY_RESPONSE)):
+            await flow.async_step_zeroconf(
+                _make_discovery(
+                    "192.168.10.80",
+                    "Zendure-solarFlow800Pro2-EOD1NLN9P010318._http._tcp.local.",
+                )
+            )
+        assert flow._discovered["model"] == "solarFlow800Pro2"
+
+    @pytest.mark.asyncio
+    async def test_local_discovery_failure_still_shows_confirm(self):
+        """If LocalDiscovery fails the flow continues with mDNS-extracted SN."""
+        flow = _make_flow()
+        with patch(_LOCAL_DISCOVERY_PATH, AsyncMock(return_value=None)):
+            await flow.async_step_zeroconf(
+                _make_discovery(
+                    "192.168.10.80",
+                    "Zendure-solarFlow800Pro2-EOD1NLN9P010318._http._tcp.local.",
+                )
+            )
+        assert flow._discovered["sn"] == "EOD1NLN9P010318"
+        assert flow._discovered["model"] == ""
+
+    @pytest.mark.asyncio
+    async def test_sn_from_zendure_tcp_service_type(self):
         """SN extraction works for _zendure._tcp.local. service type too."""
         flow = _make_flow()
-        await flow.async_step_zeroconf(
-            _make_discovery(
-                "192.168.10.80",
-                "Zendure-solarFlow800Pro2-EOD1NLN9P010318._zendure._tcp.local.",
+        with patch(_LOCAL_DISCOVERY_PATH, AsyncMock(return_value=_DISCOVERY_RESPONSE)):
+            await flow.async_step_zeroconf(
+                _make_discovery(
+                    "192.168.10.80",
+                    "Zendure-solarFlow800Pro2-EOD1NLN9P010318._zendure._tcp.local.",
+                )
             )
-        )
         assert flow._discovered["sn"] == "EOD1NLN9P010318"
-
-    @pytest.mark.asyncio
-    async def test_sn_fallback_for_unknown_model(self):
-        """Unknown naming schema falls back to last dash-segment gracefully."""
-        flow = _make_flow()
-        await flow.async_step_zeroconf(
-            _make_discovery(
-                "192.168.10.80", "Zendure-unknownModel-abc123._http._tcp.local."
-            )
-        )
-        # 'abc123' is 6 chars — below the 8-char regex threshold, so fallback applies
-        assert flow._discovered["sn"] == "abc123"
 
     @pytest.mark.asyncio
     async def test_already_configured_updates_ip_only(self):
         """If 'Zendure' entry exists, only device_ip is updated — no new entry."""
         flow = _make_flow()
         flow._abort_if_unique_id_configured = MagicMock(side_effect=Exception("abort"))
-        with pytest.raises(Exception, match="abort"):
+        with (
+            patch(_LOCAL_DISCOVERY_PATH, AsyncMock(return_value=_DISCOVERY_RESPONSE)),
+            pytest.raises(Exception, match="abort"),
+        ):
             await flow.async_step_zeroconf(
                 _make_discovery(
                     "192.168.10.81",

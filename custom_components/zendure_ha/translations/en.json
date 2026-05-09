@@ -38,7 +38,7 @@
       },
       "zeroconf_confirm": {
         "title": "Zendure device found",
-        "description": "Found Zendure device **{sn}** at `{device_ip}`.\n\nYou can change the IP address below if needed — for example if you have assigned a static IP.\n\n> **Tip:** With DHCP and no fixed reservation the address may change after a router restart. A static IP or DHCP reservation avoids reconnection issues.",
+        "description": "Found **{model}** (SN: `{sn}`) at `{device_ip}`.\n\nYou can change the IP address below if needed — for example if you have assigned a static IP.\n\n> **Tip:** With DHCP and no fixed reservation the address may change after a router restart. A static IP or DHCP reservation avoids reconnection issues.",
         "data": {
           "device_ip": "Device IP address"
         },

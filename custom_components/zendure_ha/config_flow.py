@@ -182,12 +182,20 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         match = re.search(r"-([A-Z0-9]{8,})$", raw_name)
         sn = match.group(1) if match else raw_name.split("-")[-1]
 
-        # Use the same unique_id as the manual flow so zeroconf discovery can update
-        # the device_ip of an already-configured entry instead of creating a duplicate.
         await self.async_set_unique_id("Zendure")
         self._abort_if_unique_id_configured(updates={CONF_DEVICE_IP: host})
 
-        self._discovered = {"device_ip": host, "sn": sn}
+        # Query the device directly to confirm SN and get the human-readable model name.
+        # This is a lightweight call — no cloud auth required.
+        device_info = await Api.LocalDiscovery(self.hass, host)
+        if device_info:
+            device = device_info.get("deviceList", [{}])[0]
+            sn = device.get("snNumber", sn)
+            model = device.get("productModel", "")
+        else:
+            model = ""
+
+        self._discovered = {"device_ip": host, "sn": sn, "model": model}
         return await self.async_step_zeroconf_confirm()
 
     async def async_step_zeroconf_confirm(
