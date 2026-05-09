@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import traceback
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -270,7 +271,16 @@ class ZendureDevice(EntityDevice):
     def _update_efficiency(self) -> None:
         charge = self.aggrCharge.asNumber
         if charge > 0:
-            self.efficiency.update_value(round((self.aggrDischarge.asNumber + self.availableKwh.asNumber) / charge * 100, 1))
+            raw_efficiency = (self.aggrDischarge.asNumber + self.availableKwh.asNumber) / charge
+            raw_efficiency = max(0, min(raw_efficiency, 1))
+            discharge_efficiency = math.sqrt(raw_efficiency)
+        
+            self.efficiency.update_value(
+                round(
+                    (self.aggrDischarge.asNumber + self.availableKwh.asNumber * discharge_efficiency) / charge * 100,
+                    1
+                )
+            )
         else:
             self.efficiency.update_value(0)
 
