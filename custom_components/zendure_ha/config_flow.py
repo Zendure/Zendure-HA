@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -174,12 +175,16 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
         """Handle mDNS discovery — called by HA when a Zendure device is found."""
         host = discovery_info.host
-        # Works for both _http._tcp.local. and _zendure._tcp.local. naming.
-        # Format: Zendure-<Model>-<SerialNumber>.<service-type>
+        # Strip service suffix — works for _http._tcp.local. and _zendure._tcp.local.
         raw_name = discovery_info.name.split("._")[0]
-        sn = raw_name.split("-")[-1]
+        # Extract SN: last segment matching a serial (uppercase alphanum, ≥8 chars).
+        # Falls back to the last dash-segment so unknown models don't break the flow.
+        match = re.search(r"-([A-Z0-9]{8,})$", raw_name)
+        sn = match.group(1) if match else raw_name.split("-")[-1]
 
-        await self.async_set_unique_id(sn)
+        # Use the same unique_id as the manual flow so zeroconf discovery can update
+        # the device_ip of an already-configured entry instead of creating a duplicate.
+        await self.async_set_unique_id("Zendure")
         self._abort_if_unique_id_configured(updates={CONF_DEVICE_IP: host})
 
         self._discovered = {"device_ip": host, "sn": sn}
