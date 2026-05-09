@@ -39,8 +39,17 @@
       },
       "zeroconf_confirm": {
         "title": "Zendure-apparaat gevonden",
-        "description": "Zendure-apparaat **{sn}** gevonden op `{device_ip}`.\n\nOpmerking: bij DHCP zonder vaste IP-reservering kan het adres na een herstart wijzigen. Een statisch IP of DHCP-reservering wordt aanbevolen.",
-        "data": {}
+        "description": "Zendure-apparaat **{sn}** gevonden op `{device_ip}`.\n\nHet IP-adres kan hieronder worden aangepast — bijvoorbeeld als een statisch IP is ingesteld.\n\n> **Tip:** Met DHCP zonder vaste reservering kan het adres na een herstart van de router wijzigen. Een statisch IP of DHCP-reservering voorkomt verbindingsproblemen.",
+        "data": {
+          "device_ip": "IP-adres van het apparaat"
+        },
+        "data_description": {
+          "device_ip": "IP-adres van het Zendure-apparaat. Automatisch ingevuld via mDNS — pas aan indien u een statisch IP gebruikt."
+        }
+      },
+      "zeroconf_connect": {
+        "title": "Verbinden…",
+        "description": "Er wordt geprobeerd verbinding te maken met het Zendure-apparaat. Even geduld."
       },
       "reconfigure": {
         "data": {

@@ -20,6 +20,7 @@
   "single_config_entry": true,
   "version": "1.0.0",
   "zeroconf": [
-    {"type": "_http._tcp.local.", "name": "Zendure-*"}
+    {"type": "_http._tcp.local.", "name": "Zendure-*"},
+    {"type": "_zendure._tcp.local.", "name": "Zendure-*"}
   ]
 }

@@ -38,8 +38,17 @@
       },
       "zeroconf_confirm": {
         "title": "Zendure device found",
-        "description": "Found Zendure device **{sn}** at `{device_ip}`.\n\nNote: With DHCP and no fixed IP reservation the address may change after a restart. A static IP or DHCP reservation is recommended.",
-        "data": {}
+        "description": "Found Zendure device **{sn}** at `{device_ip}`.\n\nYou can change the IP address below if needed — for example if you have assigned a static IP.\n\n> **Tip:** With DHCP and no fixed reservation the address may change after a router restart. A static IP or DHCP reservation avoids reconnection issues.",
+        "data": {
+          "device_ip": "Device IP address"
+        },
+        "data_description": {
+          "device_ip": "IP address of the Zendure device. Pre-filled from mDNS discovery — change this if you use a static IP instead."
+        }
+      },
+      "zeroconf_connect": {
+        "title": "Connecting…",
+        "description": "Trying to reach the Zendure device. Please wait."
       },
       "reconfigure": {
         "data": {

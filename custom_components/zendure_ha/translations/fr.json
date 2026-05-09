@@ -40,8 +40,17 @@
       },
       "zeroconf_confirm": {
         "title": "Appareil Zendure trouvé",
-        "description": "Appareil Zendure **{sn}** trouvé à `{device_ip}`.\n\nRemarque : avec DHCP sans réservation d'adresse fixe, l'adresse peut changer après un redémarrage. Une IP statique ou une réservation DHCP est recommandée.",
-        "data": {}
+        "description": "Appareil Zendure **{sn}** trouvé à `{device_ip}`.\n\nVous pouvez modifier l'adresse IP ci-dessous si nécessaire — par exemple si vous avez attribué une IP statique.\n\n> **Conseil :** Avec DHCP sans réservation fixe, l'adresse peut changer après un redémarrage du routeur. Une IP statique ou une réservation DHCP est recommandée.",
+        "data": {
+          "device_ip": "Adresse IP de l'appareil"
+        },
+        "data_description": {
+          "device_ip": "Adresse IP de l'appareil Zendure. Préremplie via mDNS — modifiez si vous utilisez une IP statique."
+        }
+      },
+      "zeroconf_connect": {
+        "title": "Connexion…",
+        "description": "Tentative de connexion à l'appareil Zendure. Veuillez patienter."
       },
       "reconfigure": {
         "data": {

@@ -74,12 +74,13 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self._user_input: dict[str, Any] = {}
         self._discovered: dict[str, str] = {}
+        self._connect_task: Any = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step when user initializes a integration."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._user_input = user_input
+            self._user_input = self._user_input | user_input
 
             try:
                 token = user_input.get(CONF_APPTOKEN, "")
@@ -110,7 +111,11 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
 
-        return self.async_show_form(step_id="user", data_schema=self.data_schema, errors=errors)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(self.data_schema, self._user_input),
+            errors=errors,
+        )
 
     async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -151,9 +156,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
         """Handle mDNS discovery — called by HA when a Zendure device is found on the network."""
         host = discovery_info.host
-        # Name format: Zendure-<Model>-<SerialNumber>._http._tcp.local.
-        # Split on "-" and take the last segment, stripping the mDNS suffix.
-        raw_name = discovery_info.name.replace("._http._tcp.local.", "")
+        # Works for both _http._tcp.local. and _zendure._tcp.local. naming.
+        # Format: Zendure-<Model>-<SerialNumber>.<service-type>
+        raw_name = discovery_info.name.split("._")[0]
         sn = raw_name.split("-")[-1]
 
         await self.async_set_unique_id(sn)
@@ -163,13 +168,60 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         return await self.async_step_zeroconf_confirm()
 
     async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Confirmation step shown after mDNS discovery."""
+        """Editable confirmation step: pre-fills IP from discovery, user may override."""
         if user_input is not None:
-            self._user_input[CONF_DEVICE_IP] = self._discovered["device_ip"]
-            return await self.async_step_user(self._user_input)
+            ip = user_input[CONF_DEVICE_IP]
+            self._user_input[CONF_DEVICE_IP] = ip
+            self._discovered["device_ip"] = ip
+            self._connect_task = None
+            return await self.async_step_zeroconf_connect()
+
+        schema = vol.Schema({
+            vol.Required(CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")): str,
+        })
         return self.async_show_form(
             step_id="zeroconf_confirm",
+            data_schema=schema,
             description_placeholders=self._discovered,
+        )
+
+    async def async_step_zeroconf_connect(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Try to reach the device; shows a spinner while the connection is in progress."""
+        if self._connect_task is None:
+            self._connect_task = self.hass.async_create_task(
+                Api.Connect(self.hass, self._user_input, False)
+            )
+
+        if not self._connect_task.done():
+            return self.async_show_progress(
+                step_id="zeroconf_connect",
+                progress_action="connecting",
+                progress_task=self._connect_task,
+            )
+
+        try:
+            result = self._connect_task.result()
+        except Exception as err:
+            _LOGGER.error("Connection error during zeroconf setup: %s", err)
+            result = None
+
+        self._connect_task = None
+
+        if result is None:
+            return self.async_show_progress_done(next_step_id="zeroconf_failed")
+
+        return self.async_show_progress_done(next_step_id="user")
+
+    async def async_step_zeroconf_failed(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Bounce back to the confirm form with a connection error."""
+        schema = vol.Schema({
+            vol.Required(CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")): str,
+        })
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            data_schema=schema,
+            description_placeholders=self._discovered,
+            errors={"base": "cannot_connect"},
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
