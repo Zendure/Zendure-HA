@@ -13,6 +13,7 @@
       "user": {
         "data": {
           "token": "Zendure Token",
+          "device_ip": "Geräte-IP-Adresse (erforderlich für SolarFlow 800 Pro 2, sonst optional)",
           "p1meter": "P1 Sensor für Smart Matching",
           "mqttlog": "MQTT-Kommunikation loggen",
           "mqttlocal": "Lokales MQTT verwenden",
@@ -21,9 +22,22 @@
           "wifipsw": "Wifi Passwort"
         }
       },
+      "local": {
+        "data": {
+          "mqttserver": "MQTT Server",
+          "mqttport": "MQTT Port",
+          "mqttuser": "MQTT Benutzer",
+          "mqttpsw": "MQTT Passwort",
+          "auto_mqtt_user": "MQTT-Benutzer automatisch verwalten",
+          "auto_mqtt_setup": "zenSDK-Gerät MQTT automatisch konfigurieren (erfordert Geräte-IP)",
+          "wifissid": "WLAN SSID",
+          "wifipsw": "Wifi Passwort"
+        }
+      },
       "reconfigure": {
         "data": {
           "token": "Zendure Token",
+          "device_ip": "Geräte-IP-Adresse (erforderlich für SolarFlow 800 Pro 2, sonst optional)",
           "p1meter": "P1 Sensor für Smart Matching",
           "mqttlog": "MQTT-Kommunikation loggen",
           "mqttlocal": "Lokales MQTT verwenden",

@@ -37,7 +37,7 @@ from .devices.aio2400 import AIO2400
 from .devices.hub1200 import Hub1200
 from .devices.hub2000 import Hub2000
 from .devices.hyper2000 import Hyper2000
-from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro
+from .devices.solarflow800 import SolarFlow800, SolarFlow800Plus, SolarFlow800Pro, SolarFlow800Pro2
 from .devices.solarflow1600 import SolarFlow1600
 from .devices.solarflow2400 import SolarFlow2400AC, SolarFlow2400AC_Plus, SolarFlow2400Pro
 from .devices.superbasev4600 import SuperBaseV4600
@@ -64,7 +64,8 @@ class Api:
         "hyper2000_3.0": Hyper2000,
         "solarflow 800": SolarFlow800,
         "solarflow 800 pro": SolarFlow800Pro,
-        "solarflow 800 pro2": SolarFlow800Pro,
+        "solarflow 800 pro2": SolarFlow800Pro2,
+        "solarflow800pro2": SolarFlow800Pro2,
         "solarflow 800 plus": SolarFlow800Plus,
         "solarflow 1600 ac+": SolarFlow1600,
         "solarflow 2400 ac": SolarFlow2400AC,
