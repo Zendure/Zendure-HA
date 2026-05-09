@@ -41,6 +41,15 @@ ignore = [
     "PGH003", #blanket-type-ignore
 ]
 
+[lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # assert is normal in pytest
+    "SLF001", # accessing private members is normal in unit tests
+    "B010",   # setattr with constant needed to override inherited methods
+    "ANN201", # return type annotations not required for test functions
+    "ANN202", # return type annotations not required for private test helpers
+]
+
 [lint.flake8-pytest-style]
 fixture-parentheses = false
 

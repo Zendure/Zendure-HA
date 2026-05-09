@@ -43,7 +43,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
     data_schema = vol.Schema(
         {
             vol.Optional(CONF_APPTOKEN, description={"suggested_value": ""}): str,
-            vol.Required(CONF_P1METER, description={"suggested_value": "sensor.power_actual"}): selector.EntitySelector(),
+            vol.Required(
+                CONF_P1METER, description={"suggested_value": "sensor.power_actual"}
+            ): selector.EntitySelector(),
             vol.Required(CONF_MQTTLOG): bool,
             vol.Required(CONF_MQTTLOCAL): bool,
             vol.Optional(CONF_DEVICE_IP, description={"suggested_value": ""}): str,
@@ -76,7 +78,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered: dict[str, str] = {}
         self._connect_task: Any = None
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Step when user initializes a integration."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -94,9 +98,13 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                     elif user_input.get(CONF_MQTTLOCAL, False):
                         return await self.async_step_local()
                     else:
-                        await self.async_set_unique_id("Zendure", raise_on_progress=False)
+                        await self.async_set_unique_id(
+                            "Zendure", raise_on_progress=False
+                        )
                         self._abort_if_unique_id_configured()
-                        return self.async_create_entry(title="Zendure", data=self._user_input)
+                        return self.async_create_entry(
+                            title="Zendure", data=self._user_input
+                        )
                 elif await Api.Connect(self.hass, self._user_input, False) is None:
                     errors["base"] = "invalid input"
                 else:
@@ -106,22 +114,30 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
 
                     await self.async_set_unique_id("Zendure", raise_on_progress=False)
                     self._abort_if_unique_id_configured()
-                    return self.async_create_entry(title="Zendure", data=self._user_input)
+                    return self.async_create_entry(
+                        title="Zendure", data=self._user_input
+                    )
 
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
 
         return self.async_show_form(
             step_id="user",
-            data_schema=self.add_suggested_values_to_schema(self.data_schema, self._user_input),
+            data_schema=self.add_suggested_values_to_schema(
+                self.data_schema, self._user_input
+            ),
             errors=errors,
         )
 
-    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_local(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None and user_input.get(CONF_MQTTSERVER, None) is not None:
             try:
-                self._user_input = self._user_input | user_input if self._user_input else user_input
+                self._user_input = (
+                    self._user_input | user_input if self._user_input else user_input
+                )
                 devices = await Api.Connect(self.hass, self._user_input, False)
                 if devices is None:
                     errors["base"] = "invalid input"
@@ -151,10 +167,12 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(title="Zendure", data=self._user_input)
 
-        return self.async_show_form(step_id="local", data_schema=self.mqtt_schema, errors=errors)
+        return self.async_show_form(
+            step_id="local", data_schema=self.mqtt_schema, errors=errors
+        )
 
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
-        """Handle mDNS discovery — called by HA when a Zendure device is found on the network."""
+        """Handle mDNS discovery — called by HA when a Zendure device is found."""
         host = discovery_info.host
         # Works for both _http._tcp.local. and _zendure._tcp.local. naming.
         # Format: Zendure-<Model>-<SerialNumber>.<service-type>
@@ -167,8 +185,10 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered = {"device_ip": host, "sn": sn}
         return await self.async_step_zeroconf_confirm()
 
-    async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Editable confirmation step: pre-fills IP from discovery, user may override."""
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show confirmation form with pre-filled IP; user may override."""
         if user_input is not None:
             ip = user_input[CONF_DEVICE_IP]
             self._user_input[CONF_DEVICE_IP] = ip
@@ -176,17 +196,23 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             self._connect_task = None
             return await self.async_step_zeroconf_connect()
 
-        schema = vol.Schema({
-            vol.Required(CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")): str,
-        })
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")
+                ): str,
+            }
+        )
         return self.async_show_form(
             step_id="zeroconf_confirm",
             data_schema=schema,
             description_placeholders=self._discovered,
         )
 
-    async def async_step_zeroconf_connect(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Try to reach the device; shows a spinner while the connection is in progress."""
+    async def async_step_zeroconf_connect(
+        self, _user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show a progress spinner while connecting to the device."""
         if self._connect_task is None:
             self._connect_task = self.hass.async_create_task(
                 Api.Connect(self.hass, self._user_input, False)
@@ -212,11 +238,17 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_progress_done(next_step_id="user")
 
-    async def async_step_zeroconf_failed(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_zeroconf_failed(
+        self, _user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Bounce back to the confirm form with a connection error."""
-        schema = vol.Schema({
-            vol.Required(CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")): str,
-        })
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")
+                ): str,
+            }
+        )
         return self.async_show_form(
             step_id="zeroconf_confirm",
             data_schema=schema,
@@ -224,7 +256,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
             errors={"base": "cannot_connect"},
         )
 
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Add reconfigure step to allow to reconfigure a config entry."""
         errors: dict[str, str] = {}
 
@@ -246,7 +280,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                     await self.async_set_unique_id("Zendure", raise_on_progress=False)
                     self._abort_if_unique_id_mismatch()
 
-                    return self.async_update_reload_and_abort(entry, data=self._user_input)
+                    return self.async_update_reload_and_abort(
+                        entry, data=self._user_input
+                    )
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -259,7 +295,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(_config_entry: ZendureConfigEntry) -> ZendureOptionsFlowHandler:
+    def async_get_options_flow(
+        _config_entry: ZendureConfigEntry,
+    ) -> ZendureOptionsFlowHandler:
         """Get the options flow for this handler."""
         return ZendureOptionsFlowHandler()
 
@@ -267,7 +305,9 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
 class ZendureOptionsFlowHandler(OptionsFlow):
     """Handles the options flow."""
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle options flow."""
         if user_input is not None:
             data = self.config_entry.data | user_input
@@ -276,16 +316,27 @@ class ZendureOptionsFlowHandler(OptionsFlow):
 
         options_schema = vol.Schema(
             {
-                vol.Required(CONF_P1METER, default=self.config_entry.data[CONF_P1METER]): str,
-                vol.Required(CONF_MQTTLOG, default=self.config_entry.data[CONF_MQTTLOG]): bool,
-                vol.Optional(CONF_AUTO_MQTT_USER, default=self.config_entry.data.get(CONF_AUTO_MQTT_USER, False)): bool,
-                vol.Optional(CONF_SIM, default=self.config_entry.data.get(CONF_SIM, False)): bool,
+                vol.Required(
+                    CONF_P1METER, default=self.config_entry.data[CONF_P1METER]
+                ): str,
+                vol.Required(
+                    CONF_MQTTLOG, default=self.config_entry.data[CONF_MQTTLOG]
+                ): bool,
+                vol.Optional(
+                    CONF_AUTO_MQTT_USER,
+                    default=self.config_entry.data.get(CONF_AUTO_MQTT_USER, False),
+                ): bool,
+                vol.Optional(
+                    CONF_SIM, default=self.config_entry.data.get(CONF_SIM, False)
+                ): bool,
             }
         )
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self.add_suggested_values_to_schema(options_schema, self.config_entry.data),
+            data_schema=self.add_suggested_values_to_schema(
+                options_schema, self.config_entry.data
+            ),
         )
 
 
