@@ -196,6 +196,89 @@ class TestMdnsDiscovery:
             print()
 
 
+class TestMdnsZendureTcp:
+    """_zendure._tcp service type — per zenSDK docs, unconfirmed on live hardware."""
+
+    def test_zendure_tcp_devices_if_present(
+        self, zendure_devices: list[DiscoveredDevice]
+    ) -> None:
+        """If _zendure._tcp devices are found, they must have valid IP and SN."""
+        zendure_tcp = [d for d in zendure_devices if "_zendure._tcp" in d.service_type]
+        if not zendure_tcp:
+            pytest.skip(
+                "No _zendure._tcp device found (expected — unconfirmed service type)"
+            )
+        for d in zendure_tcp:
+            assert d.host, f"No IP for {d.name!r}"
+            assert d.sn, f"No SN for {d.name!r}"
+
+    def test_zendure_tcp_name_format(
+        self, zendure_devices: list[DiscoveredDevice]
+    ) -> None:
+        """Name format per docs: 'Zendure-<Model>-<last12Mac>' on _zendure._tcp."""
+        import re
+
+        zendure_tcp = [d for d in zendure_devices if "_zendure._tcp" in d.service_type]
+        if not zendure_tcp:
+            pytest.skip("No _zendure._tcp device on the network")
+        for d in zendure_tcp:
+            raw = d.name.split("._")[0]
+            # zenSDK docs say last segment is last 12 chars of MAC (hex, uppercase)
+            # Our regex also matches serial numbers — both are alphanum ≥8 chars
+            assert re.search(r"-([A-Z0-9]{8,})$", raw), (
+                f"Name segment does not match expected SN/MAC format: {raw!r}"
+            )
+
+
+class TestLocalDiscoveryHttp:
+    """Verify /properties/report HTTP call returns model + SN for live devices."""
+
+    def test_local_discovery_returns_device_info(
+        self, require_device: list[DiscoveredDevice]
+    ) -> None:
+        """GET /properties/report on a live device returns snNumber and productModel."""
+        import json
+        import urllib.request
+
+        device = require_device[0]
+        url = f"http://{device.host}:{device.port}/properties/report"
+        try:
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                data = json.loads(resp.read())
+        except OSError as exc:
+            pytest.skip(f"Could not reach {url}: {exc}")
+
+        device_list = data.get("deviceList", [])
+        assert device_list, f"/properties/report returned empty deviceList: {data!r}"
+        entry = device_list[0]
+        assert entry.get("snNumber"), f"snNumber missing in response: {entry!r}"
+        assert entry.get("productModel"), f"productModel missing in response: {entry!r}"
+
+    def test_local_discovery_sn_matches_mdns(
+        self, require_device: list[DiscoveredDevice]
+    ) -> None:
+        """SN from /properties/report must match the SN extracted from the mDNS name."""
+        import json
+        import urllib.request
+
+        device = require_device[0]
+        url = f"http://{device.host}:{device.port}/properties/report"
+        try:
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                data = json.loads(resp.read())
+        except OSError as exc:
+            pytest.skip(f"Could not reach {url}: {exc}")
+
+        device_list = data.get("deviceList", [])
+        if not device_list:
+            pytest.skip("Empty deviceList — cannot compare SNs")
+
+        http_sn = device_list[0].get("snNumber", "")
+        assert http_sn == device.sn, (
+            f"SN mismatch: mDNS={device.sn!r}, /properties/report={http_sn!r}"
+        )
+
+
 class TestMdnsScanWithoutDevice:
     """Validates scan behavior when no device is on the network.
 
@@ -228,3 +311,17 @@ class TestMdnsScanWithoutDevice:
             service_type="_http._tcp.local.",
         )
         assert device.sn == "abc123"
+
+    def test_zendure_tcp_name_format_regex(self) -> None:
+        """zenSDK MAC-based name format is also matched by our SN regex."""
+        import re
+
+        # zenSDK docs example: Zendure-SolarFlow800-WOB1NHMAMXXXXX3
+        device = DiscoveredDevice(
+            name="Zendure-SolarFlow800-WOB1NHMAMXXXXX3._zendure._tcp.local.",
+            host="192.168.10.80",
+            port=80,
+            service_type="_zendure._tcp.local.",
+        )
+        assert re.search(r"-([A-Z0-9]{8,})$", device.name.split("._")[0])
+        assert device.sn == "WOB1NHMAMXXXXX3"

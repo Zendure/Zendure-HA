@@ -53,7 +53,9 @@ ignore = [
     "S101",
     "T201",    # print() is intentional in integration test output
     "D213",    # docstring style — module docstring layout is fine as-is
+    "D403",    # zenSDK is a proper noun, not a capitalisation error
     "PLR2004", # magic values like port ranges are self-documenting in tests
+    "S310",    # urlopen to LAN device IP is intentional in integration tests
 ]
 
 [lint.flake8-pytest-style]
