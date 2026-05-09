@@ -49,6 +49,12 @@ ignore = [
     "ANN201", # return type annotations not required for test functions
     "ANN202", # return type annotations not required for private test helpers
 ]
+"tests/integration/**/*.py" = [
+    "S101",
+    "T201",    # print() is intentional in integration test output
+    "D213",    # docstring style — module docstring layout is fine as-is
+    "PLR2004", # magic values like port ranges are self-documenting in tests
+]
 
 [lint.flake8-pytest-style]
 fixture-parentheses = false
