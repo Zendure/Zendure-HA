@@ -327,9 +327,16 @@ class ZendureDevice(EntityDevice):
                     continue
 
                 if (bat := self.batteries.get(sn, None)) is None:
-                    self.batteries[sn] = ZendureBattery(self.hass, sn, self)
+                    bat = ZendureBattery(self.hass, sn, self)
+                    self.batteries[sn] = bat
 
-                elif bat and b:
+                # Always apply properties — including for newly created batteries.
+                # With elif, a new battery received no entityUpdate on its first packData
+                # message, so HA entities were never created until the *next* poll cycle
+                # (every 60 s).  This caused batteries to be invisible after a failed
+                # initial httpGet (e.g. brief WiFi outage at startup).
+                # See tests/device/test_battery_registration.py for regression coverage.
+                if bat and b:
                     for key, value in b.items():
                         if key != "sn":
                             bat.entityUpdate(key, value)
