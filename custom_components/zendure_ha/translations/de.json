@@ -13,6 +13,28 @@
     },
     "step": {
       "user": {
+        "title": "Zendure Integration einrichten",
+        "description": "Wie möchtest du dein Zendure-Gerät einrichten?",
+        "menu_options": {
+          "scan": "Gerät automatisch suchen (mDNS)",
+          "user_form": "Details manuell eingeben"
+        }
+      },
+      "scan": {
+        "title": "Suche läuft…",
+        "description": "Das lokale Netzwerk wird nach Zendure-Geräten durchsucht. Bitte warten."
+      },
+      "scan_confirm": {
+        "title": "Zendure-Gerät gefunden",
+        "description": "**{model}** (SN: `{sn}`) unter `{device_ip}` gefunden.\n\nDie IP-Adresse kann unten angepasst werden.\n\n> **Tipp:** Eine statische IP oder DHCP-Reservierung verhindert Verbindungsprobleme nach einem Router-Neustart.",
+        "data": {
+          "device_ip": "Geräte-IP-Adresse"
+        },
+        "data_description": {
+          "device_ip": "IP-Adresse des Zendure-Geräts. Automatisch per mDNS ermittelt — bei statischer IP hier anpassen."
+        }
+      },
+      "user_form": {
         "data": {
           "token": "Zendure Token",
           "device_ip": "Geräte-IP-Adresse (erforderlich für SolarFlow 800 Pro 2, sonst optional)",

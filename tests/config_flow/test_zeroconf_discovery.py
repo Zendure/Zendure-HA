@@ -197,7 +197,7 @@ class TestZeroconfConnect:
         flow.hass.async_create_task = MagicMock(return_value=done_future)
 
         await flow.async_step_zeroconf_connect()
-        flow.async_show_progress_done.assert_called_once_with(next_step_id="user")
+        flow.async_show_progress_done.assert_called_once_with(next_step_id="user_form")
 
     @pytest.mark.asyncio
     async def test_connect_failure_goes_to_zeroconf_failed(self):

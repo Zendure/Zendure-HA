@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
+import socket
 from typing import Any
 
 import voluptuous as vol
@@ -33,6 +35,58 @@ from .const import (
 from .manager import ZendureConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+_MDNS_SCAN_TIMEOUT = 5.0
+_MDNS_SERVICE_TYPES = ["_http._tcp.local.", "_zendure._tcp.local."]
+
+
+async def _scan_for_zendure(hass: Any) -> dict[str, str] | None:
+    """
+    Scan the local network for a Zendure device via mDNS.
+
+    Uses HA's shared zeroconf instance so no extra socket is opened.
+    Returns the first match as {device_ip, sn} or None.
+    """
+    from homeassistant.components.zeroconf import async_get_instance
+    from zeroconf import ServiceBrowser, ServiceStateChange
+
+    found: list[dict[str, str]] = []
+    zc = await async_get_instance(hass)
+
+    def _on_service(
+        zeroconf: Any,
+        service_type: str,
+        name: str,
+        state_change: ServiceStateChange,
+    ) -> None:
+        if found or state_change is not ServiceStateChange.Added:
+            return
+        if not name.startswith("Zendure-"):
+            return
+        info = zeroconf.get_service_info(service_type, name)
+        if not info:
+            return
+        addresses = info.parsed_scoped_addresses()
+        host = addresses[0] if addresses else ""
+        if not host:
+            try:
+                host = socket.inet_ntoa(info.addresses[0])
+            except (IndexError, OSError):
+                return
+        raw = name.split("._", maxsplit=1)[0]
+        m = re.search(r"-([A-Z0-9]{8,})$", raw)
+        sn = m.group(1) if m else raw.split("-")[-1]
+        found.append({"device_ip": host, "sn": sn})
+
+    browsers = [
+        ServiceBrowser(zc, svc, handlers=[_on_service])
+        for svc in _MDNS_SERVICE_TYPES
+    ]
+    await asyncio.sleep(_MDNS_SCAN_TIMEOUT)
+    for browser in browsers:
+        browser.cancel()
+
+    return found[0] if found else None
 
 
 class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -80,9 +134,82 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         self._connect_task: Any = None
 
     async def async_step_user(
+        self, _user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Entry point — show a menu to choose between auto-scan and manual setup."""
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["scan", "user_form"],
+        )
+
+    async def async_step_scan(
+        self, _user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Scan the local network for a Zendure device and show a progress spinner."""
+        if self._connect_task is None:
+            self._connect_task = self.hass.async_create_task(
+                self._scan_and_enrich()
+            )
+
+        if not self._connect_task.done():
+            return self.async_show_progress(
+                step_id="scan",
+                progress_action="scanning",
+                progress_task=self._connect_task,
+            )
+
+        try:
+            result = self._connect_task.result()
+        except Exception as err:
+            _LOGGER.error("Error during mDNS scan: %s", err)
+            result = None
+        finally:
+            self._connect_task = None
+
+        if result:
+            self._discovered = result
+            return await self.async_step_scan_confirm()
+        return await self.async_step_user_form()
+
+    async def _scan_and_enrich(self) -> dict[str, str] | None:
+        """Run mDNS scan then enrich result via LocalDiscovery."""
+        result = await _scan_for_zendure(self.hass)
+        if result:
+            info = await Api.LocalDiscovery(self.hass, result["device_ip"])
+            if info:
+                device = info.get("deviceList", [{}])[0]
+                result["sn"] = device.get("snNumber", result["sn"])
+                result["model"] = device.get("productModel", "")
+            else:
+                result["model"] = ""
+        return result
+
+    async def async_step_scan_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step when user initializes a integration."""
+        """Show the found device — user can adjust the IP before proceeding."""
+        if user_input is not None:
+            self._user_input[CONF_DEVICE_IP] = user_input[CONF_DEVICE_IP]
+            self._discovered["device_ip"] = user_input[CONF_DEVICE_IP]
+            return await self.async_step_user_form()
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_DEVICE_IP, default=self._discovered.get("device_ip", "")
+                ): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="scan_confirm",
+            data_schema=schema,
+            description_placeholders=self._discovered,
+        )
+
+    async def async_step_user_form(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Credentials form — pre-filled with IP if found via scan."""
         errors: dict[str, str] = {}
         if user_input is not None:
             self._user_input = self._user_input | user_input
@@ -123,7 +250,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = f"invalid input {err}"
 
         return self.async_show_form(
-            step_id="user",
+            step_id="user_form",
             data_schema=self.add_suggested_values_to_schema(
                 self.data_schema, self._user_input
             ),
@@ -249,7 +376,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
         if result is None:
             return self.async_show_progress_done(next_step_id="zeroconf_failed")
 
-        return self.async_show_progress_done(next_step_id="user")
+        return self.async_show_progress_done(next_step_id="user_form")
 
     async def async_step_zeroconf_failed(
         self, _user_input: dict[str, Any] | None = None

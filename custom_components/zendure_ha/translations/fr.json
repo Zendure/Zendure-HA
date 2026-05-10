@@ -13,6 +13,28 @@
     },
     "step": {
       "user": {
+        "title": "Configurer l'intégration Zendure",
+        "description": "Comment souhaitez-vous configurer votre appareil Zendure ?",
+        "menu_options": {
+          "scan": "Rechercher l'appareil automatiquement (mDNS)",
+          "user_form": "Saisir les détails manuellement"
+        }
+      },
+      "scan": {
+        "title": "Recherche en cours…",
+        "description": "Analyse du réseau local pour détecter les appareils Zendure. Veuillez patienter."
+      },
+      "scan_confirm": {
+        "title": "Appareil Zendure trouvé",
+        "description": "**{model}** (N/S : `{sn}`) trouvé à `{device_ip}`.\n\nVous pouvez modifier l'adresse IP ci-dessous si nécessaire.\n\n> **Conseil :** Une IP statique ou une réservation DHCP évite les problèmes de reconnexion après un redémarrage du routeur.",
+        "data": {
+          "device_ip": "Adresse IP de l'appareil"
+        },
+        "data_description": {
+          "device_ip": "Adresse IP de l'appareil Zendure. Préremplie via mDNS — modifiez si vous utilisez une IP statique."
+        }
+      },
+      "user_form": {
         "data": {
           "token": "Clé cloud d'autorisation Zendure",
           "device_ip": "Adresse IP de l'appareil (requis pour SolarFlow 800 Pro 2, sinon optionnel)",

@@ -13,6 +13,28 @@
     },
     "step": {
       "user": {
+        "title": "Zendure Integratie instellen",
+        "description": "Hoe wil je je Zendure-apparaat instellen?",
+        "menu_options": {
+          "scan": "Apparaat automatisch zoeken (mDNS)",
+          "user_form": "Details handmatig invoeren"
+        }
+      },
+      "scan": {
+        "title": "Zoeken…",
+        "description": "Het lokale netwerk wordt gescand op Zendure-apparaten. Even geduld."
+      },
+      "scan_confirm": {
+        "title": "Zendure-apparaat gevonden",
+        "description": "**{model}** (SN: `{sn}`) gevonden op `{device_ip}`.\n\nHet IP-adres kan hieronder worden aangepast.\n\n> **Tip:** Een statisch IP of DHCP-reservering voorkomt verbindingsproblemen na een herstart van de router.",
+        "data": {
+          "device_ip": "IP-adres van het apparaat"
+        },
+        "data_description": {
+          "device_ip": "IP-adres van het Zendure-apparaat. Automatisch ingevuld via mDNS — pas aan indien u een statisch IP gebruikt."
+        }
+      },
+      "user_form": {
         "data": {
           "username": "Zendure Gebruikersnaam",
           "password": "Zendure Wachtwoord",

@@ -17,7 +17,7 @@ def _make_flow(mocker: MockerFixture, device_ip: str) -> object:
     flow.async_create_entry = mocker.MagicMock(return_value={"type": "create_entry"})
     flow.async_show_form = mocker.MagicMock(return_value={"type": "form"})
     flow.async_step_local = mocker.AsyncMock(return_value={"type": "form"})
-    flow.async_step_user = types.MethodType(ZendureConfigFlow.async_step_user, flow)
+    flow.async_step_user_form = types.MethodType(ZendureConfigFlow.async_step_user_form, flow)
     return flow
 
 
@@ -51,14 +51,14 @@ class TestTokenFreeValidation:
         )
 
         flow = _make_flow(mocker, "192.168.10.99")
-        result = await flow.async_step_user(_token_free_input("192.168.10.99"))
+        result = await flow.async_step_user_form(_token_free_input("192.168.10.99"))
 
         flow.async_create_entry.assert_not_called()
         flow.async_show_form.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_reachable_device_ip_creates_entry(self, mocker: MockerFixture) -> None:
-        """If LocalDiscovery succeeds, async_step_user must create the config entry."""
+        """If LocalDiscovery succeeds, async_step_user_form must create the config entry."""
         mocker.patch(
             "custom_components.zendure_ha.config_flow.Api.Connect",
             new=mocker.AsyncMock(return_value={"deviceList": [
@@ -67,7 +67,7 @@ class TestTokenFreeValidation:
         )
 
         flow = _make_flow(mocker, "192.168.10.80")
-        await flow.async_step_user(_token_free_input("192.168.10.80"))
+        await flow.async_step_user_form(_token_free_input("192.168.10.80"))
 
         flow.async_create_entry.assert_called_once()
 
