@@ -70,3 +70,21 @@ class TestTokenFreeValidation:
         await flow.async_step_user(_token_free_input("192.168.10.80"))
 
         flow.async_create_entry.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_token_free_error_calls_connect_exactly_once(self, mocker: MockerFixture) -> None:
+        """When token-free Connect fails, must NOT fall through to the second Connect call.
+
+        Bug: when token_free+device_ip path sets errors["base"] (Connect returns None),
+        there is no early return, so execution continues into the second
+        `if await Api.Connect(...)` and calls the API a second time.
+        """
+        mock_connect = mocker.patch(
+            "custom_components.zendure_ha.config_flow.Api.Connect",
+            new=mocker.AsyncMock(return_value=None),
+        )
+
+        flow = _make_flow(mocker, "192.168.10.99")
+        await flow.async_step_user(_token_free_input("192.168.10.99"))
+
+        assert mock_connect.call_count == 1

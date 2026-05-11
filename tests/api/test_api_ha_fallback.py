@@ -57,3 +57,22 @@ class TestApiHAFallback:
 
         mock_local.assert_not_called()
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_cloud_empty_and_local_discovery_fails(
+        self, hass: object, mocker: MockerFixture
+    ) -> None:
+        """Empty cloud list + device_ip set + LocalDiscovery returns None → None (no broken entry)."""
+        from custom_components.zendure_ha.api import Api
+        from custom_components.zendure_ha.const import CONF_DEVICE_IP
+
+        import custom_components.zendure_ha.api as api_mod
+
+        session = mocker.MagicMock()
+        session.post = _mock_http_response(mocker, CLOUD_EMPTY)
+        mocker.patch.object(api_mod, "async_get_clientsession", return_value=session)
+        mocker.patch.object(Api, "LocalDiscovery", new=mocker.AsyncMock(return_value=None))
+
+        result = await Api.ApiHA(hass, {"token": self.TOKEN, CONF_DEVICE_IP: "192.168.10.80"})
+
+        assert result is None

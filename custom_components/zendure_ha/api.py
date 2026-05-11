@@ -128,8 +128,9 @@ class Api:
                 # load configuration from storage
                 if (storage := await store.async_load()) and isinstance(storage, dict):
                     devices = storage.get(ZENDURE_DEVICES, {})
-            else:
-                # Save configuration to storage
+            elif not devices.pop("_local_fallback_only", False):
+                # Save configuration to storage — but not when result is local-only fallback
+                # to avoid overwriting cached cloud devices with a degraded partial view
                 await store.async_save({ZENDURE_DEVICES: devices})
 
         return devices
@@ -206,6 +207,7 @@ class Api:
                 _LOGGER.error("Zendure API returned failure or missing data: %s", data)
                 return None
             result = dict(result)
+            cloud_was_empty = len(result.get("deviceList", [])) == 0
             # Mixed scenario: merge zenSDK local device into cloud device list
             if device_ip:
                 local = await Api.LocalDiscovery(hass, device_ip)
@@ -215,6 +217,13 @@ class Api:
                         if dev.get("snNumber") not in cloud_sns:
                             _LOGGER.info("Adding zenSDK device %s from local discovery to device list", dev.get("snNumber"))
                             result.setdefault("deviceList", []).append(dev)
+                    if cloud_was_empty:
+                        # Result is local-only — do not overwrite cached cloud devices in storage
+                        result["_local_fallback_only"] = True
+                elif cloud_was_empty:
+                    # Cloud empty AND local discovery failed — no valid setup possible
+                    _LOGGER.error("Cloud returned no devices and LocalDiscovery at %s failed — cannot complete setup.", device_ip)
+                    return None
             return result
 
         except Exception as e:

@@ -9,13 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **SolarFlow800Pro2 device class**: dedicated class with support for 4 independent solar inputs (`solarPower1`–`solarPower4`), replacing the generic `SolarFlow800Pro` fallback previously used for this model
-- `SolarFlow800Pro` now explicitly defines `solarPower1`/`solarPower2` with correct metadata (W, power, measurement)
+- `Api.LocalDiscovery()` — fallback device discovery via local zenSDK HTTP API (`GET /properties/report`) when cloud returns empty `deviceList`; returns serial number and product model directly from the device
+- Optional `device_ip` field in config flow UI to enable local discovery
+- **Token-free local setup**: when only `device_ip` is set (no token), the integration skips the cloud entirely and uses local zenSDK discovery only; `Api.Connect()` validates the device before creating a config entry
+- **Mixed device setup**: when `device_ip` is set alongside a token, cloud discovery and local zenSDK discovery are merged automatically — deduplicated by serial number, cloud MQTT credentials preserved
 
 ### Fixed
 
-- `SolarFlow800Pro` was used as stand-in for Pro 2 — replaced with dedicated `SolarFlow800Pro2` class
-- Added `"solarflow800pro2"` / `"solarflow 800 pro2"` → `SolarFlow800Pro2` mapping in `createdevice`
+- `Api.Init()` crashed with `KeyError: 'clientId'` when cloud returns empty `mqtt: {}` — now guarded
+- `ApiHA`: empty `deviceList` from cloud no longer discards cloud MQTT credentials; the local device from `LocalDiscovery` is merged in while preserving MQTT config
+- `Connect()` storage fallback now triggers on empty `deviceList`, not just on `None` — a response dict with `deviceList: []` is correctly treated as a cache miss
+- Token-free setup now validates the device via `Api.Connect()` before creating a config entry — an unreachable `device_ip` no longer silently creates a broken entry
+- Missing `productKey` field in `LocalDiscovery` response caused `KeyError` on device init
+- `setStatus()` `fuseGroup` check now correctly precedes the zenSDK online check — `fuseGroup=0` ("unused") is the intentional mechanism to disable a device in a multi-device group
+- `powerChanged()` crashed with `AttributeError: fuseGrp` for devices not assigned to a FuseGroup — now falls back to device limits directly
 
 ## [1.3.1] - 2026-04-28
 
