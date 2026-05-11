@@ -14,7 +14,6 @@
         "data": {
           "username": "Zendure Gebruikersnaam",
           "password": "Zendure Wachtwoord",
-          "device_ip": "Apparaat IP-adres (vereist voor SolarFlow 800 Pro 2, anders optioneel)",
           "p1meter": "P1 Sensor voor slimme matching",
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale MQTT gebruiken",
@@ -30,7 +29,6 @@
           "mqttuser": "MQTT Gebruiker",
           "mqttpsw": "MQTT Wachtwoord",
           "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
-          "auto_mqtt_setup": "zenSDK-apparaat MQTT automatisch configureren (vereist apparaat-IP)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Wachtwoord"
         }
@@ -39,7 +37,6 @@
         "data": {
           "username": "Zendure Gebruikersnaam",
           "password": "Zendure Wachtwoord",
-          "device_ip": "Apparaat IP-adres (vereist voor SolarFlow 800 Pro 2, anders optioneel)",
           "p1meter": "P1 Sensor voor slimme matching",
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale MQTT gebruiken",

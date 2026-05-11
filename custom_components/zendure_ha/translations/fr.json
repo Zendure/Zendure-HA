@@ -13,7 +13,6 @@
       "user": {
         "data": {
           "token": "Clé cloud d'autorisation Zendure",
-          "device_ip": "Adresse IP de l'appareil (requis pour SolarFlow 800 Pro 2, sinon optionnel)",
           "username": "Nom d'utilisateur Zendure",
           "password": "Mot de passe Zendure",
           "p1meter": "Capteur P1 pour le couplage intelligent",
@@ -31,7 +30,6 @@
           "mqttuser": "Utilisateur MQTT",
           "mqttpsw": "Mot de passe MQTT",
           "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT",
-          "auto_mqtt_setup": "Configurer automatiquement le MQTT de l'appareil zenSDK (nécessite l'IP de l'appareil)",
           "wifissid": "SSID Wi-Fi",
           "wifipsw": "Mot de passe Wi-Fi"
         }
@@ -39,7 +37,6 @@
       "reconfigure": {
         "data": {
           "token": "Clé cloud d'autorisation Zendure",
-          "device_ip": "Adresse IP de l'appareil (requis pour SolarFlow 800 Pro 2, sinon optionnel)",
           "username": "Nom d'utilisateur Zendure",
           "password": "Mot de passe Zendure",
           "p1meter": "Capteur P1 pour le couplage intelligent",

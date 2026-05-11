@@ -18,8 +18,6 @@ CONF_MQTTPSW = "mqttpsw"
 CONF_WIFISSID = "wifissid"
 CONF_WIFIPSW = "wifipsw"
 CONF_AUTO_MQTT_USER = "auto_mqtt_user"
-CONF_DEVICE_IP = "device_ip"
-CONF_AUTO_MQTT_SETUP = "auto_mqtt_setup"
 
 CONF_HAKEY = "C*dafwArEOXK"
 
