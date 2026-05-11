@@ -7,7 +7,9 @@
     "error": {
       "cannot_connect": "Verbindung fehlgeschlagen",
       "invalid_auth": "Ungültige Authentifizierung",
-      "unknown": "Unerwarteter Fehler"
+      "unknown": "Unerwarteter Fehler",
+      "mqtt_setup_failed": "MQTT-Einrichtung fehlgeschlagen — Broker-Adresse, Port und Zugangsdaten prüfen und erneut versuchen.",
+      "mqtt_setup_missing_device": "Automatische MQTT-Einrichtung erfordert eine Geräte-IP und eine passende zenSDK-Seriennummer. Geräte-IP eingeben oder automatische Einrichtung deaktivieren."
     },
     "step": {
       "user": {

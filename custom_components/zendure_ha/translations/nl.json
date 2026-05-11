@@ -7,7 +7,9 @@
     "error": {
       "cannot_connect": "Verbinding mislukt",
       "invalid_auth": "Ongeldige authenticatie",
-      "unknown": "Onverwachte fout"
+      "unknown": "Onverwachte fout",
+      "mqtt_setup_failed": "MQTT-installatie mislukt — controleer brokeradres, poort en inloggegevens en probeer het opnieuw.",
+      "mqtt_setup_missing_device": "Automatische MQTT-installatie vereist een apparaat-IP en een bijpassend zenSDK-serienummer. Voer het apparaat-IP in of schakel automatische installatie uit."
     },
     "step": {
       "user": {

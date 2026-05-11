@@ -7,7 +7,9 @@
     "error": {
       "cannot_connect": "Échec de la connexion",
       "invalid_auth": "Authentification invalide",
-      "unknown": "Erreur inattendue"
+      "unknown": "Erreur inattendue",
+      "mqtt_setup_failed": "Échec de la configuration MQTT — vérifiez l'adresse du broker, le port et les identifiants, puis réessayez.",
+      "mqtt_setup_missing_device": "La configuration automatique MQTT nécessite une IP d'appareil et un numéro de série zenSDK correspondant. Saisissez l'IP de l'appareil ou désactivez la configuration automatique."
     },
     "step": {
       "user": {
