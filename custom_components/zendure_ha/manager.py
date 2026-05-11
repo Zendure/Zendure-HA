@@ -436,8 +436,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge_optimal += d.charge_optimal
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
                     setpoint += -d.homeInput.asInt  # use gridInputPower directly; offgrid consumers are invisible to P1
-                # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
-                elif (home := d.homeOutput.asInt) > 0:
+                # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid.
+                # Also classify as discharge when the device has an off-grid load: on devices like the SF 2400 AC, outputHomePower reads 0
+                # even while the device is autonomously back-feeding the grid, so pwr_offgrid is our only reliable "device is running" signal.
+                elif (home := d.homeOutput.asInt) > 0 or (d.pwr_offgrid > 0 and d.state != DeviceState.SOCEMPTY):
                     self.discharge.append(d)
                     self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
