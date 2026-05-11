@@ -124,7 +124,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                     device_list = devices.get("deviceList", [])
                     sn = find_zensdk_sn(device_list, device_ip)
                     if device_ip and sn:
-                        await Api.ZenSdkMqttSetup(
+                        success = await Api.ZenSdkMqttSetup(
                             self.hass,
                             device_ip,
                             sn,
@@ -133,6 +133,8 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                             user_input.get(CONF_MQTTUSER, ""),
                             user_input.get(CONF_MQTTPSW, ""),
                         )
+                        if not success:
+                            errors["base"] = "mqtt_setup_failed"
             except Exception as err:  # pylint: disable=broad-except
                 errors["base"] = f"invalid input {err}"
             else:
