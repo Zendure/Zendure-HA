@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import traceback
+import random
 from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -560,7 +561,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # offGrid device need to be started with at least their offgrid power, otherwise they will not be recognized as charging
                 # but should not be started with more than pwr_offgrid if they are full
                 # if a offGrid device need to be started, the output power is set to 0 and it take all offGrid power from grid
-                start_pwr = SmartMode.POWER_START
+                start_pwr = SmartMode.POWER_START + random.randint(0, 10)
                 await d.power_charge(-start_pwr - max(0, d.pwr_offgrid) if d.state != DeviceState.SOCFULL else -max(0, d.pwr_offgrid))
                 if (dev_start := dev_start - d.charge_optimal * 2) >= 0:
                     break
