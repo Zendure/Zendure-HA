@@ -267,11 +267,10 @@ class TestLocalDiscoveryHttp:
         except OSError as exc:
             pytest.skip(f"Could not reach {url}: {exc}")
 
-        device_list = data.get("deviceList", [])
-        if not device_list:
-            pytest.skip("Empty deviceList — cannot compare SNs")
+        http_sn = data.get("sn", "")
+        if not http_sn:
+            pytest.skip("/properties/report did not return an sn field")
 
-        http_sn = device_list[0].get("snNumber", "")
         assert http_sn == device.sn, (
             f"SN mismatch: mDNS={device.sn!r}, /properties/report={http_sn!r}"
         )
