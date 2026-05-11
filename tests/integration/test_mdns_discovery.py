@@ -248,11 +248,9 @@ class TestLocalDiscoveryHttp:
         except OSError as exc:
             pytest.skip(f"Could not reach {url}: {exc}")
 
-        device_list = data.get("deviceList", [])
-        assert device_list, f"/properties/report returned empty deviceList: {data!r}"
-        entry = device_list[0]
-        assert entry.get("snNumber"), f"snNumber missing in response: {entry!r}"
-        assert entry.get("productModel"), f"productModel missing in response: {entry!r}"
+        # /properties/report returns the raw device payload: sn + product at top level
+        assert data.get("sn"), f"sn missing in /properties/report response: {data!r}"
+        assert data.get("product"), f"product missing in /properties/report response: {data!r}"
 
     def test_local_discovery_sn_matches_mdns(
         self, require_device: list[DiscoveredDevice]

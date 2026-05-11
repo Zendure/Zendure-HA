@@ -85,6 +85,6 @@ class TestTokenFreeValidation:
         )
 
         flow = _make_flow(mocker, "192.168.10.99")
-        await flow.async_step_user(_token_free_input("192.168.10.99"))
+        await flow.async_step_user_form(_token_free_input("192.168.10.99"))
 
         assert mock_connect.call_count == 1
