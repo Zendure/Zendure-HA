@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional `device_ip` field in config flow UI to enable local discovery
 - **Token-free local setup**: when only `device_ip` is set (no token), the integration skips the cloud entirely and uses local zenSDK discovery only; `Api.Connect()` validates the device before creating a config entry
 - **Mixed device setup**: when `device_ip` is set alongside a token, cloud discovery and local zenSDK discovery are merged automatically — deduplicated by serial number, cloud MQTT credentials preserved
+- **Local MQTT auto-setup**: the integration can automatically configure MQTT credentials on the zenSDK device via RPC — no manual broker setup required
+- **Real-time push via local MQTT**: state updates are pushed immediately over the local broker instead of being polled, reducing latency significantly
 
 ### Fixed
 
@@ -24,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `setStatus()` `fuseGroup` check now correctly precedes the zenSDK online check — `fuseGroup=0` ("unused") is the intentional mechanism to disable a device in a multi-device group
 - `powerChanged()` crashed with `AttributeError: fuseGrp` for devices not assigned to a FuseGroup — now falls back to device limits directly
 - Config entry migration now advances existing installations to the current schema version instead of leaving them at `1.5` — prevents repeated migration attempts on subsequent startups
+- `doCommand` for zenSDK devices now uses `httpPost` (like `entityWrite`) instead of MQTT discovery topics — fixes commands being silently ignored by the device
+- Auto-MQTT setup in mixed cloud+zenSDK setups no longer picks the wrong serial number; `find_zensdk_sn` matches by device IP, not list index
+- MQTT disconnect handler now clears `device.mqtt` so zenSDK polling via `httpGet` resumes correctly after a disconnect
+- `ZenSdkMqttSetup`: config flow now shows an error when MQTT setup fails instead of silently creating a broken entry
 
 ## [1.3.1] - 2026-04-28
 
