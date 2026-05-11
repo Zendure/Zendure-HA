@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing `productKey` field in `LocalDiscovery` response caused `KeyError` on device init
 - `setStatus()` `fuseGroup` check now correctly precedes the zenSDK online check — `fuseGroup=0` ("unused") is the intentional mechanism to disable a device in a multi-device group
 - `powerChanged()` crashed with `AttributeError: fuseGrp` for devices not assigned to a FuseGroup — now falls back to device limits directly
+- Config entry migration now advances existing installations to the current schema version instead of leaving them at `1.5` — prevents repeated migration attempts on subsequent startups
 
 ## [1.3.1] - 2026-04-28
 
