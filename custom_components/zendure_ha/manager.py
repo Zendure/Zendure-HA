@@ -577,9 +577,27 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.pwr_low = 0
 
         # stop charging devices
+        now = datetime.now()
         for d in self.charge:
-            # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
-            await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
+            # Charge deadband: don't stop a device that is actively balancing the grid (it IS the balance).
+            # If the small positive setpoint persists (solar dropped), ramp the commanded
+            # charge down — but only after CHARGE_DEADBAND_HOLD, so ramp-up jitter doesn't trigger it.
+            # The off-grid pass-through (pwr_offgrid) is preserved as a floor so we don't
+            # starve AC-fed off-grid loads.
+            if setpoint < SmartMode.POWER_START and d.homeInput.asInt > SmartMode.POWER_TOLERANCE:
+                if (now - d.charge_deadband_last).total_seconds() > SmartMode.CHARGE_DEADBAND_GAP:
+                    d.charge_deadband_since = now
+                d.charge_deadband_last = now
+                if d.charge_deadband_since and (now - d.charge_deadband_since).total_seconds() >= SmartMode.CHARGE_DEADBAND_HOLD:
+                    offgrid_floor = max(0, d.pwr_offgrid)
+                    battery_charge = max(0, d.limitInput.asInt - offgrid_floor)
+                    reduction = min(setpoint, battery_charge)
+                    await d.power_charge(-(battery_charge - reduction + offgrid_floor))
+                    setpoint -= reduction
+                continue
+            # Stop charging without flipping the device into discharge mode: stay in
+            # charge (acMode=1) with inputLimit equal to the offgrid pass-through floor.
+            await d.power_charge(-max(0, d.pwr_offgrid))
 
         # distribute discharging devices, use produced power first, before adding another device
         dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
