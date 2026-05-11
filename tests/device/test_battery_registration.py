@@ -158,3 +158,27 @@ class TestBatteryRegistrationRegression:
                     bat.entityUpdate(key, value)
 
         fake_bat.entityUpdate.assert_called_once_with("electricLevel", 75)
+
+
+class TestGhostBattery:
+    """Ghost batteries send only 'sn' — no real sensor data.
+
+    Cloud artifacts can produce packData entries that contain nothing but a
+    serial number.  These must not create visible HA entities: since 'sn' is
+    the only key and it is explicitly excluded from entityUpdate, the loop
+    produces no calls and the battery stays invisible in HA.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ghost_battery_does_not_call_entity_update(self, mocker: MockerFixture) -> None:
+        """packData with only 'sn' must not call entityUpdate — no visible entities created."""
+        device = _make_device(mocker)
+        fake_bat = mocker.MagicMock()
+        ghost_pack_data = [{"sn": "GHOST00000001"}]  # no real sensor fields
+        with patch(_BATTERY_PATH, return_value=fake_bat):
+            await device.mqttProperties({"packData": ghost_pack_data})
+
+        # Battery is registered in the dict (same as before)
+        assert "GHOST00000001" in device.batteries
+        # But entityUpdate is never called — ghost stays invisible in HA
+        fake_bat.entityUpdate.assert_not_called()

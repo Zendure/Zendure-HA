@@ -321,14 +321,14 @@ class ZendureDevice(EntityDevice):
                 self.entityUpdate(key, value)
 
         # update the battery properties
-        if batprops := payload.get("packData", None):
-            for b in batprops:
-                if (sn := b.get("sn", None)) is None:
+        if pack_data_list := payload.get("packData", None):
+            for pack_entry in pack_data_list:
+                if (sn := pack_entry.get("sn", None)) is None:
                     continue
 
-                if (bat := self.batteries.get(sn, None)) is None:
-                    bat = ZendureBattery(self.hass, sn, self)
-                    self.batteries[sn] = bat
+                if (battery := self.batteries.get(sn, None)) is None:
+                    battery = ZendureBattery(self.hass, sn, self)
+                    self.batteries[sn] = battery
 
                 # Always apply properties — including for newly created batteries.
                 # With elif, a new battery received no entityUpdate on its first packData
@@ -336,14 +336,14 @@ class ZendureDevice(EntityDevice):
                 # (every 60 s).  This caused batteries to be invisible after a failed
                 # initial httpGet (e.g. brief WiFi outage at startup).
                 # See tests/device/test_battery_registration.py for regression coverage.
-                if bat and b:
-                    for key, value in b.items():
+                if battery and pack_entry:
+                    for key, value in pack_entry.items():
                         if key != "sn":
-                            bat.entityUpdate(key, value)
+                            battery.entityUpdate(key, value)
 
             # Recalculate total capacity after every packData update
             # (covers both new batteries and potential pack changes)
-            self.kWh = sum(0 if b is None else b.kWh for b in self.batteries.values())
+            self.kWh = sum(0 if battery is None else battery.kWh for battery in self.batteries.values())
             self.totalKwh.update_value(self.kWh)
             self.availableKwh.update_value((self.electricLevel.asNumber - self.minSoc.asNumber) / 100 * self.kWh)
 
