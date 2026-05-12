@@ -454,6 +454,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 availableKwh += d.actualKwh
                 power += d.pwr_offgrid + home + d.pwr_produced
 
+        # Reset the charge-deadband timer for devices that are not currently
+        # classified as charging, so a future re-entry starts a fresh hold.
+        for d in self.devices:
+            if d not in self.charge:
+                d.charge_deadband_since = None
+
         # Update the power entities
         self.power.update_value(power)
         self.availableKwh.update_value(availableKwh)
@@ -586,10 +592,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             # jitter doesn't trigger it. The off-grid pass-through (pwr_offgrid) is preserved
             # as a floor so we don't starve AC-fed off-grid loads.
             if setpoint < SmartMode.POWER_START and d.homeInput.asInt > SmartMode.POWER_TOLERANCE:
-                if (now - d.charge_deadband_last).total_seconds() > SmartMode.CHARGE_DEADBAND_GAP:
+                if d.charge_deadband_since is None:
                     d.charge_deadband_since = now
-                d.charge_deadband_last = now
-                if d.charge_deadband_since and (now - d.charge_deadband_since).total_seconds() >= SmartMode.CHARGE_DEADBAND_HOLD:
+                elif (now - d.charge_deadband_since).total_seconds() >= SmartMode.CHARGE_DEADBAND_HOLD:
                     offgrid_floor = max(0, d.pwr_offgrid)
                     battery_charge = max(0, d.limitInput.asInt - offgrid_floor)
                     # Retire proportional to actual import so we land on balance instead of
@@ -600,8 +605,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     await d.power_charge(-(battery_charge - reduction + offgrid_floor))
                     setpoint -= reduction
                 continue
-            # Stop charging without flipping the device into discharge mode: stay in
-            # charge (acMode=1) with inputLimit equal to the offgrid pass-through floor.
+            # Out of the deadband condition — clear the timer so a future re-entry
+            # starts a fresh hold. Stop charging without flipping the device into
+            # discharge mode: stay in charge (acMode=1) with inputLimit equal to
+            # the offgrid pass-through floor.
+            d.charge_deadband_since = None
             await d.power_charge(-max(0, d.pwr_offgrid))
 
         # distribute discharging devices, use produced power first, before adding another device
