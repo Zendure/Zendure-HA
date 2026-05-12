@@ -577,8 +577,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         _LOGGER.info("Discharge => setpoint %sW", setpoint)
         self.operationstate.update_value(ManagerState.DISCHARGE.value if setpoint > 0 and self.discharge else ManagerState.IDLE.value)
 
-        # reset hysteria time
-        if self.charge_time != datetime.max:
+        # Reset hysteria only when there is actual discharge demand. At
+        # small/zero setpoints we are in deadband territory and may flip
+        # back to charge next cycle (e.g. due to the discharge_bypass clamp
+        # crossing zero); resetting here would force a fresh 60s blackout
+        # in power_charge that stops the active charge entirely.
+        if self.charge_time != datetime.max and setpoint >= SmartMode.POWER_START:
             self.charge_time = datetime.max
             self.pwr_low = 0
 
