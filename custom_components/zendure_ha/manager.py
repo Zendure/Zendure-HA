@@ -473,27 +473,27 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if setpoint < 0:
                     await self.power_charge(setpoint, time)
                 else:
-                    await self.power_discharge(setpoint)
+                    await self.power_discharge(setpoint, p1)
 
             case ManagerMode.MATCHING_DISCHARGE:
                 # Only discharge, do nothing if setpoint is negative
-                await self.power_discharge(max(0, setpoint))
+                await self.power_discharge(max(0, setpoint), p1)
 
             case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
                 # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
                 # d.pwr_produced is negative, but self.produced is positive
                 if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
-                    await self.power_discharge(min(self.produced, setpoint))
+                    await self.power_discharge(min(self.produced, setpoint), p1)
                 # send device into idle-mode
                 elif setpoint > 0:
-                    await self.power_discharge(0)
+                    await self.power_discharge(0, p1)
                 else:
                     await self.power_charge(min(0, setpoint), time)
 
             case ManagerMode.MANUAL:
                 # Manual power into or from home
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
-                    await self.power_discharge(setpoint)
+                    await self.power_discharge(setpoint, p1)
                 else:
                     await self.power_charge(setpoint, time)
 
@@ -566,7 +566,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     break
             self.pwr_low: int = 0
 
-    async def power_discharge(self, setpoint: int) -> None:
+    async def power_discharge(self, setpoint: int, p1: int) -> None:
         """Discharge devices."""
         _LOGGER.info("Discharge => setpoint %sW", setpoint)
         self.operationstate.update_value(ManagerState.DISCHARGE.value if setpoint > 0 and self.discharge else ManagerState.IDLE.value)
@@ -580,10 +580,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         now = datetime.now()
         for d in self.charge:
             # Charge deadband: don't stop a device that is actively balancing the grid (it IS the balance).
-            # If the small positive setpoint persists (solar dropped), ramp the commanded
-            # charge down — but only after CHARGE_DEADBAND_HOLD, so ramp-up jitter doesn't trigger it.
-            # The off-grid pass-through (pwr_offgrid) is preserved as a floor so we don't
-            # starve AC-fed off-grid loads.
+            # If grid import persists while this device is charging, ramp the commanded charge
+            # down using observed p1 — not setpoint, which the discharge_bypass clamp can pin
+            # to 0 even when the import is real. Only after CHARGE_DEADBAND_HOLD, so ramp-up
+            # jitter doesn't trigger it. The off-grid pass-through (pwr_offgrid) is preserved
+            # as a floor so we don't starve AC-fed off-grid loads.
             if setpoint < SmartMode.POWER_START and d.homeInput.asInt > SmartMode.POWER_TOLERANCE:
                 if (now - d.charge_deadband_last).total_seconds() > SmartMode.CHARGE_DEADBAND_GAP:
                     d.charge_deadband_since = now
@@ -591,7 +592,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if d.charge_deadband_since and (now - d.charge_deadband_since).total_seconds() >= SmartMode.CHARGE_DEADBAND_HOLD:
                     offgrid_floor = max(0, d.pwr_offgrid)
                     battery_charge = max(0, d.limitInput.asInt - offgrid_floor)
-                    reduction = min(setpoint, battery_charge)
+                    # Retire proportional to actual import so we land on balance instead of
+                    # overshooting into export (which would trigger a charge ramp-up the next
+                    # cycle, oscillating). Hold steady at p1 <= 0; sub-tolerance imports are
+                    # absorbed by the device-level no-action check on power_charge.
+                    reduction = min(p1, battery_charge) if p1 > 0 else 0
                     await d.power_charge(-(battery_charge - reduction + offgrid_floor))
                     setpoint -= reduction
                 continue
