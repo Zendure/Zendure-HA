@@ -447,6 +447,14 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.discharge_produced -= d.pwr_produced
                     self.discharge_weight += d.pwr_max * d.electricLevel.asInt
                     setpoint += home
+                    # When a device is in discharge only because of pwr_offgrid (no home output),
+                    # it can still absorb surplus from another device's SOCFULL bypass. Expose it
+                    # as an idle candidate too, so power_charge can engage it before a sibling
+                    # device starts charging autonomously from AC.
+                    if home == 0 and d.state != DeviceState.SOCFULL:
+                        self.idle.append(d)
+                        self.idle_lvlmax = max(self.idle_lvlmax, d.electricLevel.asInt)
+                        self.idle_lvlmin = min(self.idle_lvlmin, d.electricLevel.asInt)
 
                 else:
                     self.idle.append(d)
