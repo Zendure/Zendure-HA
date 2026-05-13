@@ -144,15 +144,18 @@ class ACE1500(ZendureLegacy):
         and rate-limiting. Each property write goes to the ACE 1500's flash
         memory, so an unguarded 5-second control loop would burn through
         endurance in months. Quantize to 50 W steps and throttle to one
-        write per 30 s. target=0 (stop charging) is exempted from the rate
-        limit so we can drop charging promptly when surplus disappears."""
+        write per 30 s — applies uniformly to start and stop so a surplus
+        that briefly crosses the quantization step doesn't trigger a
+        50W-write immediately followed by a 0W-write. The cost is that a
+        sustained drop in surplus keeps the device drawing its last
+        commanded value for up to one interval; that's bounded and small,
+        and worth it for flash endurance."""
         target = (target // _INPUT_LIMIT_STEP_W) * _INPUT_LIMIT_STEP_W
         now = datetime.now()
         if target == self._last_input_limit:
             return
         if (
-            target != 0
-            and self._last_input_limit is not None
+            self._last_input_limit is not None
             and now - self._last_input_limit_time < _INPUT_LIMIT_MIN_INTERVAL
         ):
             return
