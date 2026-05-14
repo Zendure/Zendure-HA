@@ -435,7 +435,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge_limit += d.fuseGrp.charge_limit(d)
                     self.charge_optimal += d.charge_optimal
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
-                    setpoint += -d.homeInput.asInt  # use gridInputPower directly; offgrid consumers are invisible to P1
+                    # The homeInput credit against setpoint is applied after the loop,
+                    # gated on the sign of p1 — see below.
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
                 elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
@@ -457,6 +458,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # Update the power entities
         self.power.update_value(power)
         self.availableKwh.update_value(availableKwh)
+
+        # Credit charge-group homeInput against setpoint only when the grid meter shows
+        # actual export (p1 < 0). With p1 < 0 the export means home production exceeds
+        # device draw, so each charging device is genuinely absorbing surplus from the
+        # home bus and the discharge side can be reduced accordingly. With p1 >= 0 there
+        # is no export to absorb: the charging draw is grid-driven (or off-grid
+        # pass-through the firmware can't satisfy from the device's own solar) and must
+        # be covered by discharge instead of credited as surplus absorption.
+        if p1 < 0:
+            setpoint -= sum(d.homeInput.asInt for d in self.charge)
 
         # discharge_bypass accumulates the solar-only power produced by SOCFULL devices.
         # Subtract it from setpoint to avoid over-discharging from grid, but clamp so
