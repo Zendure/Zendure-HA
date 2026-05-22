@@ -209,7 +209,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             except Exception as err:
                 _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", device.name, device.deviceId, err, exc_info=True)
 
-        # Update the fusegroups and select optins for each device
+        # Update the fusegroups and select options for each device
         for device in self.devices:
             try:
                 fusegroups: dict[Any, str] = {
