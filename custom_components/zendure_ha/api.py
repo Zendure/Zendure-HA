@@ -70,6 +70,7 @@ class Api:
         "solarflow 2400 ac": SolarFlow2400AC,
         "solarflow 2400 ac+": SolarFlow2400AC_Plus,
         "solarflow 2400 pro": SolarFlow2400Pro,
+        "solarflow4000ac+": SolarFlow4000AC_Plus,
         "superbase v6400": SuperBaseV6400,
         "superbase v4600": SuperBaseV4600,
     }
