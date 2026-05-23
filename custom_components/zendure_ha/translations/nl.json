@@ -194,7 +194,8 @@
         "state": {
           "0": "Inactief",
           "1": "Laden",
-          "2": "Ontladen"
+          "2": "Ontladen",
+          "3": "UPS"
         }
       },
       "operation_state": {
@@ -238,6 +239,15 @@
       "pack_input_power": {
         "name": "Batterij Ontladen"
       },
+      "pass": {
+        "name": "Bypass",
+        "state": {
+          "0": "Uit",
+          "1": "Aan",
+          "2": "Aan",
+          "3": "Directe netlevering"
+        }
+      },      
       "output_pack_power": {
         "name": "Batterij Laden"
       },

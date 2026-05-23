@@ -232,7 +232,8 @@
         "state": {
           "0": "Sleeping",
           "1": "Charging",
-          "2": "Discharging"
+          "2": "Discharging",
+          "3": "UPS"
         }
       },
       "operation_state": {
@@ -284,7 +285,8 @@
         "state": {
           "0": "Off",
           "1": "On",
-          "2": "Auto On"
+          "2": "On",
+          "3": "Grid direct supply"
         }
       },
       "hyper_2000_pass": {
