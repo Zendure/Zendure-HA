@@ -244,10 +244,10 @@
       "soc_level": {
         "name": "Ladezustand (SoC)"
       },
-      "global_soc": { 
+      "global_soc": {
         "name": "Globaler Akku-SOC" 
       },
-      "efficiency": { 
+      "efficiency": {
         "name": "Wirkungsgrad" 
       },
       "max_temp": {

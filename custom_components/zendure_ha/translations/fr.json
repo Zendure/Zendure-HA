@@ -222,10 +222,10 @@
       "soc_level": {
         "name": "Niveau de charge"
       },
-      "global_soc": { 
+      "global_soc": {
         "name": "SOC global" 
       },
-      "efficiency": { 
+      "efficiency": {
         "name": "Rendement" 
       },
       "max_temp": {
