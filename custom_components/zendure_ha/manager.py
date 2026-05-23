@@ -210,7 +210,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             except Exception as err:
                 _LOGGER.error("Unable to create fusegroup for device %s (%s): %s", device.name, device.deviceId, err, exc_info=True)
 
-        # Update the fusegroups and select optins for each device
+        # Update the fusegroups and select options for each device
         for device in self.devices:
             try:
                 fusegroups: dict[Any, str] = {
@@ -438,11 +438,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.charge_limit += d.fuseGrp.charge_limit(d)
                     self.charge_optimal += d.charge_optimal
                     self.charge_weight += d.pwr_max * (100 - d.electricLevel.asInt)
-                    setpoint += -d.homeInput.asInt  # use gridInputPower directly; offgrid consumers are invisible to P1
+                    # Credit only the portion of homeInput that reaches the battery; AC
+                    # drawn but not stored is real demand on the home bus, not surplus.
+                    setpoint -= min(d.homeInput.asInt, d.batteryInput.asInt)
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
                 elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
-                    self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
+                    self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL and d.exports_bypass else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced

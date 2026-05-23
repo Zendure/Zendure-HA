@@ -70,6 +70,7 @@ class Api:
         "solarflow 2400 ac": SolarFlow2400AC,
         "solarflow 2400 ac+": SolarFlow2400AC_Plus,
         "solarflow 2400 pro": SolarFlow2400Pro,
+        "solarflow4000ac+": SolarFlow4000AC_Plus,
         "superbase v6400": SuperBaseV6400,
         "superbase v4600": SuperBaseV4600,
     }
@@ -292,10 +293,10 @@ class Api:
                         device.mqtt = client
                         device.setStatus()
 
-                    # if device.zendure is None:
-                    #     psw = hashlib.md5(device.deviceId.encode()).hexdigest().upper()[8:24]  # noqa: S324
-                    #     device.zendure = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2, device.deviceId, False, "zendure")
-                    #     self.mqttInit(device.zendure, Api.cloudServer, Api.cloudPort, device.deviceId, psw)
+                    if device.zendure is None:
+                        psw = hashlib.md5(device.deviceId.encode()).hexdigest().upper()[8:24]  # noqa: S324
+                        device.zendure = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2, device.deviceId, False, "zendure")
+                        self.mqttInit(device.zendure, Api.cloudServer, Api.cloudPort, device.deviceId, psw)
 
                     if device.zendure is not None and device.zendure.is_connected():
                         payload["isHA"] = True

@@ -140,6 +140,7 @@ class ZendureDevice(EntityDevice):
         self.pwr_produced: int = 0
         self.actualKwh: float = 0.0
         self.state: DeviceState = DeviceState.OFFLINE
+        self.exports_bypass: bool = True
 
         self.create_entities()
 
@@ -157,7 +158,8 @@ class ZendureDevice(EntityDevice):
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", fuseGroups, None)
         self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)
         self.electricLevel = ZendureSensor(self, "electricLevel", None, "%", "battery", "measurement")
-        self.homeInput = ZendureSensor(self, "gridInputPower", None, "W", "power", "measurement")
+        # set homeInput to 0 for devices, which have no AC charge capability
+        self.homeInput = ZendureSensor(self, "gridInputPower", None, "W", "power", "measurement", state = 0)
         self.solarInput = ZendureSensor(self, "solarInputPower", None, "W", "power", "measurement", icon="mdi:solar-panel")
         self.batteryInput = ZendureSensor(self, "outputPackPower", None, "W", "power", "measurement")
         self.batteryOutput = ZendureSensor(self, "packInputPower", None, "W", "power", "measurement")
@@ -262,6 +264,8 @@ class ZendureDevice(EntityDevice):
                         if self.electricLevel.asInt == 100:
                             self.nextCalibration.update_value(dt_util.now() + timedelta(days=30))
                         self.availableKwh.update_value((self.electricLevel.asNumber - self.minSoc.asNumber) / 100 * self.kWh)
+                    case "gridReverse":
+                        self.exports_bypass = value != 2
         except Exception as e:
             _LOGGER.error("EntityUpdate error %s %s %s!", self.name, key, e)
             _LOGGER.error(traceback.format_exc())
@@ -344,9 +348,15 @@ class ZendureDevice(EntityDevice):
                     continue
 
                 if (bat := self.batteries.get(sn, None)) is None:
-                    self.batteries[sn] = ZendureBattery(self.hass, sn, self)
+                    bat = ZendureBattery(self.hass, sn, self)
+                    self.batteries[sn] = bat
 
-                elif bat and b:
+                # Always apply properties — including for newly created batteries.
+                # With elif, a new battery received no entityUpdate on its first packData
+                # message, so HA entities were never created until the *next* poll cycle
+                # (every 60 s).  This caused batteries to be invisible after a failed
+                # initial httpGet (e.g. brief WiFi outage at startup).
+                if bat and b:
                     for key, value in b.items():
                         if key != "sn":
                             bat.entityUpdate(key, value)
@@ -635,9 +645,10 @@ class ZendureDevice(EntityDevice):
     async def power_charge(self, power: int) -> int:
         """Set charge power."""
         power = min(0, max(power, self.charge_limit))
-        if abs(power - self.homeInput.asInt + self.homeOutput.asInt) <= SmartMode.POWER_TOLERANCE:
+        """power is here a negative value, but homeInput and homeOutput are always positive"""
+        if abs(power + self.homeInput.asInt - self.homeOutput.asInt) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.info("Power charge %s => no action [power %s]", self.name, power)
-            return self.homeInput.asInt
+            return - self.homeInput.asInt
         return await self.charge(power)
 
     async def discharge(self, _power: int) -> int:
@@ -759,15 +770,15 @@ class ZendureZenSdk(ZendureDevice):
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
         _LOGGER.info("Power charge %s => %s", self.name, power)
-        if power == -SmartMode.POWER_START and self.limitInput.asInt == -SmartMode.POWER_START and self.homeInput.asInt == 0:
-            power -= 10
+        if power == -SmartMode.POWER_START and self.limitInput.asInt <= -SmartMode.POWER_START and self.homeInput.asInt == 0:
+            power = max(self.limitInput.asInt - 4, -2 * SmartMode.POWER_START)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power
 
     async def discharge(self, power: int) -> int:
         _LOGGER.info("Power discharge %s => %s", self.name, power)
-        if power == SmartMode.POWER_START and self.limitOutput.asInt == SmartMode.POWER_START and self.homeOutput.asInt == 0:
-            power += 10
+        if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
+            power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
         return power
 
