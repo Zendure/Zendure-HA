@@ -218,7 +218,7 @@
         "name": "Elektriciteitsniveau (SoC)"
       },
       "global_soc": {
-         "name": "Globale batterij SOC" 
+         "name": "Globale batterij SOC"
       },
       "efficiency": {
         "name": "Rendement"

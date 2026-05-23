@@ -256,10 +256,10 @@
         "name": "Electricity Level (SoC)"
       },
       "global_soc": {
-        "name": "Global Battery SOC" 
+        "name": "Global Battery SOC"
       },
       "efficiency": {
-        "name": "Efficiency" 
+        "name": "Efficiency"
       },
       "max_temp": {
         "name": "Highest Cell Temperature"

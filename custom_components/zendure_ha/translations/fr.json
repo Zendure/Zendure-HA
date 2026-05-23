@@ -223,10 +223,10 @@
         "name": "Niveau de charge"
       },
       "global_soc": {
-        "name": "SOC global" 
+        "name": "SOC global"
       },
       "efficiency": {
-        "name": "Rendement" 
+        "name": "Rendement"
       },
       "max_temp": {
         "name": "Température maximale"
