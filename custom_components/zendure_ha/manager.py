@@ -441,7 +441,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
                 elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
-                    self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL else 0
+                    self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL and d.exports_bypass else 0
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced
