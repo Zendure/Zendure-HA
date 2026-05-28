@@ -1,0 +1,500 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Urządzenie jest już skonfigurowane",
+      "reconfigure_successful": "Rekonfiguracja zakończona pomyślnie"
+    },
+    "error": {
+      "cannot_connect": "Nie udało się połączyć",
+      "invalid_auth": "Nieprawidłowe dane uwierzytelniające",
+      "unknown": "Nieoczekiwany błąd"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "token": "Token Zendure",
+          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
+          "mqttlog": "Rejestruj komunikację MQTT",
+          "mqttlocal": "Użyj lokalnego MQTT",
+          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "wifissid": "SSID sieci Wi-Fi",
+          "wifipsw": "Hasło Wi-Fi"
+        }
+      },
+      "local": {
+        "data": {
+          "mqttserver": "Serwer MQTT",
+          "mqttport": "Port MQTT",
+          "mqttuser": "Użytkownik MQTT",
+          "mqttpsw": "Hasło MQTT",
+          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "wifissid": "SSID sieci Wi-Fi",
+          "wifipsw": "Hasło Wi-Fi"
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "token": "Token Zendure",
+          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
+          "mqttlog": "Rejestruj komunikację MQTT",
+          "mqttlocal": "Użyj lokalnego MQTT",
+          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "wifissid": "SSID sieci Wi-Fi",
+          "wifipsw": "Hasło Wi-Fi"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
+          "mqttlog": "Rejestruj komunikację MQTT",
+          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT"
+        },
+        "description": "Zmień swoje opcje.",
+        "title": "Opcje integracji Zendure"
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "mqtt_reset": {
+        "name": "Resetuj połączenie"
+      }
+    },
+    "binary_sensor": {
+      "master_switch": {
+        "name": "Przełącznik główny"
+      },
+      "wifi_state": {
+        "name": "Stan Wi-Fi"
+      },
+      "heat_state": {
+        "name": "Ogrzewanie baterii"
+      },
+      "rest_state": {
+        "name": "Tryb oszczędzania energii"
+      },
+      "reverse_state": {
+        "name": "Stan przepływu zwrotnego"
+      },
+      "local_state": {
+        "name": "Połączenie lokalne"
+      },
+      "ct_off": {
+        "name": "CT odłączony"
+      },
+      "low_temperature": {
+        "name": "Niska temperatura"
+      },
+      "hems_state": {
+        "name": "HEMS aktywny"
+      }
+    },
+    "number": {
+      "input_limit": {
+        "name": "Limit wejścia AC"
+      },
+      "output_limit": {
+        "name": "Limit wyjścia"
+      },
+      "manual_power": {
+        "name": "Moc ustawiana ręcznie"
+      },
+      "min_soc": {
+        "name": "Minimalne SoC"
+      },
+      "soc_set": {
+        "name": "Docelowe SoC"
+      },
+      "min_battery_output_power": {
+        "name": "Minimalne rozładowanie"
+      }
+    },
+    "sensor": {
+      "ambient_light_color": {
+        "name": "Kolor światła otoczenia"
+      },
+      "available_kwh": {
+        "name": "Dostępna energia"
+      },
+      "total_kwh": {
+        "name": "Całkowita pojemność baterii"
+      },
+      "auto_model": {
+        "name": "Program baterii",
+        "state": {
+          "0": "Brak",
+          "6": "Tryb priorytetu baterii",
+          "7": "Tryb harmonogramu",
+          "8": "Tryb inteligentnego dopasowania",
+          "9": "Tryb inteligentnego CT",
+          "10": "Cena energii elektrycznej"
+        }
+      },
+      "aggr_charge": {
+        "name": "Całkowita naładowana energia"
+      },
+      "aggr_discharge": {
+        "name": "Całkowita rozładowana energia"
+      },
+      "aggr_output_home": {
+        "name": "Całkowita energia domowa"
+      },
+      "aggr_solar": {
+        "name": "Całkowita energia słoneczna"
+      },
+      "aggr_grid_input_power": {
+        "name": "Całkowita energia z sieci"
+      },
+      "aggr_grid_off_power": {
+        "name": "Całkowita energia off-grid"
+      },
+      "grid_input_power": {
+        "name": "Moc wejściowa sieci"
+      },
+      "grid_off_power": {
+        "name": "Moc off-grid"
+      },
+      "plug_state": {
+        "name": "Listwa off-grid",
+        "state": {
+          "0": "niedostępna",
+          "1": "podłączona"
+        }
+      },
+      "connection_status": {
+        "name": "Status połączenia",
+        "state": {
+          "0": "Nieznany",
+          "1": "Kalibracja",
+          "2": "HEMS",
+          "3": "Brak grupy bezpiecznikowej",
+          "10": "Połączono z chmurą",
+          "11": "Połączono lokalnie",
+          "12": "Połączono (zenSDK)"
+        }
+      },
+      "soh": {
+        "name": "SoH"
+      },
+      "soc_status": {
+        "name": "Stan kalibracji SoC",
+        "state": {
+          "0": "Praca",
+          "1": "Automatyczna kalibracja"
+        }
+      },
+      "soc_limit": {
+        "name": "Stan limitu SoC",
+        "state": {
+          "0": "Normalny",
+          "1": "Ograniczanie",
+          "2": "Pełny"
+        }
+      },
+      "hub_state": {
+        "name": "Status huba",
+        "state": {
+          "0": "Zatrzymaj wyjście i przejdź w stan gotowości",
+          "1": "Zatrzymaj wyjście i wyłącz"
+        }
+      },
+      "pack_num": {
+        "name": "Liczba baterii"
+      },
+      "bat_volt": {
+        "name": "Napięcie baterii"
+      },
+      "electric_level": {
+        "name": "Bateria (SoC)"
+      },
+      "charging_mode": {
+        "name": "Tryb ładowania",
+        "state": {
+          "0": "Brak",
+          "1": "Tryb 1",
+          "2": "Tryb 2"
+        }
+      },
+      "charging_type": {
+        "name": "Typ ładowania",
+        "state": {
+          "0": "Typ 0",
+          "1": "Typ 1",
+          "2": "Typ 2"
+        }
+      },
+      "charging_time": {
+        "name": "Czas ładowania"
+      },
+      "pack_state": {
+        "name": "Stan baterii",
+        "state": {
+          "0": "Uśpienie",
+          "1": "Ładowanie",
+          "2": "Rozładowanie"
+        }
+      },
+      "operation_state": {
+        "name": "Stan pracy",
+        "state": {
+          "0": "Bezczynny",
+          "1": "Ładowanie",
+          "2": "Rozładowanie",
+          "3": "Wyłączony"
+        }
+      },
+      "state": {
+        "name": "Stan",
+        "state": {
+          "0": "Uśpienie",
+          "1": "Ładowanie",
+          "2": "Rozładowanie"
+        }
+      },
+      "soc_level": {
+        "name": "Poziom naładowania (SoC)"
+      },
+      "max_temp": {
+        "name": "Najwyższa temperatura ogniwa"
+      },
+      "total_vol": {
+        "name": "Napięcie całkowite"
+      },
+      "max_vol": {
+        "name": "Najwyższe napięcie ogniwa"
+      },
+      "min_vol": {
+        "name": "Najniższe napięcie ogniwa"
+      },
+      "batcur": {
+        "name": "Prąd baterii"
+      },
+      "bat_in_out": {
+        "name": "Moc baterii"
+      },
+      "pack_input_power": {
+        "name": "Moc rozładowania baterii"
+      },
+      "power": {
+        "name": "Moc"
+      },
+      "pass": {
+        "name": "Bypass",
+        "state": {
+          "0": "Wyłączony",
+          "1": "Włączony",
+          "2": "Auto włączony"
+        }
+      },
+      "hyper_2000_pass": {
+        "name": "Stan bypass"
+      },
+      "output_pack_power": {
+        "name": "Moc ładowania baterii"
+      },
+      "solar_input_power": {
+        "name": "Moc wejściowa słoneczna"
+      },
+      "solar_power1": {
+        "name": "Moc PV1"
+      },
+      "solar_power2": {
+        "name": "Moc PV2"
+      },
+      "solar_power3": {
+        "name": "Moc PV3"
+      },
+      "solar_power4": {
+        "name": "Moc PV4"
+      },
+      "output_home_power": {
+        "name": "Moc wyjściowa do domu"
+      },
+      "hyper_tmp": {
+        "name": "Temperatura urządzenia"
+      },
+      "strength": {
+        "name": "Siła sygnału Wi-Fi"
+      },
+      "remaining_time": {
+        "name": "Pozostały czas"
+      },
+      "soft_version": {
+        "name": "Oprogramowanie BMS"
+      },
+      "dspversion": {
+        "name": "Oprogramowanie AC"
+      },
+      "master_soft_version": {
+        "name": "Oprogramowanie główne"
+      },
+      "masterhaer_version": {
+        "name": "Wersja sprzętowa"
+      },
+      "inverse_max_power": {
+        "name": "Maksymalna moc falownika"
+      },
+      "grid_power": {
+        "name": "Moc sieci"
+      },
+      "next_calibration": {
+        "name": "Następna kalibracja"
+      },
+      "switch_count": {
+        "name": "Liczba przełączeń"
+      },
+      "pv_brand": {
+        "name": "Marka falownika",
+        "state": {
+          "0": "Inny/Zintegrowany",
+          "1": "Hoymiles",
+          "2": "Enphase",
+          "3": "APsystems",
+          "4": "Anker",
+          "5": "Deye",
+          "6": "BossWerk",
+          "7": "TSun"
+        }
+      }
+    },
+    "select": {
+      "ac_mode": {
+        "name": "Tryb pracy AC",
+        "state": {
+          "input": "Tryb wejścia AC",
+          "output": "Tryb wyjścia AC"
+        }
+      },
+      "dc_switch": {
+        "name": "Port DC",
+        "state": {
+          "on": "Włączony/Wyjście",
+          "off": "Wyłączony/Wejście"
+        }
+      },
+      "hems_state": {
+        "name": "Stan HEMS",
+        "state": {
+          "off": "dezaktywowany",
+          "on": "aktywowany"
+        }
+      },
+      "auto_heat": {
+        "name": "Automatyczne ogrzewanie baterii",
+        "state": {
+          "off": "dezaktywowane",
+          "on": "aktywowane"
+        }
+      },
+      "fuse_group": {
+        "name": "Grupa bezpiecznikowa urządzenia",
+        "state": {
+          "unused": "Nieużywana, urządzenie nie ma grupy bezpiecznikowej",
+          "owncircuit": "Urządzenie ma własny obwód lub fazę",
+          "group800": "Grupa bezpiecznikowa maks. 800 W / 1200 W ładowanie",
+          "group800_2400": "Grupa bezpiecznikowa maks. 800 W / 2400 W ładowanie",
+          "group1200": "Grupa bezpiecznikowa maks. 1200 W",
+          "group2000": "Grupa bezpiecznikowa maks. 2000 W",
+          "group2400": "Grupa bezpiecznikowa maks. 2400 W",
+          "group3600": "Grupa bezpiecznikowa maks. 3600 W"
+        }
+      },
+      "connection": {
+        "name": "Tryb połączenia",
+        "state": {
+          "local": "Lokalny",
+          "cloud": "Chmura"
+        }
+      },
+      "ble_adapter": {
+        "name": "Adapter BLE",
+        "state": {
+          "auto": "Automatyczny"
+        }
+      },
+      "operation": {
+        "name": "Tryb pracy",
+        "state": {
+          "off": "Wyłączony",
+          "manual": "Ręczne ustawianie mocy",
+          "smart": "Inteligentne dopasowanie",
+          "smart_discharging": "Inteligentne rozładowanie",
+          "smart_charging": "Inteligentne ładowanie",
+          "store_solar": "Magazynowanie energii słonecznej"
+        }
+      },
+      "pass_mode": {
+        "name": "Tryb bypassa",
+        "state": {
+          "auto": "Auto",
+          "off": "Zawsze wyłączony",
+          "on": "Zawsze włączony"
+        }
+      },
+      "grid_off_mode": {
+        "name": "Tryb off-grid",
+        "state": {
+          "normal": "Normalny",
+          "eco": "Ekonomiczny",
+          "off": "Wyłączony"
+        }
+      },
+      "grid_reverse": {
+        "name": "Eksport energii",
+        "state": {
+          "disabled": "wyłączony",
+          "allow": "dozwolony",
+          "forbidden": "zabroniony"
+        }
+      },
+      "fan_speed": {
+        "name": "Prędkość wentylatora",
+        "state": {
+          "auto": "Auto",
+          "normal": "Normalna",
+          "fast": "Szybka"
+        }
+      },
+      "fanspeed": {
+        "name": "Inteligentna prędkość wentylatora",
+        "state": {
+          "auto": "Auto",
+          "normal": "Normalna",
+          "fast": "Szybka"
+        }
+      }
+    },
+    "switch": {
+      "lamp_switch": {
+        "name": "LED"
+      },
+      "ac_switch": {
+        "name": "Gniazdo AC"
+      },
+      "buzzer_switch": {
+        "name": "Buzzer"
+      },
+      "auto_recover": {
+        "name": "Reset trybu bypass"
+      },
+      "fan_switch": {
+        "name": "Wentylator"
+      },
+      "fanmode": {
+        "name": "Inteligentny wentylator"
+      }
+    }
+  },
+  "exceptions": {
+    "no_zendure_token": {
+      "message": "Nie podano tokenu Zendure."
+    },
+    "no_user_password": {
+      "message": "Nie podano nazwy użytkownika lub hasła."
+    }
+  }
+}
