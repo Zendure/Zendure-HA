@@ -34,7 +34,6 @@ class DeviceState(Enum):
     SOCFULL = 3
     ACTIVE = 4
 
-
 class ManagerMode(Enum):
     OFF = 0
     MANUAL = 1
@@ -43,6 +42,8 @@ class ManagerMode(Enum):
     MATCHING_CHARGE = 4
     STORE_SOLAR = 5
 
+
+DISCHARGE_MODES = frozenset({ManagerMode.MATCHING, ManagerMode.MATCHING_DISCHARGE, ManagerMode.STORE_SOLAR})
 
 class ManagerState(Enum):
     IDLE = 0

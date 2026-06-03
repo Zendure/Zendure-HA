@@ -29,6 +29,7 @@ from .const import (
     CONF_AUTO_MQTT_USER,
     CONF_P1METER,
     DOMAIN,
+    DISCHARGE_MODES,
     DeviceState,
     ManagerMode,
     ManagerState,
@@ -583,6 +584,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
             await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
 
+        discharging_mode = self.operation in DISCHARGE_MODES
+
         # distribute discharging devices, use produced power first, before adding another device
         dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
         solaronly = self.discharge_produced >= setpoint
@@ -613,10 +616,15 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 pwr = max(setpoint - limit, 0 if d.state != DeviceState.SOCFULL else -d.pwr_produced)
             pwr = min(pwr, setpoint, d.pwr_max)
 
-            # make sure we have devices in optimal working range
-            if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL:
+            # make sure we have devices in optimal working range if minOutput is not set
+            if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL and d.minOutput == 0:
                 self.pwr_low = 0 if (delta := d.discharge_start * 1.5 - pwr) <= 0 else self.pwr_low + int(delta)
                 pwr = 0 if self.pwr_low > d.discharge_optimal else pwr
+
+            if discharging_mode and (min_out := d.minOutput) > 0:
+                if pwr < min_out:
+                    _LOGGER.info("min_output_power set on %s: pwr=%sW -> %sW ", d.name, pwr, min_out)
+                pwr = max(pwr, min_out)
 
             setpoint -= await d.power_discharge(pwr)
             dev_start += 1 if pwr != 0 and d.electricLevel.asInt + 3 < self.idle_lvlmax else 0
@@ -626,7 +634,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.idle.sort(key=lambda d: d.electricLevel.asInt, reverse=True)
             for d in self.idle:
                 if d.state != DeviceState.SOCEMPTY:
-                    await d.power_discharge(SmartMode.POWER_START)
-                    if (dev_start := dev_start - d.discharge_optimal * 2) <= 0:
+                    if dev_start > 0 or (discharging_mode and d.minOutput > 0):
+                        await d.power_discharge(SmartMode.POWER_START if not discharging_mode else max(SmartMode.POWER_START, d.minOutput))
+                    if dev_start > 0 and (dev_start := dev_start - d.discharge_optimal * 2) <= 0 and not discharging_mode:
                         break
             self.pwr_low: int = 0

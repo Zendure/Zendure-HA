@@ -108,6 +108,9 @@
       },
       "soc_set": {
         "name": "Target SoC"
+      },
+      "min_output_power": {
+        "name": "Min Discharge"
       }
     },
     "sensor": {
