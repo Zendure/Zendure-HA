@@ -441,7 +441,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # SOCEMPTY means, it could not discharge the battery, but it is still possible to feed into the home using solarpower or offGrid
                 elif (home := d.homeOutput.asInt) > 0:
                     self.discharge.append(d)
-                    self.discharge_bypass -= d.pwr_produced if d.state == DeviceState.SOCFULL and d.exports_bypass else 0
+                    # Cap the bypass at the homeOutput actually added to the setpoint for this
+                    # device: pwr_produced can exceed homeOutput (internal trickle charge, sensor
+                    # skew), and subtracting more than was added fabricates a phantom negative
+                    # setpoint — the root cause of #1151.
+                    if d.state == DeviceState.SOCFULL and d.exports_bypass:
+                        self.discharge_bypass += min(-d.pwr_produced, home)
                     self.discharge_limit += d.fuseGrp.discharge_limit(d)
                     self.discharge_optimal += d.discharge_optimal
                     self.discharge_produced -= d.pwr_produced
@@ -460,13 +465,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.power.update_value(power)
         self.availableKwh.update_value(availableKwh)
 
-        # discharge_bypass accumulates the solar-only power produced by SOCFULL devices.
-        # Subtract it from setpoint to avoid over-discharging from grid, but clamp so
-        # setpoint never goes below 0 when p1 >= 0: a SOCFULL device producing solar
-        # should still cover home demand, not trigger charge mode (fixes #1151 output
-        # cycling to 0W with bypass forbidden + 100% SoC).
-        if self.discharge_bypass > 0:
-            setpoint = max(0 if p1 >= 0 else setpoint - self.discharge_bypass, setpoint - self.discharge_bypass)
+        # Bypass production of SOCFULL devices is non-dispatchable: it keeps flowing
+        # to the home regardless of the distribution (power_charge skips devices with
+        # byPass > 0). Remove it from the dispatchable setpoint. Because the per-device
+        # bypass is capped at its homeOutput contribution, this subtraction can never
+        # push the setpoint below "p1 - real charge credits": with no device charging
+        # and p1 >= 0, the result stays >= 0 — the #1151 guarantee holds structurally.
+        setpoint -= self.discharge_bypass
 
         # Update power distribution.
         _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW stored:%sW", p1, isFast, setpoint, self.produced)
