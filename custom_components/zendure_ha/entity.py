@@ -33,6 +33,16 @@ def snakecase(value: str) -> str:
     return value
 
 
+def entity_unique_id(device_key: str, uniqueid: str) -> str:
+    """
+    Build the unique_id of an entity from a stable device key (serial number) and the property name.
+
+    This single helper is shared by entity creation and registry migration so both
+    always produce the exact same value.
+    """
+    return snakecase(f"{device_key.lower()}_{uniqueid}")
+
+
 _LOGGER = logging.getLogger(__name__)
 
 CONST_FACTOR = 2
@@ -59,8 +69,14 @@ class EntityZendure(Entity):
             return
         self.device = device
         self.propertyName = uniqueid
-        self._attr_unique_id = snakecase(f"{self.device.name.lower()}_{uniqueid}")
-        self.internal_integration_suggested_object_id = self._attr_unique_id
+        # The unique_id is based on the serial number (stable & guaranteed unique), so two
+        # devices with names that slugify identically (e.g. 'SolarFlow 2400 AC' and
+        # 'SolarFlow 2400 AC+') can no longer collide. Devices without a serial number
+        # (e.g. the Zendure Manager) keep the name-based unique_id.
+        self._attr_unique_id = entity_unique_id(self.device.sn or self.device.name, uniqueid)
+        # The suggested entity_id stays name-based for readability; Home Assistant
+        # de-duplicates it automatically (suffix _2) when two devices share a slug.
+        self.internal_integration_suggested_object_id = snakecase(f"{self.device.name.lower()}_{uniqueid}")
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
         if domain and device.checkEntity is not None and self._attr_translation_key not in device.checkEntity:
@@ -236,6 +252,11 @@ class EntityDevice:
         for key, entries in ed.items():
             entityid = f"{entries[0].domain}.{name}_{key}"
             if len(entries) == 1 and entries[0].entity_id == entityid:
+                continue
+            # If the canonical entity_id is owned by an entity of another device (two devices
+            # whose names slugify identically, e.g. 'SolarFlow 2400 AC' and 'SolarFlow 2400 AC+'),
+            # leave the current (de-duplicated) entity_ids untouched instead of renaming/removing.
+            if (owner := entity_registry.async_get(entityid)) is not None and all(owner.id != e.id for e in entries):
                 continue
             _LOGGER.info("Update entity %s", entityid)
             if (found := next((x for x in entries if x.entity_id == entityid), entries[0])) is not None:

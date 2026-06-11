@@ -11,7 +11,7 @@ from homeassistant.helpers import restore_state as rs
 
 from .const import DOMAIN
 from .device import ZendureBattery
-from .entity import snakecase
+from .entity import entity_unique_id, snakecase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +45,57 @@ class Migration:
         if name != existing.name and existing.name_by_user is None:
             _LOGGER.info("Device '%s' renamed to '%s' in cloud, storing for next migration", existing.name, name)
             device_registry.async_update_device(existing.id, name_by_user=name)
+
+    @staticmethod
+    async def async_migrate_unique_ids(hass: HomeAssistant, entryid: str) -> None:
+        """
+        One-time migration: move entity unique_ids from the name-based scheme to the serial-number-based scheme.
+
+        Only the (invisible) unique_id in the entity registry is rewritten; the entity_id is
+        deliberately left untouched, so dashboards, automations, scripts and the recorder
+        history keep working without any user action.
+        """
+        device_registry = dr.async_get(hass)
+        entity_registry = er.async_get(hass)
+        migrated = 0
+
+        for device in dr.async_entries_for_config_entry(device_registry, entryid):
+            if not any(ident[0] == DOMAIN for ident in device.identifiers):
+                continue
+
+            # Devices without a serial number (e.g. the Zendure Manager) keep their
+            # name-based unique_ids; entity creation uses the same fallback.
+            sn = device.serial_number
+            if not sn:
+                continue
+
+            for entity in er.async_entries_for_device(entity_registry, device.id, True):
+                try:
+                    if entity.platform != DOMAIN or not entity.translation_key:
+                        continue
+
+                    # Normalize the translation_key the same way async_migrate does, so the
+                    # computed unique_id always matches what EntityZendure generates at runtime.
+                    uniqueid = Migration.repairs.get(entity.translation_key, entity.translation_key)
+                    if not uniqueid:
+                        continue
+
+                    new_unique_id = entity_unique_id(sn, uniqueid)
+                    if entity.unique_id == new_unique_id:
+                        continue
+
+                    # Safety net: never create a unique_id conflict (e.g. leftover duplicates).
+                    if entity_registry.async_get_entity_id(entity.domain, DOMAIN, new_unique_id) is not None:
+                        _LOGGER.warning("Skipping unique_id migration of %s, %s is already in use", entity.entity_id, new_unique_id)
+                        continue
+
+                    entity_registry.async_update_entity(entity.entity_id, new_unique_id=new_unique_id)
+                    migrated += 1
+                    _LOGGER.debug("Migrated unique_id of %s: %s -> %s", entity.entity_id, entity.unique_id, new_unique_id)
+                except Exception as e:
+                    _LOGGER.error("Failed to migrate unique_id of %s: %s", entity.entity_id, e)
+
+        _LOGGER.info("Zendure unique_id migration complete: %d entities now use the serial-number scheme", migrated)
 
     @staticmethod
     def _update_files(hass: HomeAssistant, changes: list[tuple[str, str]]) -> bool:
