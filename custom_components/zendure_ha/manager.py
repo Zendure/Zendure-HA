@@ -486,9 +486,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # d.pwr_produced is negative, but self.produced is positive
                 if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
                     await self.power_discharge(min(self.produced, setpoint))
-                # send device into idle-mode
-                elif setpoint > 0:
-                    await self.power_discharge(0)
                 else:
                     await self.power_charge(min(0, setpoint), time)
 
