@@ -743,7 +743,7 @@ class ZendureZenSdk(ZendureDevice):
             await self.httpWrite({entity.propertyName: value})
 
     async def httpWrite(self, properties: dict[str, Any]) -> None:
-        """Write manual properties; unlike regulation commands these must not get lost when the device is rebooting."""
+        """Write properties; pending writes are retried while the device is rebooting, a newer value replaces a pending one."""
         self.pendingWrites.update(properties)
         if self.writeTask is not None and not self.writeTask.done():
             # the active retry task will send the merged pending writes; avoid concurrent posts arriving out of order
@@ -809,11 +809,7 @@ class ZendureZenSdk(ZendureDevice):
 
     async def doCommand(self, command: Any) -> None:
         if self.connection.value != 0:
-            # Regulation commands are not retried; a stale power setpoint is corrected by the next cycle.
-            if await self.httpPost("properties/write", command) and self.pendingWrites:
-                # A successful regulation command supersedes older pending manual writes for the same properties.
-                for key in command.get("properties", {}):
-                    self.pendingWrites.pop(key, None)
+            await self.httpWrite(command.get("properties", {}))
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)
 
