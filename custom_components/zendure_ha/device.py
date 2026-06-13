@@ -238,7 +238,7 @@ class ZendureDevice(EntityDevice):
                             self.aggrCharge.aggregate(dt_util.now(), value)
                         self.aggrDischarge.aggregate(dt_util.now(), 0)
                         self.batInOut.update_value(self.batteryOutput.asInt - self.batteryInput.asInt)
-                        self._update_efficiency()
+                        self.efficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
                     case "packInputPower":
                         self.aggrCharge.aggregate(dt_util.now(), 0)
                         self.aggrDischarge.aggregate(dt_util.now(), value)
