@@ -464,10 +464,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # Update the power entities
         self.power.update_value(power)
         self.availableKwh.update_value(availableKwh)
-        if onlineKwh > 0:
-            self.globalSoc.update_value((totalStoredKwh / onlineKwh) * 100)
-        else:
-            self.globalSoc.update_value(0)
+        self.globalSoc.update_value((totalStoredKwh / onlineKwh * 100) if onlineKwh > 0 else 0)
 
         # discharge_bypass accumulates the solar-only power produced by SOCFULL devices.
         # Subtract it from setpoint to avoid over-discharging from grid, but clamp so
