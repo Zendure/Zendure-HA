@@ -54,7 +54,7 @@ def entity_slug(technical_name: str, sn: str, uniqueid: str) -> str:
     Only used as a *suggestion*: Home Assistant keeps the existing entity_id of entities already
     in the registry (matched by unique_id), so existing entities are never renamed.
     """
-    return snakecase(f"{technical_name.lower().replace('+', 'plus')}_{sn[-4:]}_{uniqueid}")
+    return snakecase(f"{technical_name.lower().replace('+', 'plus')}_{sn[-5:]}_{uniqueid}")
 
 
 _LOGGER = logging.getLogger(__name__)
