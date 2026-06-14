@@ -43,6 +43,20 @@ def entity_unique_id(device_key: str, uniqueid: str) -> str:
     return snakecase(f"{device_key.lower()}_{uniqueid}")
 
 
+def entity_slug(technical_name: str, sn: str, uniqueid: str) -> str:
+    """
+    Build the slug used as entity_id (object_id) for a *newly created* entity.
+
+    Format: <technical name, with '+' replaced by 'plus'>_<last 4 chars of the serial number>_<property>
+    e.g. technical_name='SolarFlow 2400 AC+', sn='...1230', uniqueid='outputPackPowerAvailability'
+         -> 'solarflow_2400_acplus_1230_output_pack_power_availability'
+
+    Only used as a *suggestion*: Home Assistant keeps the existing entity_id of entities already
+    in the registry (matched by unique_id), so existing entities are never renamed.
+    """
+    return snakecase(f"{technical_name.lower().replace('+', 'plus')}_{sn[-4:]}_{uniqueid}")
+
+
 _LOGGER = logging.getLogger(__name__)
 
 CONST_FACTOR = 2
@@ -74,9 +88,15 @@ class EntityZendure(Entity):
         # 'SolarFlow 2400 AC+') can no longer collide. Devices without a serial number
         # (e.g. the Zendure Manager) keep the name-based unique_id.
         self._attr_unique_id = entity_unique_id(self.device.sn or self.device.name, uniqueid)
-        # The suggested entity_id stays name-based for readability; Home Assistant
-        # de-duplicates it automatically (suffix _2) when two devices share a slug.
-        self.internal_integration_suggested_object_id = snakecase(f"{self.device.name.lower()}_{uniqueid}")
+        # Suggested entity_id (object_id) for *new* entities only: Home Assistant ignores it for
+        # entities already in the registry (matched by unique_id), so existing entity_ids never
+        # change. New entities of a device that has a serial number get a deterministic,
+        # collision-free id '<model, + -> plus>_<last4 of SN>_<property>'; devices without a
+        # serial number (e.g. the Zendure Manager) keep the old name-based suggestion.
+        if self.device.sn:
+            self.internal_integration_suggested_object_id = entity_slug(self.device.model or self.device.name, self.device.sn, uniqueid)
+        else:
+            self.internal_integration_suggested_object_id = snakecase(f"{self.device.name.lower()}_{uniqueid}")
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
         if domain and device.checkEntity is not None and self._attr_translation_key not in device.checkEntity:
@@ -216,6 +236,7 @@ class EntityDevice:
         self.unique = "".join(self.name.split())
         self.entities: dict[str, EntityZendure] = {}
         self.sn = sn
+        self.model = model
 
         Migration.check_device(self.hass, deviceId, self.name, model, sn)
         self.attr_device_info = DeviceInfo(
@@ -252,6 +273,11 @@ class EntityDevice:
         for key, entries in ed.items():
             entityid = f"{entries[0].domain}.{name}_{key}"
             if len(entries) == 1 and entries[0].entity_id == entityid:
+                continue
+            # Entities created with the new serial-number scheme are already canonical and unique:
+            # never rename/remove them, otherwise newly created entities would be dragged back to
+            # the old name-based entity_id on the next restart.
+            if self.sn and len(entries) == 1 and entries[0].entity_id == f"{entries[0].domain}.{entity_slug(self.model or self.name, self.sn, key)}":
                 continue
             # If the canonical entity_id is owned by an entity of another device (two devices
             # whose names slugify identically, e.g. 'SolarFlow 2400 AC' and 'SolarFlow 2400 AC+'),
