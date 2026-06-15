@@ -221,8 +221,8 @@
       "global_soc": {
          "name": "Globale batterij SOC"
       },
-      "efficiency": {
-        "name": "Rendement"
+      "roundtrip_efficiency": {
+        "name": "Retourrendement"
       },
       "max_temp": {
         "name": "Hoogste celtemperatuur"

@@ -226,8 +226,8 @@
       "global_soc": {
         "name": "SOC global"
       },
-      "efficiency": {
-        "name": "Rendement"
+      "roundtrip_efficiency": {
+        "name": "Rendement aller-retour"
       },
       "max_temp": {
         "name": "Température maximale"

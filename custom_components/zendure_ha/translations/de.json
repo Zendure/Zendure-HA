@@ -248,8 +248,8 @@
       "global_soc": {
         "name": "Globaler Akku-SOC"
       },
-      "efficiency": {
-        "name": "Wirkungsgrad"
+      "roundtrip_efficiency": {
+        "name": "Roundtrip-Wirkungsgrad"
       },
       "max_temp": {
         "name": "Höchste Zelltemperatur"

@@ -178,7 +178,8 @@ class ZendureDevice(EntityDevice):
 
         self.aggrCharge = ZendureRestoreSensor(self, "aggrCharge", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischarge", None, "kWh", "energy", "total_increasing", 2)
-        self.efficiency = ZendureSensor(self, "efficiency", None, "%", None, "measurement", 1) 
+        # Round-trip efficiency: ratio of total energy discharged to total energy charged, expressed as a percentage
+        self.roundtripEfficiency = ZendureSensor(self, "roundtripEfficiency", None, "%", None, "measurement", 1)
         self.aggrHomeInput = ZendureRestoreSensor(self, "aggrGridInputPower", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeOut = ZendureRestoreSensor(self, "aggrOutputHome", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSolar = ZendureRestoreSensor(self, "aggrSolar", None, "kWh", "energy", "total_increasing", 2)
@@ -238,7 +239,7 @@ class ZendureDevice(EntityDevice):
                             self.aggrCharge.aggregate(dt_util.now(), value)
                         self.aggrDischarge.aggregate(dt_util.now(), 0)
                         self.batInOut.update_value(self.batteryOutput.asInt - self.batteryInput.asInt)
-                        self.efficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
+                        self.roundtripEfficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
                     case "packInputPower":
                         self.aggrCharge.aggregate(dt_util.now(), 0)
                         self.aggrDischarge.aggregate(dt_util.now(), value)
@@ -273,7 +274,7 @@ class ZendureDevice(EntityDevice):
         return changed
 
     def _update_efficiency(self) -> None:
-        self.efficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
+        self.roundtripEfficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
 
     def calcRemainingTime(self) -> float:
         """Calculate the remaining time."""
