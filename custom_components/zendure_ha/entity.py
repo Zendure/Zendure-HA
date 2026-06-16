@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import unicodedata
-from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -63,8 +61,8 @@ class EntityZendure(Entity):
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
-        if domain and device.checkEntity is not None and self._attr_translation_key not in device.checkEntity:
-            device.checkEntity[self._attr_translation_key] = domain
+        if domain:
+            device.checkEntity.setdefault(self._attr_translation_key, domain)
 
     @property
     def device_info(self) -> DeviceInfo | None:
@@ -177,7 +175,7 @@ class EntityDevice:
         "ts": ("none"),
         "tsZone": ("none"),
     }
-    checkEntity: dict[str, str] | None = None
+    checkEntity: dict[str, str] = {}
 
     empty = EntityZendure(None, "empty")
 
@@ -221,16 +219,16 @@ class EntityDevice:
             self.attr_device_info["via_device"] = (DOMAIN, parent)
 
     def check_entities(self, di: DeviceEntry, name: str) -> None:
-        if EntityDevice.checkEntity is None:
-            _t = json.loads((Path(__file__).parent / "translations" / "en.json").read_text())
-            EntityDevice.checkEntity = {key: domain for domain, keys in _t.get("entity", {}).items() for key in keys}
-
         # Get all entities for this device and group them by translation_key if they match the current device and platform
         entity_registry = er.async_get(self.hass)
         ed: dict[str, list[er.RegistryEntry]] = {}
         for entity in er.async_entries_for_device(entity_registry, di.id, True):
-            if entity.platform == DOMAIN and (dn := self.checkEntity.get(entity.translation_key)) is not None and dn == entity.domain:
-                ed.setdefault(entity.translation_key, []).append(entity)
+            if entity.platform != DOMAIN or entity.translation_key is None:
+                continue
+            dn = self.checkEntity.get(entity.translation_key)
+            if dn is not None and dn != entity.domain:
+                continue
+            ed.setdefault(entity.translation_key, []).append(entity)
 
         # check al entities
         for key, entries in ed.items():
