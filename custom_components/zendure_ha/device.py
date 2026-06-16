@@ -273,9 +273,6 @@ class ZendureDevice(EntityDevice):
 
         return changed
 
-    def _update_efficiency(self) -> None:
-        self.roundtripEfficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
-
     def calcRemainingTime(self) -> float:
         """Calculate the remaining time."""
         level = self.electricLevel.asInt
