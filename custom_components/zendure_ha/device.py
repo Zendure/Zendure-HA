@@ -749,10 +749,9 @@ class ZendureZenSdk(ZendureDevice):
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
         _LOGGER.info("Power charge %s => %s", self.name, power)
-        # inputLimit is always reported as a positive magnitude (range 0..abs(charge)),
-        # so walk the charge floor up using the same sign convention as discharge below.
         if power == -SmartMode.POWER_START and self.limitInput.asInt >= SmartMode.POWER_START and self.homeInput.asInt == 0:
             power = -min(self.limitInput.asInt + 4, 2 * SmartMode.POWER_START)
+            _LOGGER.info("Power charge kickstart %s => %s", self.name, power)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power
 
@@ -760,6 +759,7 @@ class ZendureZenSdk(ZendureDevice):
         _LOGGER.info("Power discharge %s => %s", self.name, power)
         if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
+            _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
         return power
 
