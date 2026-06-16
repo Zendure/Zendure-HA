@@ -244,7 +244,7 @@ class ZendureDevice(EntityDevice):
                         self.aggrCharge.aggregate(dt_util.now(), 0)
                         self.aggrDischarge.aggregate(dt_util.now(), value)
                         self.batInOut.update_value(self.batteryOutput.asInt - self.batteryInput.asInt)
-                        self._update_efficiency()
+                        self.roundtripEfficiency.update_value(round(self.aggrDischarge.asNumber / charge * 100, 1) if (charge := self.aggrCharge.asNumber) > 0 else 0)
                     case "solarInputPower":
                         self.aggrSolar.aggregate(dt_util.now(), value)
                     case "gridInputPower":
