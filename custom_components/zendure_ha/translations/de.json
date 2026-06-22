@@ -416,7 +416,7 @@
         }
       },
       "pass_mode": {
-        "name": "Energie Export old", #only at HUB1200/200 and AIO2400
+        "name": "Energie Export old",
         "state": {
           "auto": "Automatisch",
           "off": "Immer aus",
@@ -432,7 +432,7 @@
         }
       },
       "grid_reverse": {
-        "name": "Energie Export", #until all models from Hyper2000 or newer gen
+        "name": "Energie Export",
         "state": {
           "auto": "Automatisch",
           "off": "Immer aus",
