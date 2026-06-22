@@ -419,8 +419,8 @@
         "name": "Energie Export old",
         "state": {
           "auto": "Automatisch",
-          "off": "Immer aus",
-          "on": "Immer an"
+          "forbidden": "Verboten",
+          "allow": "Erlaubt"
         }
       },
       "grid_off_mode": {
@@ -435,8 +435,8 @@
         "name": "Energie Export",
         "state": {
           "auto": "Automatisch",
-          "off": "Immer aus",
-          "on": "Immer an"
+          "forbidden": "Verboten",
+          "allow": "Erlaubt"
         }
       },
       "fan_speed": {
