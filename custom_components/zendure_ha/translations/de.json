@@ -416,7 +416,7 @@
         }
       },
       "pass_mode": {
-        "name": "Bypass-Modus",
+        "name": "Energie Export old", #only at HUB1200/200 and AIO2400
         "state": {
           "auto": "Automatisch",
           "off": "Immer aus",
@@ -432,11 +432,11 @@
         }
       },
       "grid_reverse": {
-        "name": "Energie Export",
+        "name": "Energie Export", #until all models from Hyper2000 or newer gen
         "state": {
-          "disabled": "Deaktiviert",
-          "allow": "Erlaubt",
-          "forbidden": "Verboten"
+          "auto": "Automatisch",
+          "off": "Immer aus",
+          "on": "Immer an"
         }
       },
       "fan_speed": {
