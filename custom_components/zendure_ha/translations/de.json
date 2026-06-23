@@ -434,9 +434,9 @@
       "grid_reverse": {
         "name": "Energie Export",
         "state": {
-          "disabled": "Deaktiviert",
-          "allow": "Erlaubt",
-          "forbidden": "Verboten"
+          "auto": "Automatisch",
+          "off": "Immer aus",
+          "on": "Immer an"
         }
       },
       "fan_speed": {
