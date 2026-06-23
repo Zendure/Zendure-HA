@@ -150,7 +150,7 @@ class EntityDevice:
         "localState": ("binary"),
         "ctOff": ("binary"),
         "lampSwitch": ("switch"),
-        "gridReverse": ("select", {0: "disabled", 1: "allow", 2: "forbidden"}),
+        "gridReverse": ("select", {0: "auto", 1: "on", 2: "off"}),
         "gridOffMode": ("select", {0: "normal", 1: "eco", 2: "off"}),
         "passMode": ("select", {0: "auto", 2: "on", 1: "off"}),
         "fanSwitch": ("switch"),
