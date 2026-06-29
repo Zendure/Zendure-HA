@@ -245,6 +245,12 @@
       "soc_level": {
         "name": "Ladezustand (SoC)"
       },
+      "global_soc": {
+        "name": "Globaler Akku-SOC"
+      },
+      "roundtrip_efficiency": {
+        "name": "Roundtrip-Wirkungsgrad"
+      },
       "max_temp": {
         "name": "Höchste Zelltemperatur"
       },
@@ -347,6 +353,9 @@
           "6": "BossWerk",
           "7": "TSun"
         }
+      },
+      "delta_voltage": {
+        "name": "Spannungsdifferenz"
       }
     },
     "select": {

@@ -223,6 +223,12 @@
       "soc_level": {
         "name": "Niveau de charge"
       },
+      "global_soc": {
+        "name": "SOC global"
+      },
+      "roundtrip_efficiency": {
+        "name": "Rendement aller-retour"
+      },
       "max_temp": {
         "name": "Température maximale"
       },
@@ -319,6 +325,9 @@
           "6": "BossWerk",
           "7": "TSun"
         }
+      },
+      "delta_voltage": {
+        "name": "Delta tension"
       }
     },
     "select": {
