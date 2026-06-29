@@ -423,7 +423,8 @@
           "smart": "Smart Matching",
           "smart_discharging": "Smart discharge only",
           "smart_charging": "Smart charge only",
-          "store_solar": "Store Solar"
+          "store_solar": "Store Solar",
+          "smart_solar_passthrough": "Solar Passthrough"
         }
       },
       "pass_mode": {

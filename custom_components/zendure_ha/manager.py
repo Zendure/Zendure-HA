@@ -103,7 +103,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.attr_device_info["sw_version"] = integration.manifest.get("version", "unknown")
 
         self.operationmode = (
-            ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "store_solar"}, self.update_operation),
+            ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "store_solar", 6: "smart_solar_passthrough"}, self.update_operation),
         )
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
@@ -291,7 +291,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if isBleDevice(device, si):
                         break
 
-            _LOGGER.debug("Update device: %s (%s)", device.name, device.deviceId)
+            _LOGGER.debug("Update device: %s (%s) (%s kWh)", device.name, device.deviceId, device.kWh)
             await device.dataRefresh(self.update_count)
             if device.hemsState.is_on and (time - device.hemsStateUpdated).total_seconds() > SmartMode.HEMSOFF_TIMEOUT:
                 device.hemsState.update_value(0)
@@ -480,6 +480,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             case ManagerMode.MATCHING_DISCHARGE:
                 # Only discharge, do nothing if setpoint is negative
                 await self.power_discharge(max(0, setpoint))
+
+            case ManagerMode.SMART_SOLAR_PASSTHROUGH:
+                # Pass all solar to house; use battery only to cover remaining P1 demand
+                await self.power_discharge(max(self.produced, max(0, p1)))
 
             case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
                 # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
