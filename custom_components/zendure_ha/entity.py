@@ -24,6 +24,7 @@ def snakecase(value: str) -> str:
     """Convert to snake_case with only HA-valid chars (a-z, 0-9, _)."""
     # normalize unicode (e.g. ä -> a, é -> e)
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    value = value.replace("+", "_plus")
     # insert underscore before uppercase letters (camelCase -> camel_case)
     value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
     # replace any non-alphanumeric character with underscore
