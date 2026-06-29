@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SolarFlow4000AC_Plus(ZendureZenSdk):
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
-        """Initialise SolarFlow2400AC."""
+        """Initialise SolarFlow4000AC+."""
         super().__init__(hass, deviceId, prodName, definition["productModel"], definition)
         self.setLimits(-3200, 2400)
         self.maxSolar = -2400
