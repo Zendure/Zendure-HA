@@ -87,7 +87,7 @@
         "name": "AC-Eingangsgrenze"
       },
       "output_limit": {
-        "name": "Ausgangsleistung"
+        "name": "AC-Ausgangsgrenze"
       },
       "manual_power": {
         "name": "Manuelle Leistung"
