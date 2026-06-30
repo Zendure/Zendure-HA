@@ -40,6 +40,11 @@ CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
+# Without internet access the device reboots every ~11 minutes and is unreachable for ~30 seconds.
+CONST_HTTP_ERROR_AFTER = 60  # seconds a device must be unreachable before http failures are logged as error
+CONST_WRITE_RETRY_INTERVAL = 5  # seconds between retries of manual property writes
+CONST_WRITE_RETRY_WINDOW = 120  # seconds to keep retrying manual property writes (covers a device reboot)
+
 
 class ZendureBattery(EntityDevice):
     """Zendure Battery class for devices."""
@@ -724,6 +729,10 @@ class ZendureZenSdk(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
+        self.unreachableSince: datetime | None = None
+        self.unreachableLogged = False
+        self.pendingWrites: dict[str, Any] = {}
+        self.writeTask: asyncio.Task | None = None
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
@@ -749,7 +758,40 @@ class ZendureZenSdk(ZendureDevice):
             await super().entityWrite(entity, value)
         else:
             _LOGGER.info("Writing property %s %s => %s", self.name, entity.propertyName, value)
-            await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
+            await self.httpWrite({entity.propertyName: value})
+
+    async def httpWrite(self, properties: dict[str, Any]) -> None:
+        """Write properties; pending writes are retried while the device is rebooting, a newer value replaces a pending one."""
+        self.pendingWrites.update(properties)
+        if self.writeTask is not None and not self.writeTask.done():
+            # the active retry task will send the merged pending writes; avoid concurrent posts arriving out of order
+            return
+        pending = dict(self.pendingWrites)
+        if await self.httpPost("properties/write", {"properties": pending}):
+            self.clearPending(pending)
+        else:
+            self.writeTask = asyncio.create_task(self.retryWrites())
+
+    def clearPending(self, written: dict[str, Any]) -> None:
+        """Remove written values from the pending writes, unless they were replaced in the meantime."""
+        for key, value in written.items():
+            if self.pendingWrites.get(key) == value:
+                self.pendingWrites.pop(key, None)
+
+    async def retryWrites(self) -> None:
+        """Retry pending manual writes until they succeed or the retry window expires."""
+        deadline = datetime.now() + timedelta(seconds=CONST_WRITE_RETRY_WINDOW)
+        while self.pendingWrites and datetime.now() < deadline:
+            await asyncio.sleep(CONST_WRITE_RETRY_INTERVAL)
+            if not self.pendingWrites:
+                return
+            pending = dict(self.pendingWrites)
+            if await self.httpPost("properties/write", {"properties": pending}):
+                self.clearPending(pending)
+
+        if self.pendingWrites:
+            _LOGGER.error("Unable to write %s to %s, the device was unreachable for %s seconds", self.pendingWrites, self.name, CONST_WRITE_RETRY_WINDOW)
+            self.pendingWrites.clear()
 
     async def dataRefresh(self, update_count: int) -> None:
         if update_count == 0 and not self.online:
@@ -787,20 +829,42 @@ class ZendureZenSdk(ZendureDevice):
 
     async def doCommand(self, command: Any) -> None:
         if self.connection.value != 0:
-            await self.httpPost("properties/write", command)
+            await self.httpWrite(command.get("properties", {}))
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)
+
+    def httpSuccess(self) -> None:
+        """Mark the device as reachable again after a successful http request."""
+        self.lastseen = max(self.lastseen, datetime.now())
+        if self.unreachableSince is not None:
+            if self.unreachableLogged:
+                _LOGGER.warning("%s is reachable again, it was unreachable since %s", self.name, self.unreachableSince)
+            self.unreachableSince = None
+            self.unreachableLogged = False
+
+    def httpFailure(self, operation: str, e: Exception) -> None:
+        """Mark the device as unreachable; only log an error when it has been unreachable for a while."""
+        now = datetime.now()
+        if self.unreachableSince is None:
+            self.unreachableSince = now
+        self.lastseen = datetime.min
+
+        text = f"{type(e).__name__} for {self.name} during {operation}" + (f": {e}" if str(e) else "!")
+        if not self.unreachableLogged and (now - self.unreachableSince).total_seconds() >= CONST_HTTP_ERROR_AFTER:
+            self.unreachableLogged = True
+            _LOGGER.error("%s, the device has been unreachable since %s", text, self.unreachableSince)
+        else:
+            _LOGGER.debug(text)
 
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
             url = f"http://{self.ipAddress}/{url}"
             response = await self.session.get(url, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
             payload = json.loads(await response.text())
-            self.lastseen = datetime.now()
+            self.httpSuccess()
             return payload if key is None else payload.get(key, {})
         except Exception as e:
-            _LOGGER.error("%s for %s during httpGet%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
-            self.lastseen = datetime.min
+            self.httpFailure("httpGet", e)
         return {}
 
     async def httpPost(self, url: str, command: Any) -> bool:
@@ -811,9 +875,9 @@ class ZendureZenSdk(ZendureDevice):
             url = f"http://{self.ipAddress}/{url}"
             await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
         except Exception as e:
-            _LOGGER.error("%s for %s during httpPost%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
-            self.lastseen = datetime.min
+            self.httpFailure("httpPost", e)
             return False
+        self.httpSuccess()
         return True
 
 
