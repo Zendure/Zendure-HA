@@ -287,6 +287,22 @@ class ZendureDevice(EntityDevice):
         soc = self.minSoc.asNumber
         return 0 if level <= soc else min(999, self.kWh * 10 / power * (level - soc))
 
+    def localEntityWrite(self, entity: EntityZendure, value: Any) -> None:
+        # Snap values below 101 to the nearest step in {0, 30, 60, 90, 100}
+        if entity.propertyName == "min_output_power":
+            if isinstance(value, (int, float)) and value <= 100:
+                value = min([0, 30, 60, 90, 100], key=lambda x: abs(x - value))
+            entity.update_value(value)
+
+    @property
+    def minOutput(self) -> int:
+        # Return the minimum output power value, or 0 if unavailable.
+        # This value is available only for devices connected to an external inverter (HUB/AIO family).
+
+        if (entity := getattr(self, 'minOutputPower', None)) is not None:
+            return entity.asInt
+        return 0
+
     async def entityWrite(self, entity: EntityZendure, value: Any) -> None:
         if entity.translation_key is None:
             _LOGGER.error("Entity %s has no translation_key, cannot write property %s", entity.name, self.name)
