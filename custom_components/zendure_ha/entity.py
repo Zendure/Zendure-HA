@@ -64,8 +64,8 @@ class EntityZendure(Entity):
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
-        if domain and device.checkEntity is not None and self._attr_translation_key not in device.checkEntity:
-            device.checkEntity[self._attr_translation_key] = domain
+        if domain:
+            device.checkEntity.setdefault(self._attr_translation_key, domain)
 
     @property
     def device_info(self) -> DeviceInfo | None:
@@ -178,9 +178,21 @@ class EntityDevice:
         "ts": ("none"),
         "tsZone": ("none"),
     }
-    checkEntity: dict[str, str] | None = None
+    checkEntity: dict[str, str] = {}
 
     empty = EntityZendure(None, "empty")
+
+    @classmethod
+    async def async_load_translations(cls, hass: HomeAssistant) -> None:
+        """Load the translation_key -> domain map from disk, off the event loop."""
+        if cls.checkEntity:
+            return
+
+        def _load() -> dict[str, str]:
+            _t = json.loads((Path(__file__).parent / "translations" / "en.json").read_text())
+            return {key: domain for domain, keys in _t.get("entity", {}).items() for key in keys}
+
+        cls.checkEntity = await hass.async_add_executor_job(_load)
 
     def __init__(
         self,
@@ -222,10 +234,6 @@ class EntityDevice:
             self.attr_device_info["via_device"] = (DOMAIN, parent)
 
     def check_entities(self, di: DeviceEntry, name: str) -> None:
-        if EntityDevice.checkEntity is None:
-            _t = json.loads((Path(__file__).parent / "translations" / "en.json").read_text())
-            EntityDevice.checkEntity = {key: domain for domain, keys in _t.get("entity", {}).items() for key in keys}
-
         # Get all entities for this device and group them by translation_key if they match the current device and platform
         entity_registry = er.async_get(self.hass)
         ed: dict[str, list[er.RegistryEntry]] = {}
