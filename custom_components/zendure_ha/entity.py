@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -179,6 +181,18 @@ class EntityDevice:
 
     empty = EntityZendure(None, "empty")
 
+    @classmethod
+    async def async_load_translations(cls, hass: HomeAssistant) -> None:
+        """Load the translation_key -> domain map from disk, off the event loop."""
+        if cls.checkEntity:
+            return
+
+        def _load() -> dict[str, str]:
+            _t = json.loads((Path(__file__).parent / "translations" / "en.json").read_text())
+            return {key: domain for domain, keys in _t.get("entity", {}).items() for key in keys}
+
+        cls.checkEntity = await hass.async_add_executor_job(_load)
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -223,12 +237,8 @@ class EntityDevice:
         entity_registry = er.async_get(self.hass)
         ed: dict[str, list[er.RegistryEntry]] = {}
         for entity in er.async_entries_for_device(entity_registry, di.id, True):
-            if entity.platform != DOMAIN or entity.translation_key is None:
-                continue
-            dn = self.checkEntity.get(entity.translation_key)
-            if dn is not None and dn != entity.domain:
-                continue
-            ed.setdefault(entity.translation_key, []).append(entity)
+            if entity.platform == DOMAIN and (dn := self.checkEntity.get(entity.translation_key)) is not None and dn == entity.domain:
+                ed.setdefault(entity.translation_key, []).append(entity)
 
         # check al entities
         for key, entries in ed.items():

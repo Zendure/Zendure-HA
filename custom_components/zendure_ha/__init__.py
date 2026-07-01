@@ -9,6 +9,7 @@ from homeassistant.helpers import device_registry as dr
 from .api import Api
 from .const import CONF_MQTTLOG, CONF_P1METER, CONF_SIM
 from .device import ZendureDevice
+from .entity import EntityDevice
 from .manager import ZendureConfigEntry, ZendureManager
 from .migration import Migration
 
@@ -29,6 +30,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ZendureConfigEntry) ->
 async def async_setup_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
     """Set up Zendure as config entry."""
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await EntityDevice.async_load_translations(hass)
     manager = ZendureManager(hass, entry)
     await manager.loadDevices()
     entry.runtime_data = manager
