@@ -514,21 +514,28 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         """Charge devices."""
         _LOGGER.info("Charge => setpoint %sW", setpoint)
 
-        # stop discharging devices
-        for d in self.discharge:
-            # avoid stopping bypassing devices
-            if d.byPass.asInt > 0:
-                continue
-            # avoid gridOff device to use power from the grid
-            await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
-
         # prevent hysteria
-        if self.charge_time > time:
+        if hold := self.charge_time > time:
             if self.charge_time == datetime.max:
                 self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
                 self.charge_last = self.charge_time
                 self.pwr_low = 0
             setpoint = 0
+
+        # Stop discharging devices. While the switch timeout is running, keep them
+        # discharging at minimal power instead of going idle, so a temporary grid
+        # fluctuation (e.g. a slow ramping EV charger) can resume discharging
+        # immediately without an idle period or an extra mode switch (#1461).
+        for d in self.discharge:
+            # avoid stopping bypassing devices
+            if d.byPass.asInt > 0:
+                continue
+            if hold and d.pwr_offgrid == 0 and d.state != DeviceState.SOCEMPTY:
+                await d.power_discharge(SmartMode.POWER_IDLE)
+            else:
+                # avoid gridOff device to use power from the grid
+                await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
+
         self.operationstate.update_value(ManagerState.CHARGE.value if setpoint < 0 else ManagerState.IDLE.value)
 
         # distribute charging devices

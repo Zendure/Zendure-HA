@@ -71,3 +71,4 @@ class SmartMode:
 
     POWER_START = 50  # Minimum Power (W) for starting a device
     POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating
+    POWER_IDLE = 10  # Minimal hold power (W) during the direction switch timeout; must exceed POWER_TOLERANCE so the stop command is not skipped
