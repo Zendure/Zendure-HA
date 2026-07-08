@@ -536,6 +536,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             else:
                 # avoid gridOff device to use power from the grid
                 await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
+                # a device parked at hold power can be restarted right away
+                if d.pwr_offgrid == 0 and d.homeOutput.asInt <= SmartMode.POWER_IDLE:
+                    self.idle.append(d)
 
         self.operationstate.update_value(ManagerState.CHARGE.value if setpoint < 0 else ManagerState.IDLE.value)
 
@@ -614,6 +617,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             else:
                 # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
                 await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
+                # a device parked at hold power can be restarted right away
+                if max(0, d.pwr_offgrid) == 0 and d.homeInput.asInt <= SmartMode.POWER_IDLE:
+                    self.idle.append(d)
 
         # distribute discharging devices, use produced power first, before adding another device
         dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
