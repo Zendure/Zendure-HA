@@ -2,7 +2,8 @@
   "config": {
     "abort": {
       "already_configured": "Apparaat is al geconfigureerd",
-      "reconfigure_successful": "Hergroepering geslaagd"
+      "reconfigure_successful": "Hergroepering geslaagd",
+      "no_devices_configured": "Geen apparaten meer over. Voeg minstens één apparaat toe voordat je opslaat."
     },
     "error": {
       "cannot_connect": "De Zendure-API is niet bereikbaar. Controleer je internetverbinding en probeer het opnieuw.",
@@ -10,20 +11,79 @@
       "api_rejected": "Zendure heeft het verzoek geweigerd: {detail}",
       "no_devices": "Token geaccepteerd, maar er zijn geen apparaten gevonden op dit account. Zorg dat je het Zendure-account gebruikt waarop het apparaat is geregistreerd, en de juiste regio.",
       "no_mqtt": "Token geaccepteerd, maar er is geen MQTT-server teruggegeven. Schakel lokale of cloud-MQTT in voor dit account in de Zendure-app.",
+      "cannot_connect_local": "Het apparaat op je netwerk kon niet worden bereikt: {detail}. Controleer het IP-adres, zorg dat het apparaat op hetzelfde netwerk zit, en dat HEMS is uitgeschakeld in de Zendure-app.",
+      "no_local_report": "Het apparaat antwoordde, maar gaf geen geldig Zen SDK-rapport terug. Zorg dat HEMS is uitgeschakeld in de Zendure-app.",
+      "unsupported_model": "Dit apparaatmodel wordt niet ondersteund voor lokale installatie (gemeld: {detail}). Open een issue met deze modeltekst, zodat het toegevoegd kan worden.",
+      "duplicate_device": "Dit apparaat ({detail}) is al toegevoegd.",
       "invalid_auth": "Ongeldige authenticatie",
       "unknown": "Onverwachte fout"
     },
     "step": {
       "user": {
+        "title": "Zendure instellen",
+        "description": "Kies hoe je wilt verbinden. Cloud gebruikt je Zendure-token voor de communicatie met je apparaten, de verbinding loopt via de cloud (Zendure-servers). Lokaal (zonder cloud) communiceert rechtstreeks met een Zen SDK-geschikt apparaat op je netwerk.",
+        "menu_options": {
+          "cloud": "Cloud (Zendure accounttoken)",
+          "localsdk": "Lokaal, zonder cloud (Zen SDK-apparaat)"
+        }
+      },
+      "cloud": {
         "data": {
-          "username": "Zendure Gebruikersnaam",
-          "password": "Zendure Wachtwoord",
+          "token": "Zendure Token",
           "p1meter": "P1 Sensor voor slimme matching",
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale MQTT gebruiken",
           "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Wachtwoord"
+        }
+      },
+      "localsdk": {
+        "title": "Lokaal apparaat toevoegen (zonder cloud)",
+        "description": "Maak rechtstreeks verbinding met een Zen SDK-geschikt apparaat (SolarFlow 800/1600/2400/4000) via je lokale netwerk. Schakel eerst HEMS uit in de Zendure-app. Het IP-adres wordt direct na het versturen gecontroleerd.",
+        "data": {
+          "device_ip": "IP-adres apparaat",
+          "device_name": "Apparaatnaam (optioneel)"
+        }
+      },
+      "localsdk_menu": {
+        "title": "Lokale apparaten",
+        "description": "{count} apparaat/apparaten toegevoegd: {devices}. Voeg nog een apparaat toe of rond de installatie af.",
+        "menu_options": {
+          "localsdk": "Nog een apparaat toevoegen",
+          "localsdk_settings": "Afronden en P1-meter instellen"
+        }
+      },
+      "localsdk_settings": {
+        "title": "Instellingen voor slimme matching",
+        "description": "Deze instellingen gelden voor alle lokale apparaten die door deze integratie worden beheerd.",
+        "data": {
+          "p1meter": "P1 Sensor voor slimme matching",
+          "mqttlog": "Communicatie loggen"
+        }
+      },
+      "reconfigure_local": {
+        "title": "Lokale apparaten beheren",
+        "description": "{count} apparaat/apparaten geconfigureerd: {devices}. Voeg een apparaat toe of verwijder er een, en sla daarna op om opnieuw te laden.",
+        "menu_options": {
+          "reconfig_add": "Apparaat toevoegen",
+          "reconfig_remove": "Apparaat verwijderen",
+          "reconfig_save": "Opslaan en herladen"
+        }
+      },
+      "reconfig_add": {
+        "title": "Lokaal apparaat toevoegen (zonder cloud)",
+        "description": "Schakel eerst HEMS uit in de Zendure-app. Het IP-adres wordt direct na het versturen gecontroleerd.",
+        "data": {
+          "device_ip": "IP-adres apparaat",
+          "device_name": "Apparaatnaam (optioneel)"
+        }
+      },
+      "reconfig_remove": {
+        "title": "Lokale apparaten verwijderen",
+        "description": "Selecteer de apparaten om te verwijderen.",
+        "data": {
+          "remove": "Te verwijderen apparaten"
         }
       },
       "local": {
@@ -339,7 +399,8 @@
         "name": "Verbindingsmodus",
         "state": {
           "local": "Lokaal",
-          "cloud": "Cloud"
+          "cloud": "Cloud",
+          "zenSDK": "Zen SDK (lokaal)"
         }
       },
       "ble_adapter": {

@@ -19,6 +19,15 @@ CONF_WIFISSID = "wifissid"
 CONF_WIFIPSW = "wifipsw"
 CONF_AUTO_MQTT_USER = "auto_mqtt_user"
 
+# Local (cloud-free) setup via the on-device Zen SDK HTTP API.
+CONF_LOCAL_ONLY = "local_only"
+CONF_DEVICE_IP = "device_ip"
+CONF_DEVICE_SN = "device_sn"
+CONF_DEVICE_MODEL = "device_model"
+CONF_DEVICE_NAME = "device_name"
+# List of local devices on a single config entry: [{ip, sn, model, name}, ...].
+CONF_DEVICES = "devices"
+
 CONF_HAKEY = "C*dafwArEOXK"
 
 

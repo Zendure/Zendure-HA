@@ -722,7 +722,14 @@ class ZendureZenSdk(ZendureDevice):
         """Initialize Device."""
         self.session = async_get_clientsession(hass, verify_ssl=False)
         super().__init__(hass, deviceId, name, model, definition, parent)
-        self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
+        # A local (cloud-free) device has no cloud broker to fall back to: dataRefresh,
+        # power_get and doCommand all skip HTTP polling/writes once connection.value == 0,
+        # so picking "cloud" here would silently stop updates and drop every command. Only
+        # offer zenSDK for it, instead of just defaulting to zenSDK and leaving the option.
+        if definition.get("local"):
+            self.connection = ZendureRestoreSelect(self, "connection", {2: "zenSDK"}, self.mqttSelect, 2)
+        else:
+            self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
@@ -760,7 +767,10 @@ class ZendureZenSdk(ZendureDevice):
             await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
 
     async def dataRefresh(self, update_count: int) -> None:
-        if update_count == 0 and not self.online:
+        # In zenSDK mode the device is not pushing MQTT updates, so poll its local
+        # HTTP report every cycle to keep entities fresh. In cloud mode MQTT drives
+        # updates, so only the initial fetch is needed.
+        if self.connection.value != 0 or (update_count == 0 and not self.online):
             json = await self.httpGet("properties/report")
             await self.mqttProperties(json)
 

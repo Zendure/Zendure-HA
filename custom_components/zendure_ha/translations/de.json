@@ -2,7 +2,8 @@
   "config": {
     "abort": {
       "already_configured": "Gerät ist bereits konfiguriert",
-      "reconfigure_successful": "Neukonfiguration erfolgreich"
+      "reconfigure_successful": "Neukonfiguration erfolgreich",
+      "no_devices_configured": "Keine Geräte übrig. Füge mindestens ein Gerät hinzu, bevor du speicherst."
     },
     "error": {
       "cannot_connect": "Die Zendure-API ist nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.",
@@ -10,11 +11,23 @@
       "api_rejected": "Zendure hat die Anfrage abgelehnt: {detail}",
       "no_devices": "Token akzeptiert, aber es wurden keine Geräte für dieses Konto gefunden. Stelle sicher, dass du das Zendure-Konto verwendest, bei dem das Gerät registriert ist, sowie die richtige Region.",
       "no_mqtt": "Token akzeptiert, aber es wurde kein MQTT-Server zurückgegeben. Aktiviere lokales oder Cloud-MQTT für dieses Konto in der Zendure-App.",
+      "cannot_connect_local": "Das Gerät konnte im Netzwerk nicht erreicht werden: {detail}. Prüfe die IP-Adresse, stelle sicher, dass sich das Gerät im selben Netzwerk befindet, und dass HEMS in der Zendure-App deaktiviert ist.",
+      "no_local_report": "Das Gerät hat geantwortet, aber keinen gültigen Zen-SDK-Bericht zurückgegeben. Stelle sicher, dass HEMS in der Zendure-App deaktiviert ist.",
+      "unsupported_model": "Dieses Gerätemodell wird für die lokale Einrichtung nicht unterstützt (gemeldet: {detail}). Bitte erstelle ein Issue mit dieser Modellzeichenkette, damit sie hinzugefügt werden kann.",
+      "duplicate_device": "Dieses Gerät ({detail}) wurde bereits hinzugefügt.",
       "invalid_auth": "Ungültige Authentifizierung",
       "unknown": "Unerwarteter Fehler"
     },
     "step": {
       "user": {
+        "title": "Zendure-Einrichtung",
+        "description": "Wähle, wie du dich verbinden möchtest. Cloud verwendet dein Zendure-Konto-Token für die Kommunikation mit deinen Geräten, die Verbindung läuft über die Cloud (Zendure-Server). Lokal (ohne Cloud) spricht direkt mit einem Zen-SDK-fähigen Gerät in deinem Netzwerk.",
+        "menu_options": {
+          "cloud": "Cloud (Zendure-Konto-Token)",
+          "localsdk": "Lokal, ohne Cloud (Zen-SDK-Gerät)"
+        }
+      },
+      "cloud": {
         "data": {
           "token": "Zendure Token",
           "p1meter": "P1 Sensor für Smart Matching",
@@ -23,6 +36,54 @@
           "auto_mqtt_user": "MQTT-Benutzer automatisch verwalten",
           "wifissid": "WLAN SSID",
           "wifipsw": "Wifi Passwort"
+        }
+      },
+      "localsdk": {
+        "title": "Lokales Gerät hinzufügen (ohne Cloud)",
+        "description": "Verbinde dich direkt mit einem Zen-SDK-fähigen Gerät (SolarFlow 800/1600/2400/4000) über dein lokales Netzwerk. Deaktiviere zunächst HEMS in der Zendure-App. Die IP wird sofort nach dem Absenden überprüft.",
+        "data": {
+          "device_ip": "Geräte-IP-Adresse",
+          "device_name": "Gerätename (optional)"
+        }
+      },
+      "localsdk_menu": {
+        "title": "Lokale Geräte",
+        "description": "{count} Gerät(e) hinzugefügt: {devices}. Füge ein weiteres Gerät hinzu oder schließe die Einrichtung ab.",
+        "menu_options": {
+          "localsdk": "Weiteres Gerät hinzufügen",
+          "localsdk_settings": "Abschließen und P1-Zähler festlegen"
+        }
+      },
+      "localsdk_settings": {
+        "title": "Einstellungen für Smart Matching",
+        "description": "Diese Einstellungen gelten für alle lokalen Geräte, die von dieser Integration verwaltet werden.",
+        "data": {
+          "p1meter": "P1 Sensor für Smart Matching",
+          "mqttlog": "Kommunikation loggen"
+        }
+      },
+      "reconfigure_local": {
+        "title": "Lokale Geräte verwalten",
+        "description": "{count} Gerät(e) konfiguriert: {devices}. Füge ein Gerät hinzu oder entferne eines, und speichere dann, um neu zu laden.",
+        "menu_options": {
+          "reconfig_add": "Gerät hinzufügen",
+          "reconfig_remove": "Gerät entfernen",
+          "reconfig_save": "Speichern und neu laden"
+        }
+      },
+      "reconfig_add": {
+        "title": "Lokales Gerät hinzufügen (ohne Cloud)",
+        "description": "Deaktiviere zunächst HEMS in der Zendure-App. Die IP wird sofort nach dem Absenden überprüft.",
+        "data": {
+          "device_ip": "Geräte-IP-Adresse",
+          "device_name": "Gerätename (optional)"
+        }
+      },
+      "reconfig_remove": {
+        "title": "Lokale Geräte entfernen",
+        "description": "Wähle die zu entfernenden Geräte aus.",
+        "data": {
+          "remove": "Zu entfernende Geräte"
         }
       },
       "reconfigure": {
@@ -415,7 +476,8 @@
         "name": "Verbindungsart",
         "state": {
           "local": "Lokal",
-          "cloud": "Cloud"
+          "cloud": "Cloud",
+          "zenSDK": "Zen SDK (lokal)"
         }
       },
       "ble_adapter": {

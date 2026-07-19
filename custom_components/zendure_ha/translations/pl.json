@@ -2,15 +2,28 @@
   "config": {
     "abort": {
       "already_configured": "Urządzenie jest już skonfigurowane",
-      "reconfigure_successful": "Rekonfiguracja zakończona pomyślnie"
+      "reconfigure_successful": "Rekonfiguracja zakończona pomyślnie",
+      "no_devices_configured": "Nie pozostały żadne urządzenia. Dodaj co najmniej jedno urządzenie przed zapisaniem."
     },
     "error": {
       "cannot_connect": "Nie udało się połączyć",
+      "cannot_connect_local": "Nie można połączyć się z urządzeniem w sieci: {detail}. Sprawdź adres IP, upewnij się, że urządzenie jest w tej samej sieci, oraz że HEMS jest wyłączony w aplikacji Zendure.",
+      "no_local_report": "Urządzenie odpowiedziało, ale nie zwróciło prawidłowego raportu Zen SDK. Upewnij się, że HEMS jest wyłączony w aplikacji Zendure.",
+      "unsupported_model": "Ten model urządzenia nie jest obsługiwany w konfiguracji lokalnej (zgłoszono: {detail}). Zgłoś ten ciąg modelu jako issue, aby mógł zostać dodany.",
+      "duplicate_device": "To urządzenie ({detail}) zostało już dodane.",
       "invalid_auth": "Nieprawidłowe dane uwierzytelniające",
       "unknown": "Nieoczekiwany błąd"
     },
     "step": {
       "user": {
+        "title": "Konfiguracja Zendure",
+        "description": "Wybierz sposób połączenia. Chmura używa tokenu Twojego konta Zendure do komunikacji z Twoimi urządzeniami, połączenie przebiega przez chmurę (serwery Zendure). Lokalnie (bez chmury) łączy się bezpośrednio z urządzeniem obsługującym Zen SDK w Twojej sieci.",
+        "menu_options": {
+          "cloud": "Chmura (token konta Zendure)",
+          "localsdk": "Lokalnie, bez chmury (urządzenie Zen SDK)"
+        }
+      },
+      "cloud": {
         "data": {
           "token": "Token Zendure",
           "p1meter": "Czujnik P1 do inteligentnego dopasowania",
@@ -19,6 +32,54 @@
           "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
           "wifissid": "SSID sieci Wi-Fi",
           "wifipsw": "Hasło Wi-Fi"
+        }
+      },
+      "localsdk": {
+        "title": "Dodaj urządzenie lokalne (bez chmury)",
+        "description": "Połącz się bezpośrednio z urządzeniem obsługującym Zen SDK (SolarFlow 800/1600/2400/4000) w Twojej sieci lokalnej. Najpierw wyłącz HEMS w aplikacji Zendure. Adres IP jest sprawdzany zaraz po przesłaniu.",
+        "data": {
+          "device_ip": "Adres IP urządzenia",
+          "device_name": "Nazwa urządzenia (opcjonalnie)"
+        }
+      },
+      "localsdk_menu": {
+        "title": "Urządzenia lokalne",
+        "description": "Dodano {count} urządzeń: {devices}. Dodaj kolejne urządzenie lub zakończ konfigurację.",
+        "menu_options": {
+          "localsdk": "Dodaj kolejne urządzenie",
+          "localsdk_settings": "Zakończ i ustaw czujnik P1"
+        }
+      },
+      "localsdk_settings": {
+        "title": "Ustawienia inteligentnego dopasowania",
+        "description": "Te ustawienia dotyczą wszystkich urządzeń lokalnych zarządzanych przez tę integrację.",
+        "data": {
+          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
+          "mqttlog": "Rejestruj komunikację"
+        }
+      },
+      "reconfigure_local": {
+        "title": "Zarządzaj urządzeniami lokalnymi",
+        "description": "Skonfigurowano {count} urządzeń: {devices}. Dodaj lub usuń urządzenie, a następnie zapisz, aby przeładować.",
+        "menu_options": {
+          "reconfig_add": "Dodaj urządzenie",
+          "reconfig_remove": "Usuń urządzenie",
+          "reconfig_save": "Zapisz i przeładuj"
+        }
+      },
+      "reconfig_add": {
+        "title": "Dodaj urządzenie lokalne (bez chmury)",
+        "description": "Najpierw wyłącz HEMS w aplikacji Zendure. Adres IP jest sprawdzany zaraz po przesłaniu.",
+        "data": {
+          "device_ip": "Adres IP urządzenia",
+          "device_name": "Nazwa urządzenia (opcjonalnie)"
+        }
+      },
+      "reconfig_remove": {
+        "title": "Usuń urządzenia lokalne",
+        "description": "Wybierz urządzenia do usunięcia.",
+        "data": {
+          "remove": "Urządzenia do usunięcia"
         }
       },
       "local": {
@@ -407,7 +468,8 @@
         "name": "Tryb połączenia",
         "state": {
           "local": "Lokalny",
-          "cloud": "Chmura"
+          "cloud": "Chmura",
+          "zenSDK": "Zen SDK (lokalnie)"
         }
       },
       "ble_adapter": {

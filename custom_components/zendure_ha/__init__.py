@@ -7,7 +7,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
 from .api import Api
-from .const import CONF_MQTTLOG, CONF_P1METER, CONF_SIM
+from .const import (
+    CONF_DEVICE_SN,
+    CONF_DEVICES,
+    CONF_LOCAL_ONLY,
+    CONF_MQTTLOG,
+    CONF_P1METER,
+    CONF_SIM,
+)
 from .device import ZendureDevice
 from .entity import EntityDevice
 from .manager import ZendureConfigEntry, ZendureManager
@@ -64,17 +71,38 @@ async def async_unload_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> 
         manager.update_p1meter(None)
         manager.fuseGroups.clear()
         manager.devices.clear()
+        # Api.devices is class-level state that survives a reload; clear it so the
+        # next setup rebuilds the authoritative set from the (cloud or local) device
+        # list and a removed device does not linger.
+        Api.devices.clear()
     return result
 
 
-async def async_remove_config_entry_device(_hass: HomeAssistant, entry: ZendureConfigEntry, device_entry: dr.DeviceEntry) -> bool:
+async def async_remove_config_entry_device(hass: HomeAssistant, entry: ZendureConfigEntry, device_entry: dr.DeviceEntry) -> bool:
     """Remove a device from a config entry."""
     manager = entry.runtime_data
 
     # check for device to remove
     for d in manager.devices:
         if d.name == device_entry.name:
+            # A local entry has no cloud account to fall back on, so it can't be left
+            # with zero devices. Checked against manager.devices (the live set), not
+            # entry.data[CONF_DEVICES], since a failed-to-load device would inflate
+            # the persisted count and bypass this guard.
+            if entry.data.get(CONF_LOCAL_ONLY) and len(manager.devices) <= 1:
+                _LOGGER.error(
+                    "Cannot remove %s: it is the only device on this local Zendure entry. Remove the Zendure integration entry instead.",
+                    d.name,
+                )
+                return False
+
             manager.devices.remove(d)
+            Api.devices.pop(d.deviceId, None)
+            # For a local entry, also drop it from the stored list so it does not
+            # reappear on the next reload. Cloud entries are re-fetched, so leave them.
+            if entry.data.get(CONF_LOCAL_ONLY):
+                devices = [x for x in entry.data.get(CONF_DEVICES, []) if str(x.get(CONF_DEVICE_SN)) != d.deviceId]
+                hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_DEVICES: devices})
             return True
 
         if isinstance(d, ZendureDevice) and (bat := next((b for b in d.batteries.values() if b.name == device_entry.name), None)) is not None:

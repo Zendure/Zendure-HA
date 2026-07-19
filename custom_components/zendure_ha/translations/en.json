@@ -2,7 +2,8 @@
   "config": {
     "abort": {
       "already_configured": "Device is already configured",
-      "reconfigure_successful": "Reconfiguration successful"
+      "reconfigure_successful": "Reconfiguration successful",
+      "no_devices_configured": "No devices left. Add at least one device before saving."
     },
     "error": {
       "cannot_connect": "Could not reach the Zendure API. Check your internet connection and try again.",
@@ -10,11 +11,23 @@
       "api_rejected": "Zendure rejected the request: {detail}",
       "no_devices": "Token accepted, but no devices were found on this account. Make sure you use the Zendure account the device is registered to, and the correct region.",
       "no_mqtt": "Token accepted, but no MQTT server was returned. Enable local or cloud MQTT for this account in the Zendure app.",
+      "cannot_connect_local": "Could not reach the device on your network: {detail}. Check the IP address, make sure the device is on the same network, and that HEMS is disabled in the Zendure app.",
+      "no_local_report": "The device answered but did not return a valid Zen SDK report. Make sure HEMS is disabled in the Zendure app.",
+      "unsupported_model": "This device model is not supported for local setup (reported: {detail}). Please open an issue with this model string so it can be added.",
+      "duplicate_device": "This device ({detail}) has already been added.",
       "invalid_auth": "Invalid authentication",
       "unknown": "Unexpected error"
     },
     "step": {
       "user": {
+        "title": "Zendure setup",
+        "description": "Choose how to connect. Cloud uses your Zendure account token to communicate with your devices, with the connection running through the cloud (Zendure servers). Local (no cloud) talks directly to a Zen SDK capable device on your network.",
+        "menu_options": {
+          "cloud": "Cloud (Zendure account token)",
+          "localsdk": "Local, no cloud (Zen SDK device)"
+        }
+      },
+      "cloud": {
         "data": {
           "token": "Zendure Token",
           "p1meter": "P1 Sensor for smart matching",
@@ -23,6 +36,30 @@
           "auto_mqtt_user": "Automatically manage MQTT users",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
+        }
+      },
+      "localsdk": {
+        "title": "Add a local device (no cloud)",
+        "description": "Connect directly to a Zen SDK capable device (SolarFlow 800/1600/2400/4000) over your local network. Disable HEMS in the Zendure app first. The IP is checked as soon as you submit.",
+        "data": {
+          "device_ip": "Device IP address",
+          "device_name": "Device name (optional)"
+        }
+      },
+      "localsdk_menu": {
+        "title": "Local devices",
+        "description": "Added {count} device(s): {devices}. Add another device or finish the setup.",
+        "menu_options": {
+          "localsdk": "Add another device",
+          "localsdk_settings": "Finish and set the P1 meter"
+        }
+      },
+      "localsdk_settings": {
+        "title": "Smart matching settings",
+        "description": "These settings apply to all local devices managed by this integration.",
+        "data": {
+          "p1meter": "P1 Sensor for smart matching",
+          "mqttlog": "Log communication"
         }
       },
       "local": {
@@ -45,6 +82,30 @@
           "auto_mqtt_user": "Automatically manage MQTT users",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
+        }
+      },
+      "reconfigure_local": {
+        "title": "Manage local devices",
+        "description": "{count} device(s) configured: {devices}. Add or remove a device, then save to reload.",
+        "menu_options": {
+          "reconfig_add": "Add a device",
+          "reconfig_remove": "Remove a device",
+          "reconfig_save": "Save and reload"
+        }
+      },
+      "reconfig_add": {
+        "title": "Add a local device (no cloud)",
+        "description": "Disable HEMS in the Zendure app first. The IP is checked as soon as you submit.",
+        "data": {
+          "device_ip": "Device IP address",
+          "device_name": "Device name (optional)"
+        }
+      },
+      "reconfig_remove": {
+        "title": "Remove local devices",
+        "description": "Select the devices to remove.",
+        "data": {
+          "remove": "Devices to remove"
         }
       }
     }
@@ -426,7 +487,8 @@
         "name": "Connection Mode",
         "state": {
           "local": "Local",
-          "cloud": "Cloud"
+          "cloud": "Cloud",
+          "zenSDK": "Zen SDK (local)"
         }
       },
       "ble_adapter": {

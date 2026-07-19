@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Mapping
 
+from aiohttp import ClientTimeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
@@ -21,7 +22,13 @@ from paho.mqtt import enums as mqtt_enums
 
 from .const import (
     CONF_APPTOKEN,
+    CONF_DEVICE_IP,
+    CONF_DEVICE_MODEL,
+    CONF_DEVICE_NAME,
+    CONF_DEVICE_SN,
+    CONF_DEVICES,
     CONF_HAKEY,
+    CONF_LOCAL_ONLY,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
     CONF_MQTTPSW,
@@ -85,6 +92,8 @@ class Api:
         "solarflow2400ac+": SolarFlow2400AC_Plus,
         "solarflow2400pro": SolarFlow2400Pro,
         "solarflow4000ac+": SolarFlow4000AC_Plus,
+        # SF4000 Mix reports its model as "solarFlow4000MixAC+" locally, it's the same hardware as the AC+
+        "solarflow4000mixac+": SolarFlow4000AC_Plus,
         "superbasev6400": SuperBaseV6400,
         "superbasev4600": SuperBaseV4600,
     }
@@ -104,10 +113,16 @@ class Api:
     def Init(self, data: Mapping[str, Any], mqtt: Mapping[str, Any]) -> None:
         """Initialize Zendure Api."""
         Api.mqttLogging = data.get(CONF_MQTTLOG, False)
-        Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
-        url = mqtt["url"]
-        Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
-        self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
+
+        # `mqtt` carries the cloud broker credentials returned by the Zendure cloud
+        # API. The local (zenSDK) setup makes no cloud call, so it is empty and that
+        # device is driven entirely over its on-device HTTP API - no MQTT needed.
+        # Only connect the cloud broker when those credentials are present.
+        if mqtt:
+            Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
+            url = mqtt["url"]
+            Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
+            self.mqttInit(Api.mqttCloud, Api.cloudServer, Api.cloudPort, mqtt["username"], mqtt["password"])
 
         # Get wifi settings
         Api.wifissid = data.get(CONF_WIFISSID, "")
@@ -126,6 +141,12 @@ class Api:
     @staticmethod
     async def Connect(hass: HomeAssistant, data: dict[str, Any], reload: bool) -> dict[str, Any] | None:
         """Connect to the Zendure API."""
+        # Local (cloud-free) setup: the device list is described entirely by the
+        # config entry, so there is no cloud call to make. The device talks to us
+        # over its on-device Zen SDK HTTP API instead.
+        if data.get(CONF_LOCAL_ONLY):
+            return Api.localDeviceList(data)
+
         try:
             devices = await Api.ApiHA(hass, data)
         except ApiError:
@@ -220,6 +241,59 @@ class Api:
             _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
             raise ApiError("no_mqtt")
         return dict(result)
+
+    @staticmethod
+    def localDeviceList(data: Mapping[str, Any]) -> dict[str, Any]:
+        """Build a cloud-free device list from a local config entry."""
+        # Mirrors the shape ApiHA returns so the rest of the integration is unaware
+        # whether the device came from the cloud or from local config. The empty
+        # mqtt block signals the manager to skip cloud MQTT setup.
+        deviceList = []
+        for dev in data.get(CONF_DEVICES, []):
+            sn = str(dev.get(CONF_DEVICE_SN, "")).strip()
+            model = str(dev.get(CONF_DEVICE_MODEL, "")).strip()
+            ip = str(dev.get(CONF_DEVICE_IP, "")).strip()
+            name = str(dev.get(CONF_DEVICE_NAME, "") or model).strip()
+            if not sn or not ip:
+                continue
+            deviceList.append({
+                "deviceKey": sn,
+                "productModel": model,
+                "productKey": "local",
+                "snNumber": sn,
+                "deviceName": name,
+                "ip": ip,
+                "local": True,
+            })
+
+        if not deviceList:
+            # Mirrors ApiHA's ApiError("no_devices") diagnostic: a local entry with no
+            # usable devices would otherwise "load successfully" with zero entities and
+            # no indication in the log of why.
+            _LOGGER.error("Local Zendure entry has no usable devices in its stored device list: %s", data.get(CONF_DEVICES, []))
+
+        return {
+            "deviceList": deviceList,
+            "mqtt": {},
+        }
+
+    @staticmethod
+    async def testLocalDevice(hass: HomeAssistant, ip: str) -> tuple[str, str]:
+        """Validate a local device via its Zen SDK report; return (serial, product)."""
+        # Raises ApiError with a config-flow translation key on failure. The product
+        # string (e.g. "solarFlow4000MixAC+") lets the config flow auto-detect the model.
+        session = async_get_clientsession(hass, verify_ssl=False)
+        try:
+            response = await session.get(f"http://{ip}/properties/report", timeout=ClientTimeout(total=5))
+            payload = await response.json(content_type=None)
+        except Exception as e:
+            _LOGGER.error("Unable to reach local Zendure device at %s: %s", ip, e)
+            raise ApiError("cannot_connect_local", str(e)) from e
+
+        if not isinstance(payload, dict) or not (sn := payload.get("sn")):
+            _LOGGER.error("Local Zendure device at %s returned an unexpected report: %s", ip, payload)
+            raise ApiError("no_local_report")
+        return str(sn), str(payload.get("product", ""))
 
     def mqttInit(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:
         try:
