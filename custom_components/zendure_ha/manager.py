@@ -61,6 +61,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         EntityDevice.__init__(self, hass, "Zendure Manager", "Zendure Manager")
         self.api = Api()
         self.operation: ManagerMode = ManagerMode.OFF
+        # Serialize control cycles and operation changes. In particular, an OFF
+        # command must be sent after any power command that was already in flight.
+        self._control_lock = asyncio.Lock()
         self.zero_next = datetime.min
         self.zero_fast = datetime.min
         self.check_reset = datetime.min
@@ -252,20 +255,39 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def update_operation(self, entity: ZendureSelect, _operation: Any) -> None:
         operation = ManagerMode(entity.value)
-        _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
+        async with self._control_lock:
+            _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
 
-        self.operation = operation
-        if self.p1meterEvent is not None:
-            if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
+            self.operation = operation
+            if self.p1meterEvent is not None and operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
                 _LOGGER.warning("No devices online, not possible to start the operation")
                 persistent_notification.async_create(self.hass, "No devices online, not possible to start the operation", "Zendure", "zendure_ha")
                 return
 
-            match self.operation:
-                case ManagerMode.OFF:
-                    if len(self.devices) > 0:
-                        for d in self.devices:
-                            await d.power_off()
+            if self.operation == ManagerMode.OFF:
+                for d in self.devices:
+                    await d.power_off()
+
+    async def _execute_control_update(self, p1: int, isFast: bool, time: datetime) -> None:
+        """Calculate and apply one power update without racing operation changes."""
+        async with self._control_lock:
+            self.charge.clear()
+            self.charge_limit = 0
+            self.charge_optimal = 0
+            self.charge_weight = 0
+            self.discharge.clear()
+            self.discharge_bypass = 0
+            self.discharge_limit = 0
+            self.discharge_optimal = 0
+            self.discharge_produced = 0
+            self.discharge_weight = 0
+            self.idle.clear()
+            self.idle_lvlmax = 0
+            self.idle_lvlmin = 100
+            self.produced = 0
+            for fg in self.fuseGroups:
+                fg.initPower = True
+            await self.powerChanged(p1, isFast, time)
 
     async def _async_update_data(self) -> None:
 
@@ -393,23 +415,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             try:
                 # prevent updates during power distribution changes
                 self.zero_fast = datetime.max
-                self.charge.clear()
-                self.charge_limit = 0
-                self.charge_optimal = 0
-                self.charge_weight = 0
-                self.discharge.clear()
-                self.discharge_bypass = 0
-                self.discharge_limit = 0
-                self.discharge_optimal = 0
-                self.discharge_produced = 0
-                self.discharge_weight = 0
-                self.idle.clear()
-                self.idle_lvlmax = 0
-                self.idle_lvlmin = 100
-                self.produced = 0
-                for fg in self.fuseGroups:
-                    fg.initPower = True
-                await self.powerChanged(p1, isFast, time)
+                await self._execute_control_update(p1, isFast, time)
             except Exception as err:
                 _LOGGER.error(err)
                 _LOGGER.error(traceback.format_exc())
