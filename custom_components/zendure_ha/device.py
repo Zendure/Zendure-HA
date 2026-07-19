@@ -812,7 +812,8 @@ class ZendureZenSdk(ZendureDevice):
         async with self._command_lock:
             if self._power_off_task and not self._power_off_task.done():
                 return
-            await self._send_command_unlocked(self._power_off_command())
+            if not await self._send_command_unlocked(self._power_off_command()):
+                return
             self._power_off_task = self.hass.async_create_task(
                 self._verify_power_off()
             )
@@ -881,11 +882,13 @@ class ZendureZenSdk(ZendureDevice):
                 self._cancel_power_off_verification()
             await self._send_command_unlocked(command)
 
-    async def _send_command_unlocked(self, command: Any) -> None:
+    async def _send_command_unlocked(self, command: Any) -> bool:
         if self.connection.value != 0:
-            await self.httpPost("properties/write", command)
-        else:
-            self.mqttPublish(self.topic_write, command, self.mqtt)
+            return await self.httpPost("properties/write", command)
+        if self.mqtt is None:
+            return False
+        self.mqttPublish(self.topic_write, command, self.mqtt)
+        return True
 
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
