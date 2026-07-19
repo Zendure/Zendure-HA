@@ -8,6 +8,7 @@ import logging
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from time import monotonic
 from typing import Any
 
 from aiohttp import ClientTimeout
@@ -39,6 +40,18 @@ _LOGGER = logging.getLogger(__name__)
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
+
+# A SolarFlow may acknowledge zero limits and re-enable its power stage a few
+# seconds later while settling an AC-mode transition.  Verify the physical
+# result, not only the command registers, but keep retries bounded to avoid
+# continuously controlling a device after the manager has been switched off.
+POWER_OFF_VERIFY_DELAYS = (5.0, 10.0, 20.0)
+POWER_OFF_TOLERANCE = 20
+POWER_OFF_COALESCE = 1.0
+HTTP_ERROR_STATUS = 400
+POWER_CONTROL_PROPERTIES = frozenset(
+    {"smartMode", "acMode", "outputLimit", "inputLimit"}
+)
 
 
 class ZendureBattery(EntityDevice):
@@ -663,6 +676,9 @@ class ZendureDevice(EntityDevice):
     async def power_off(self) -> None:
         """Set the power off."""
 
+    def cancel_pending_tasks(self) -> None:
+        """Cancel device background work during integration unload."""
+
     @property
     def online(self) -> bool:
         """Check if device is online."""
@@ -724,6 +740,15 @@ class ZendureZenSdk(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
+        # All power-control sources (manager, HA number entities and recovery)
+        # share this lock so their HTTP/MQTT commands cannot overtake each other.
+        self._command_lock = asyncio.Lock()
+        self._power_command_generation = 0
+        self._power_off_requested = False
+        self._power_off_task: asyncio.Task[None] | None = None
+        self._last_power_off_command = 0.0
+        self._last_power_off_properties: dict[str, int] | None = None
+        self._power_off_verify_delays = POWER_OFF_VERIFY_DELAYS
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
@@ -754,10 +779,13 @@ class ZendureZenSdk(ZendureDevice):
         elif entity.propertyName == "inputLimit":
             await self.charge(-value)
         elif self.online and self.connection.value == 0:
-            await super().entityWrite(entity, value)
+            async with self._command_lock:
+                if entity.propertyName in POWER_CONTROL_PROPERTIES:
+                    self._invalidate_power_off_locked()
+                await super().entityWrite(entity, value)
         else:
             _LOGGER.info("Writing property %s %s => %s", self.name, entity.propertyName, value)
-            await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
+            await self.doCommand({"properties": {entity.propertyName: value}})
 
     async def dataRefresh(self, update_count: int) -> None:
         if update_count == 0 and not self.online:
@@ -775,29 +803,263 @@ class ZendureZenSdk(ZendureDevice):
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
         _LOGGER.info("Power charge %s => %s", self.name, power)
-        if power == -SmartMode.POWER_START and self.limitInput.asInt >= SmartMode.POWER_START and self.homeInput.asInt == 0:
+        # Zero is directionless.  Reusing the canonical OFF payload prevents a
+        # pair of outputLimit=0/inputLimit=0 writes from ending in AC input mode.
+        if power == 0:
+            await self.power_off()
+            return 0
+        if (
+            power == -SmartMode.POWER_START
+            and self.limitInput.asInt >= SmartMode.POWER_START
+            and self.homeInput.asInt == 0
+        ):
             power = -min(self.limitInput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power charge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
+        await self._write_power_command(
+            {
+                "smartMode": 1,
+                "acMode": 1,
+                "outputLimit": 0,
+                "inputLimit": -power,
+            }
+        )
         return power
 
     async def discharge(self, power: int) -> int:
         _LOGGER.info("Power discharge %s => %s", self.name, power)
-        if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
+        if power == 0:
+            await self.power_off()
+            return 0
+        if (
+            power == SmartMode.POWER_START
+            and self.limitOutput.asInt >= SmartMode.POWER_START
+            and self.homeOutput.asInt == 0
+        ):
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
+        await self._write_power_command(
+            {
+                "smartMode": 1,
+                "acMode": 2,
+                "outputLimit": power,
+                "inputLimit": 0,
+            }
+        )
         return power
 
     async def power_off(self) -> None:
         """Set the power off."""
-        await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}})
+        properties = self._power_off_properties()
+        generation = await self._write_power_command(properties, power_off=True)
+        self._schedule_power_off_verification(generation)
 
-    async def doCommand(self, command: Any) -> None:
+    def _power_off_properties(self) -> dict[str, int]:
+        """Return the single canonical payload used to stop either direction."""
+        return {
+            "smartMode": 0 if self.pwr_offgrid == 0 else 1,
+            "acMode": 2,
+            "outputLimit": 0,
+            "inputLimit": 0,
+        }
+
+    def _cancel_power_off_verification(self) -> None:
+        """Cancel a stale power-off verifier without cancelling itself."""
+        task = self._power_off_task
+        if task is not None and task is not asyncio.current_task() and not task.done():
+            task.cancel()
+        if task is not asyncio.current_task():
+            self._power_off_task = None
+
+    def _invalidate_power_off_locked(self) -> None:
+        """Record a newer power intent while the caller owns _command_lock."""
+        self._power_command_generation += 1
+        self._power_off_requested = False
+        self._last_power_off_properties = None
+        self._cancel_power_off_verification()
+
+    async def _write_power_command(
+        self,
+        properties: dict[str, int],
+        *,
+        power_off: bool = False,
+    ) -> int:
+        """Serialize one power command and return its ordering generation."""
+        async with self._command_lock:
+            # Manager OFF followed immediately by outputLimit=0 and inputLimit=0
+            # is the same intent. Preserve its generation and verifier so a
+            # stream of duplicate zero writes cannot postpone verification.
+            now = monotonic()
+            coalesced = (
+                power_off
+                and self._power_off_requested
+                and properties == self._last_power_off_properties
+                and now - self._last_power_off_command < POWER_OFF_COALESCE
+            )
+            if coalesced:
+                return self._power_command_generation
+
+            self._power_command_generation += 1
+            generation = self._power_command_generation
+            self._power_off_requested = power_off
+            if not power_off:
+                self._last_power_off_properties = None
+            self._cancel_power_off_verification()
+
+            success = await self._send_command_unlocked({"properties": properties})
+            if success and power_off:
+                self._last_power_off_command = monotonic()
+                self._last_power_off_properties = properties.copy()
+
+        return generation
+
+    def _schedule_power_off_verification(self, generation: int) -> None:
+        """Verify an OFF transition in the background."""
+        # power_off() releases the command lock before scheduling. A newer
+        # command may therefore already exist; never replace its verifier with
+        # a task for this stale generation.
+        if not self._is_current_power_off(generation):
+            return
+        if self._power_off_task is not None and not self._power_off_task.done():
+            return
+        self._cancel_power_off_verification()
+        self._power_off_task = self.hass.async_create_task(
+            self._verify_power_off(generation)
+        )
+
+    def _is_power_off(self) -> bool:
+        """Check measured power flows, not only requested limit registers."""
+        battery_discharge, home_output, home_input = (
+            self._power_off_measurements()
+        )
+        return (
+            home_output <= POWER_OFF_TOLERANCE
+            and home_input <= POWER_OFF_TOLERANCE
+            and battery_discharge <= POWER_OFF_TOLERANCE
+        )
+
+    def _power_off_measurements(self) -> tuple[int, int, int]:
+        """Return net managed battery, home-output and home-input power."""
+        offgrid = max(0, self.pwr_offgrid)
+        battery_discharge = max(
+            0,
+            self.batteryOutput.asInt - self.batteryInput.asInt - offgrid,
+        )
+        return battery_discharge, self.homeOutput.asInt, self.homeInput.asInt
+
+    def _is_current_power_off(self, generation: int) -> bool:
+        """Return whether a verifier still represents the latest power intent."""
+        return (
+            generation == self._power_command_generation
+            and self._power_off_requested
+        )
+
+    async def _check_and_retry_power_off(self, generation: int, attempt: int) -> bool:
+        """Retry active power and return True only when this verifier is stale."""
+        # zenSDK obtains a fresh report here; MQTT devices use their most recent
+        # telemetry. A failed refresh is not proof of a failed stop.
+        if not await self.power_get():
+            return False
+        if self._is_power_off():
+            # Do not finish after the first zero sample: the SF2400 can report a
+            # successful stop and re-enable its power stage several seconds later.
+            return False
+
+        async with self._command_lock:
+            if not self._is_current_power_off(generation):
+                return True
+            battery_discharge, home_output, home_input = (
+                self._power_off_measurements()
+            )
+            _LOGGER.warning(
+                "Power-off verification %s/%s failed for %s "
+                "(battery=%sW, homeOut=%sW, homeIn=%sW); retrying",
+                attempt,
+                len(self._power_off_verify_delays),
+                self.name,
+                battery_discharge,
+                home_output,
+                home_input,
+            )
+            await self._send_command_unlocked(
+                {"properties": self._power_off_properties()}
+            )
+        return False
+
+    async def _report_power_off_failure(self, generation: int) -> None:
+        """Refresh and report a stop that did not converge after all retries."""
+        if not self._is_current_power_off(generation):
+            return
+        if self._power_off_verify_delays:
+            await asyncio.sleep(self._power_off_verify_delays[0])
+        if not await self.power_get():
+            if not self._is_current_power_off(generation):
+                return
+            _LOGGER.warning(
+                "Unable to verify power-off for offline device %s",
+                self.name,
+            )
+            return
+        if not self._is_current_power_off(generation):
+            return
+        if not self._is_power_off():
+            battery_discharge, home_output, home_input = (
+                self._power_off_measurements()
+            )
+            _LOGGER.error(
+                "Unable to stop power flow for %s after %s retries "
+                "(battery=%sW, homeOut=%sW, homeIn=%sW)",
+                self.name,
+                len(self._power_off_verify_delays),
+                battery_discharge,
+                home_output,
+                home_input,
+            )
+
+    async def _verify_power_off(self, generation: int) -> None:
+        """Retry a stop that was acknowledged but did not stop physical power."""
+        try:
+            for attempt, delay in enumerate(self._power_off_verify_delays, start=1):
+                await asyncio.sleep(delay)
+
+                if not self._is_current_power_off(generation):
+                    return
+
+                if await self._check_and_retry_power_off(generation, attempt):
+                    return
+
+            await self._report_power_off_failure(generation)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception("Power-off verification failed for %s", self.name)
+        finally:
+            if self._power_off_task is asyncio.current_task():
+                self._power_off_task = None
+
+    def cancel_pending_tasks(self) -> None:
+        """Cancel device background work during integration unload."""
+        self._cancel_power_off_verification()
+        self._power_off_task = None
+
+    async def doCommand(self, command: Any) -> bool:
+        """Serialize a non-distribution command with power commands."""
+        async with self._command_lock:
+            properties = (
+                command.get("properties", {}) if isinstance(command, dict) else {}
+            )
+            if POWER_CONTROL_PROPERTIES.intersection(properties):
+                self._invalidate_power_off_locked()
+            return await self._send_command_unlocked(command)
+
+    async def _send_command_unlocked(self, command: Any) -> bool:
+        """Send a command while the caller owns _command_lock."""
         if self.connection.value != 0:
-            await self.httpPost("properties/write", command)
-        else:
-            self.mqttPublish(self.topic_write, command, self.mqtt)
+            return await self.httpPost("properties/write", command)
+        if self.mqtt is None:
+            _LOGGER.error("Cannot send command to %s: MQTT is unavailable", self.name)
+            return False
+        self.mqttPublish(self.topic_write, command, self.mqtt)
+        return True
 
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
@@ -817,7 +1079,25 @@ class ZendureZenSdk(ZendureDevice):
             command["id"] = self.httpid
             command["sn"] = self.snNumber
             url = f"http://{self.ipAddress}/{url}"
-            await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
+            response = await self.session.post(
+                url,
+                json=command,
+                headers=CONST_HEADER,
+                timeout=CONST_TIMEOUT,
+            )
+            try:
+                status = getattr(response, "status", 200)
+                if status >= HTTP_ERROR_STATUS:
+                    body = await response.text()
+                    _LOGGER.error(
+                        "HTTP %s for %s during httpPost: %s",
+                        status,
+                        self.name,
+                        body[:200],
+                    )
+                    return False
+            finally:
+                response.release()
         except Exception as e:
             _LOGGER.error("%s for %s during httpPost%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
             self.lastseen = datetime.min

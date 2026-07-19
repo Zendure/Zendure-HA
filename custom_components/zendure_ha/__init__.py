@@ -58,6 +58,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> 
         if Api.mqttLocal.is_connected():
             Api.mqttLocal.disconnect()
         for c in Api.devices.values():
+            c.cancel_pending_tasks()
             if c.zendure is not None and c.zendure.is_connected():
                 c.zendure.disconnect()
             c.zendure = None
