@@ -38,6 +38,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
+HTTP_ERROR_STATUS = 400
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
 POWER_OFF_VERIFY_DELAYS = (5.0, 10.0, 20.0)
@@ -313,16 +314,17 @@ class ZendureDevice(EntityDevice):
     async def button_press(self, _key: str) -> None:
         return
 
-    def mqttPublish(self, topic: str, command: Any, client: mqtt_client.Client | None = None) -> None:
+    def mqttPublish(self, topic: str, command: Any, client: mqtt_client.Client | None = None) -> bool:
         command["messageId"] = self._messageid
         command["deviceId"] = self.deviceId
         command["timestamp"] = int(datetime.now().timestamp())
         payload = json.dumps(command, default=lambda o: o.__dict__)
 
         if client is not None:
-            client.publish(topic, payload)
-        elif self.mqtt is not None:
-            self.mqtt.publish(topic, payload)
+            return client.publish(topic, payload).rc == mqtt_client.MQTT_ERR_SUCCESS
+        if self.mqtt is not None:
+            return self.mqtt.publish(topic, payload).rc == mqtt_client.MQTT_ERR_SUCCESS
+        return False
 
     def mqttInvoke(self, command: Any) -> None:
         self._messageid += 1
@@ -769,7 +771,12 @@ class ZendureZenSdk(ZendureDevice):
                 await super().entityWrite(entity, value)
         else:
             _LOGGER.info("Writing property %s %s => %s", self.name, entity.propertyName, value)
-            await self.doCommand({"properties": {entity.propertyName: value}})
+            async with self._command_lock:
+                if entity.propertyName in POWER_CONTROL_PROPERTIES:
+                    self._cancel_power_off_verification()
+                await self.httpPost(
+                    "properties/write", {"properties": {entity.propertyName: value}}
+                )
 
     async def dataRefresh(self, update_count: int) -> None:
         if update_count == 0 and not self.online:
@@ -887,8 +894,7 @@ class ZendureZenSdk(ZendureDevice):
             return await self.httpPost("properties/write", command)
         if self.mqtt is None:
             return False
-        self.mqttPublish(self.topic_write, command, self.mqtt)
-        return True
+        return self.mqttPublish(self.topic_write, command, self.mqtt)
 
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
@@ -908,12 +914,23 @@ class ZendureZenSdk(ZendureDevice):
             command["id"] = self.httpid
             command["sn"] = self.snNumber
             url = f"http://{self.ipAddress}/{url}"
-            await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
+            response = await self.session.post(
+                url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT
+            )
+            try:
+                if response.status >= HTTP_ERROR_STATUS:
+                    _LOGGER.error(
+                        "HTTP %s for %s during httpPost", response.status, self.name
+                    )
+                    self.lastseen = datetime.min
+                    return False
+                return True
+            finally:
+                response.release()
         except Exception as e:
             _LOGGER.error("%s for %s during httpPost%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
             self.lastseen = datetime.min
             return False
-        return True
 
 
 @dataclass
