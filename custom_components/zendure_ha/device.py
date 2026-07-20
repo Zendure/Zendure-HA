@@ -798,8 +798,9 @@ class ZendureZenSdk(ZendureDevice):
         await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}}, self._is_power_off)
 
     def _is_power_off(self) -> bool:
-        battery = max(0, self.batteryOutput.asInt - self.batteryInput.asInt - max(0, self.pwr_offgrid))
-        return max(battery, self.homeOutput.asInt, self.homeInput.asInt) <= POWER_OFF_TOLERANCE
+        solar = min(max(0, self.solarInput.asInt), max(0, self.homeOutput.asInt)) if self.state == DeviceState.SOCFULL else 0
+        battery = max(0, self.batteryOutput.asInt - self.batteryInput.asInt - max(0, self.pwr_offgrid) - solar)
+        return max(battery, self.homeOutput.asInt - solar, self.homeInput.asInt) <= POWER_OFF_TOLERANCE
 
     async def _verify_command(self, command: Any, check: Callable[[], bool]) -> None:
         """Retry a command when its expected state is not reached."""
