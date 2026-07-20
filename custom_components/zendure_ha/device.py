@@ -41,7 +41,7 @@ CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
-POWER_OFF_VERIFY_DELAYS = (5.0, 10.0, 20.0)
+COMMAND_VERIFY_DELAYS = (5.0, 10.0, 20.0)
 POWER_OFF_TOLERANCE = 20
 
 
@@ -809,7 +809,7 @@ class ZendureZenSdk(ZendureDevice):
         """Retry a command when its expected state is not reached."""
         task = asyncio.current_task()
         try:
-            for attempt, delay in enumerate(POWER_OFF_VERIFY_DELAYS, start=1):
+            for attempt, delay in enumerate(COMMAND_VERIFY_DELAYS, start=1):
                 await asyncio.sleep(delay)
                 if self._command_verify_task is not task:
                     return
@@ -817,7 +817,7 @@ class ZendureZenSdk(ZendureDevice):
                     continue
                 if self._command_verify_task is not task:
                     return
-                _LOGGER.warning("Command retry %s/%s for %s", attempt, len(POWER_OFF_VERIFY_DELAYS), self.name)
+                _LOGGER.warning("Command retry %s/%s for %s", attempt, len(COMMAND_VERIFY_DELAYS), self.name)
                 await self.doCommand(command)
         except Exception:
             _LOGGER.exception("Command verification failed for %s", self.name)
