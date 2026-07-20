@@ -21,6 +21,9 @@ CONF_AUTO_MQTT_USER = "auto_mqtt_user"
 
 CONF_HAKEY = "C*dafwArEOXK"
 
+COMMAND_VERIFY_DELAYS = (5.0, 10.0, 20.0)
+POWER_OFF_TOLERANCE = 20
+
 
 class AcMode:
     INPUT = 1

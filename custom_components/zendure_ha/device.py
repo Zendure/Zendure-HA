@@ -29,7 +29,7 @@ from paho.mqtt import client as mqtt_client
 
 from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
-from .const import DeviceState, SmartMode
+from .const import COMMAND_VERIFY_DELAYS, POWER_OFF_TOLERANCE, DeviceState, SmartMode
 from .entity import EntityDevice, EntityZendure
 from .number import ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
@@ -40,10 +40,6 @@ _LOGGER = logging.getLogger(__name__)
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
-
-COMMAND_VERIFY_DELAYS = (5.0, 10.0, 20.0)
-POWER_OFF_TOLERANCE = 20
-
 
 class ZendureBattery(EntityDevice):
     """Zendure Battery class for devices."""
