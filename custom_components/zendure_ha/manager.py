@@ -61,7 +61,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         EntityDevice.__init__(self, hass, "Zendure Manager", "Zendure Manager")
         self.api = Api()
         self.operation: ManagerMode = ManagerMode.OFF
-        self._control_lock = asyncio.Lock()
         self.zero_next = datetime.min
         self.zero_fast = datetime.min
         self.check_reset = datetime.min
@@ -253,20 +252,23 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def update_operation(self, entity: ZendureSelect, _operation: Any) -> None:
         operation = ManagerMode(entity.value)
-        async with self._control_lock:
-            _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
+        _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
 
-            self.operation = operation
-            if self.p1meterEvent is not None and operation != ManagerMode.OFF and (
-                not self.devices or all(not d.online for d in self.devices)
-            ):
+        self.operation = operation
+        if operation != ManagerMode.OFF:
+            for d in self.devices:
+                d.cancel_command_verification()
+        if self.p1meterEvent is not None:
+            if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
                 _LOGGER.warning("No devices online, not possible to start the operation")
                 persistent_notification.async_create(self.hass, "No devices online, not possible to start the operation", "Zendure", "zendure_ha")
                 return
 
-            if self.operation == ManagerMode.OFF:
-                for d in self.devices:
-                    await d.power_off()
+            match self.operation:
+                case ManagerMode.OFF:
+                    if len(self.devices) > 0:
+                        for d in self.devices:
+                            await d.power_off()
 
     async def _async_update_data(self) -> None:
 
@@ -394,24 +396,23 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             try:
                 # prevent updates during power distribution changes
                 self.zero_fast = datetime.max
-                async with self._control_lock:
-                    self.charge.clear()
-                    self.charge_limit = 0
-                    self.charge_optimal = 0
-                    self.charge_weight = 0
-                    self.discharge.clear()
-                    self.discharge_bypass = 0
-                    self.discharge_limit = 0
-                    self.discharge_optimal = 0
-                    self.discharge_produced = 0
-                    self.discharge_weight = 0
-                    self.idle.clear()
-                    self.idle_lvlmax = 0
-                    self.idle_lvlmin = 100
-                    self.produced = 0
-                    for fg in self.fuseGroups:
-                        fg.initPower = True
-                    await self.powerChanged(p1, isFast, time)
+                self.charge.clear()
+                self.charge_limit = 0
+                self.charge_optimal = 0
+                self.charge_weight = 0
+                self.discharge.clear()
+                self.discharge_bypass = 0
+                self.discharge_limit = 0
+                self.discharge_optimal = 0
+                self.discharge_produced = 0
+                self.discharge_weight = 0
+                self.idle.clear()
+                self.idle_lvlmax = 0
+                self.idle_lvlmin = 100
+                self.produced = 0
+                for fg in self.fuseGroups:
+                    fg.initPower = True
+                await self.powerChanged(p1, isFast, time)
             except Exception as err:
                 _LOGGER.error(err)
                 _LOGGER.error(traceback.format_exc())

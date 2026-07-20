@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -38,12 +39,10 @@ _LOGGER = logging.getLogger(__name__)
 
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
-HTTP_ERROR_STATUS = 400
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
 POWER_OFF_VERIFY_DELAYS = (5.0, 10.0, 20.0)
 POWER_OFF_TOLERANCE = 20
-POWER_CONTROL_PROPERTIES = {"smartMode", "acMode", "outputLimit", "inputLimit"}
 
 
 class ZendureBattery(EntityDevice):
@@ -314,17 +313,16 @@ class ZendureDevice(EntityDevice):
     async def button_press(self, _key: str) -> None:
         return
 
-    def mqttPublish(self, topic: str, command: Any, client: mqtt_client.Client | None = None) -> bool:
+    def mqttPublish(self, topic: str, command: Any, client: mqtt_client.Client | None = None) -> None:
         command["messageId"] = self._messageid
         command["deviceId"] = self.deviceId
         command["timestamp"] = int(datetime.now().timestamp())
         payload = json.dumps(command, default=lambda o: o.__dict__)
 
         if client is not None:
-            return client.publish(topic, payload).rc == mqtt_client.MQTT_ERR_SUCCESS
-        if self.mqtt is not None:
-            return self.mqtt.publish(topic, payload).rc == mqtt_client.MQTT_ERR_SUCCESS
-        return False
+            client.publish(topic, payload)
+        elif self.mqtt is not None:
+            self.mqtt.publish(topic, payload)
 
     def mqttInvoke(self, command: Any) -> None:
         self._messageid += 1
@@ -669,8 +667,8 @@ class ZendureDevice(EntityDevice):
     async def power_off(self) -> None:
         """Set the power off."""
 
-    def cancel_pending_tasks(self) -> None:
-        """Cancel device background work during integration unload."""
+    def cancel_command_verification(self) -> None:
+        """Cancel a pending command verification."""
 
     @property
     def online(self) -> bool:
@@ -733,8 +731,7 @@ class ZendureZenSdk(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
-        self._command_lock = asyncio.Lock()
-        self._power_off_task: asyncio.Task[None] | None = None
+        self._command_verify_task: asyncio.Task[None] | None = None
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
@@ -765,18 +762,10 @@ class ZendureZenSdk(ZendureDevice):
         elif entity.propertyName == "inputLimit":
             await self.charge(-value)
         elif self.online and self.connection.value == 0:
-            async with self._command_lock:
-                if entity.propertyName in POWER_CONTROL_PROPERTIES:
-                    self._cancel_power_off_verification()
-                await super().entityWrite(entity, value)
+            await super().entityWrite(entity, value)
         else:
             _LOGGER.info("Writing property %s %s => %s", self.name, entity.propertyName, value)
-            async with self._command_lock:
-                if entity.propertyName in POWER_CONTROL_PROPERTIES:
-                    self._cancel_power_off_verification()
-                await self.httpPost(
-                    "properties/write", {"properties": {entity.propertyName: value}}
-                )
+            await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
 
     async def dataRefresh(self, update_count: int) -> None:
         if update_count == 0 and not self.online:
@@ -794,107 +783,63 @@ class ZendureZenSdk(ZendureDevice):
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
         _LOGGER.info("Power charge %s => %s", self.name, power)
-        if power == 0:
-            await self.power_off()
-            return 0
         if power == -SmartMode.POWER_START and self.limitInput.asInt >= SmartMode.POWER_START and self.homeInput.asInt == 0:
             power = -min(self.limitInput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power charge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
+        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power
 
     async def discharge(self, power: int) -> int:
         _LOGGER.info("Power discharge %s => %s", self.name, power)
-        if power == 0:
-            await self.power_off()
-            return 0
         if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
+        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
         return power
 
     async def power_off(self) -> None:
         """Set the power off."""
-        async with self._command_lock:
-            if self._power_off_task and not self._power_off_task.done():
-                return
-            if not await self._send_command_unlocked(self._power_off_command()):
-                return
-            self._power_off_task = self.hass.async_create_task(
-                self._verify_power_off()
-            )
+        await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}}, self._is_power_off)
 
-    def _power_off_command(self) -> dict[str, dict[str, int]]:
-        return {
-            "properties": {
-                "smartMode": 0 if self.pwr_offgrid == 0 else 1,
-                "acMode": 2,
-                "outputLimit": 0,
-                "inputLimit": 0,
-            },
-        }
+    def _is_power_off(self) -> bool:
+        battery = max(0, self.batteryOutput.asInt - self.batteryInput.asInt - max(0, self.pwr_offgrid))
+        return max(battery, self.homeOutput.asInt, self.homeInput.asInt) <= POWER_OFF_TOLERANCE
 
-    def _cancel_power_off_verification(self) -> None:
-        if task := self._power_off_task:
-            self._power_off_task = None
-            if task is not asyncio.current_task():
-                task.cancel()
-
-    def _power_off_measurements(self) -> tuple[int, int, int]:
-        offgrid = max(0, self.pwr_offgrid)
-        battery = max(0, self.batteryOutput.asInt - self.batteryInput.asInt - offgrid)
-        return battery, self.homeOutput.asInt, self.homeInput.asInt
-
-    async def _verify_power_off(self) -> None:
-        """Retry a stop that was acknowledged but did not stop physical power."""
+    async def _verify_command(self, command: Any, check: Callable[[], bool]) -> None:
+        """Retry a command when its expected state is not reached."""
         task = asyncio.current_task()
         try:
             for attempt, delay in enumerate(POWER_OFF_VERIFY_DELAYS, start=1):
                 await asyncio.sleep(delay)
-                if not await self.power_get():
+                if self._command_verify_task is not task:
+                    return
+                if not await self.power_get() or check():
                     continue
-                flow = self._power_off_measurements()
-                if max(flow) <= POWER_OFF_TOLERANCE:
-                    continue
-                async with self._command_lock:
-                    if self._power_off_task is not task:
-                        return
-                    _LOGGER.warning(
-                        "Power-off retry %s/%s for %s: %sW/%sW/%sW",
-                        attempt, len(POWER_OFF_VERIFY_DELAYS), self.name, *flow,
-                    )
-                    await self._send_command_unlocked(self._power_off_command())
-            await asyncio.sleep(POWER_OFF_VERIFY_DELAYS[0])
-            if await self.power_get() and self._power_off_task is task:
-                flow = self._power_off_measurements()
-                if max(flow) > POWER_OFF_TOLERANCE:
-                    _LOGGER.error(
-                        "Power still active for %s after %s retries: %sW/%sW/%sW",
-                        self.name, len(POWER_OFF_VERIFY_DELAYS), *flow,
-                    )
+                if self._command_verify_task is not task:
+                    return
+                _LOGGER.warning("Command retry %s/%s for %s", attempt, len(POWER_OFF_VERIFY_DELAYS), self.name)
+                await self.doCommand(command)
         except Exception:
-            _LOGGER.exception("Power-off verification failed for %s", self.name)
+            _LOGGER.exception("Command verification failed for %s", self.name)
         finally:
-            if self._power_off_task is task:
-                self._power_off_task = None
+            if self._command_verify_task is task:
+                self._command_verify_task = None
 
-    def cancel_pending_tasks(self) -> None:
-        self._cancel_power_off_verification()
+    def cancel_command_verification(self) -> None:
+        if task := self._command_verify_task:
+            self._command_verify_task = None
+            task.cancel()
 
-    async def doCommand(self, command: Any) -> None:
-        async with self._command_lock:
-            props = command.get("properties", {}) if isinstance(command, dict) else {}
-            if POWER_CONTROL_PROPERTIES.intersection(props):
-                self._cancel_power_off_verification()
-            await self._send_command_unlocked(command)
-
-    async def _send_command_unlocked(self, command: Any) -> bool:
+    async def doCommand(self, command: Any, check: Callable[[], bool] | None = None) -> None:
+        if check is not None:
+            self.cancel_command_verification()
+            self._command_verify_task = self.hass.async_create_task(
+                self._verify_command(command, check)
+            )
         if self.connection.value != 0:
-            return await self.httpPost("properties/write", command)
-        if self.mqtt is None:
-            return False
-        return self.mqttPublish(self.topic_write, command, self.mqtt)
+            await self.httpPost("properties/write", command)
+        else:
+            self.mqttPublish(self.topic_write, command, self.mqtt)
 
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
@@ -914,23 +859,12 @@ class ZendureZenSdk(ZendureDevice):
             command["id"] = self.httpid
             command["sn"] = self.snNumber
             url = f"http://{self.ipAddress}/{url}"
-            response = await self.session.post(
-                url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT
-            )
-            try:
-                if response.status >= HTTP_ERROR_STATUS:
-                    _LOGGER.error(
-                        "HTTP %s for %s during httpPost", response.status, self.name
-                    )
-                    self.lastseen = datetime.min
-                    return False
-                return True
-            finally:
-                response.release()
+            await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
         except Exception as e:
             _LOGGER.error("%s for %s during httpPost%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
             self.lastseen = datetime.min
             return False
+        return True
 
 
 @dataclass
