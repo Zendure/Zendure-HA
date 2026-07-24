@@ -42,8 +42,13 @@ def device_definition() -> dict[str, str]:
 
 
 @pytest.fixture
-def zensdk_device(hass, device_definition):  # noqa: ANN001
-    """A ZendureZenSdk device instance (e.g. SolarFlow 2400 AC) wired up for direct testing."""
+async def zensdk_device(hass, device_definition):  # noqa: ANN001
+    """A ZendureZenSdk device instance (e.g. SolarFlow 2400 AC) wired up for direct testing.
+
+    Must be an async fixture: the constructor creates an aiohttp session via
+    async_get_clientsession, which needs a running event loop. A plain sync
+    fixture runs outside the loop pytest-asyncio set up for the `hass` fixture.
+    """
     from custom_components.zendure_ha.device import ZendureZenSdk
 
     device = ZendureZenSdk(hass, "device-1", "SolarFlow 2400 AC", "SolarFlow 2400 AC", device_definition)
