@@ -3,3 +3,12 @@
 pytest==9.0.3
 pytest-asyncio==1.4.0
 pytest-homeassistant-custom-component==0.13.347
+
+# device.py imports homeassistant.components.bluetooth at module level, which
+# transitively pulls in homeassistant.components.usb -> serialx -> aioesphomeapi.
+# These aren't declared in homeassistant's own core package requirements (HA
+# normally installs each component's manifest.json requirements dynamically
+# at runtime), so pin them explicitly for static test collection.
+aiousbwatcher==1.1.2
+serialx==1.8.2
+aioesphomeapi==45.7.0
