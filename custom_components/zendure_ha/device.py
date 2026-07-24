@@ -724,6 +724,8 @@ class ZendureZenSdk(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
+        self._modeAsserted: tuple[int, int] | None = None
+        self._modeAssertedAt: datetime = datetime.min
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
@@ -745,10 +747,9 @@ class ZendureZenSdk(ZendureDevice):
             _LOGGER.error("Entity %s has no translation_key, cannot write property %s", entity.name, self.name)
             return
 
-        # Route limit writes through the power routines so they send the full command
-        # (smartMode/acMode), exactly like the manager does. A bare outputLimit/inputLimit
-        # property write is silently ignored when the device has dropped out of smart mode
-        # (observed on SolarFlow 2400 Pro at 100% SoC, see #1505).
+        # Route limit writes through the power routines so they can (re-)assert
+        # smartMode/acMode when needed, exactly like the manager does. See
+        # ZendureZenSdk._sendPower for why that assertion is debounced.
         if entity.propertyName == "outputLimit":
             await self.discharge(value)
         elif entity.propertyName == "inputLimit":
@@ -778,7 +779,8 @@ class ZendureZenSdk(ZendureDevice):
         if power == -SmartMode.POWER_START and self.limitInput.asInt >= SmartMode.POWER_START and self.homeInput.asInt == 0:
             power = -min(self.limitInput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power charge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
+        smartMode = 0 if power == 0 and self.pwr_offgrid == 0 else 1
+        await self._sendPower(smartMode, 1, 0, -power)
         return power
 
     async def discharge(self, power: int) -> int:
@@ -786,12 +788,25 @@ class ZendureZenSdk(ZendureDevice):
         if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
+        smartMode = 0 if power == 0 and self.pwr_offgrid == 0 else 1
+        await self._sendPower(smartMode, 2, power, 0)
         return power
 
     async def power_off(self) -> None:
         """Set the power off."""
-        await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}})
+        smartMode = 0 if self.pwr_offgrid == 0 else 1
+        await self._sendPower(smartMode, 2, 0, 0)
+
+    async def _sendPower(self, smartMode: int, acMode: int, outputLimit: int, inputLimit: int) -> None:
+        """Send a limit write, (re-)asserting smartMode/acMode only on direction change or after MODE_REASSERT_INTERVAL (#1505 vs #1521)."""
+        props: dict[str, int] = {"outputLimit": outputLimit, "inputLimit": inputLimit}
+        now = datetime.now()
+        if (smartMode, acMode) != self._modeAsserted or now - self._modeAssertedAt > SmartMode.MODE_REASSERT_INTERVAL:
+            props["smartMode"] = smartMode
+            props["acMode"] = acMode
+            self._modeAsserted = (smartMode, acMode)
+            self._modeAssertedAt = now
+        await self.doCommand({"properties": props})
 
     async def doCommand(self, command: Any) -> None:
         if self.connection.value != 0:

@@ -71,3 +71,5 @@ class SmartMode:
 
     POWER_START = 50  # Minimum Power (W) for starting a device
     POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating
+
+    MODE_REASSERT_INTERVAL = timedelta(seconds=30)  # Min interval between forced smartMode/acMode re-assertions on unchanged direction
