@@ -66,16 +66,12 @@ async def test_discharge_reasserts_mode_after_reassert_interval_elapses(zensdk_d
 
 
 async def test_discharge_zero_power_sets_smart_mode_off(zensdk_device) -> None:  # noqa: ANN001
+    """ZendureZenSdk.pwr_offgrid is a fixed 0 (only overridden by other device
+    classes), so smartMode always goes to 0 when power is 0 for this device type.
+    """
     await zensdk_device.discharge(0)
 
     assert _last_props(zensdk_device)["smartMode"] == 0
-
-
-async def test_discharge_zero_power_keeps_smart_mode_on_when_offgrid(zensdk_device) -> None:  # noqa: ANN001
-    zensdk_device.pwr_offgrid = 50
-    await zensdk_device.discharge(0)
-
-    assert _last_props(zensdk_device)["smartMode"] == 1
 
 
 async def test_discharge_kickstart_boosts_power_from_stalled_start(zensdk_device) -> None:  # noqa: ANN001
