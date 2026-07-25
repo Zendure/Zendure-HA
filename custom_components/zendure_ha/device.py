@@ -40,6 +40,18 @@ CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=4)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
+# Quantize + rate-limit outputLimit/inputLimit writes issued via ZendureZenSdk.charge()/
+# discharge(). The Manager's own P1-loop already debounces these calls (SmartMode.TIMEFAST/
+# TIMEZERO, >=2.2s apart), but that loop is not the only caller: entityWrite() routes direct
+# Number-entity writes (e.g. a user automation driving output_limit for zero-feed-in) through
+# the same charge()/discharge() methods with no floor at all, so a noisy P1 sensor can burst
+# HTTP writes to the device's local web server many times per second. POWER_PROPERTY_MIN_INTERVAL
+# is kept below TIMEFAST so it never throttles the Manager's normal cadence - it only catches
+# the previously-unprotected direct-write path. power == 0 always passes through immediately
+# so stop requests are never delayed.
+POWER_PROPERTY_STEP_W = 10
+POWER_PROPERTY_MIN_INTERVAL = timedelta(seconds=2)
+
 
 class ZendureBattery(EntityDevice):
     """Zendure Battery class for devices."""
@@ -724,6 +736,8 @@ class ZendureZenSdk(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
+        self._lastPower: int | None = None
+        self._lastPowerTime = datetime.min
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
@@ -772,13 +786,35 @@ class ZendureZenSdk(ZendureDevice):
 
         return await super().power_get()
 
+    def _throttlePower(self, power: int) -> bool:
+        """Quantize and rate-limit a charge()/discharge() setpoint before it is sent.
+
+        Returns True if the write should actually go out. power == 0 (stop) always
+        passes through immediately regardless of the interval. See POWER_PROPERTY_STEP_W/
+        POWER_PROPERTY_MIN_INTERVAL for the rationale."""
+        if power == 0:
+            self._lastPower = 0
+            self._lastPowerTime = datetime.now()
+            return True
+
+        target = (power // POWER_PROPERTY_STEP_W) * POWER_PROPERTY_STEP_W
+        now = datetime.now()
+        if target == self._lastPower:
+            return False
+        if self._lastPower is not None and now - self._lastPowerTime < POWER_PROPERTY_MIN_INTERVAL:
+            return False
+        self._lastPower = target
+        self._lastPowerTime = now
+        return True
+
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
         _LOGGER.info("Power charge %s => %s", self.name, power)
         if power == -SmartMode.POWER_START and self.limitInput.asInt >= SmartMode.POWER_START and self.homeInput.asInt == 0:
             power = -min(self.limitInput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power charge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
+        if self._throttlePower(power):
+            await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power
 
     async def discharge(self, power: int) -> int:
@@ -786,11 +822,14 @@ class ZendureZenSdk(ZendureDevice):
         if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
             _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
-        await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
+        if self._throttlePower(power):
+            await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
         return power
 
     async def power_off(self) -> None:
         """Set the power off."""
+        self._lastPower = 0
+        self._lastPowerTime = datetime.now()
         await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}})
 
     async def doCommand(self, command: Any) -> None:
