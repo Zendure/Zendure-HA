@@ -52,6 +52,8 @@ class ZendureNumber(EntityZendure, NumberEntity):
         self._onwrite = onwrite
         self._attr_native_max_value = maximum
         self._attr_native_min_value = minimum
+        self.device_min = minimum
+        self.device_max = maximum
         self._attr_mode = mode
         self.factor = factor
         self.doupdate = doupdate
@@ -73,7 +75,12 @@ class ZendureNumber(EntityZendure, NumberEntity):
         return True
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set the value."""
+        """Set the value, clamped to the device's current limits."""
+        clamped = min(max(value, self.device_min), self.device_max)
+        if clamped != value:
+            _LOGGER.warning("Clamping %s from %s to %s [%s..%s]", self._attr_unique_id, value, clamped, self.device_min, self.device_max)
+            value = clamped
+
         if self.doupdate:
             self._attr_native_value = value
             if self.hass and self.hass.loop.is_running():
@@ -86,8 +93,18 @@ class ZendureNumber(EntityZendure, NumberEntity):
                 self._onwrite(self, int(self.factor * value))
 
     def update_range(self, minimum: int, maximum: int) -> None:
-        self._attr_native_min_value = minimum
-        self._attr_native_max_value = maximum
+        # Track the device's current limits for clamping outgoing writes.
+        self.device_min = minimum
+        self.device_max = maximum
+        # Only ever widen the advertised entity range. Narrowing it makes HA
+        # core reject higher setpoints with ServiceValidationError
+        # (out_of_range) in the number.set_value service wrapper - before the
+        # integration ever sees the value - so the command is lost entirely
+        # and external controllers silently lose control. Observed on a
+        # SolarFlow 2400 Pro temporarily reporting inverseMaxPower=800 (#1505).
+        # Writes above the device limit are clamped in async_set_native_value.
+        self._attr_native_min_value = min(minimum, self._attr_native_min_value)
+        self._attr_native_max_value = max(maximum, self._attr_native_max_value)
         if self.hass and self.hass.loop.is_running():
             self.schedule_update_ha_state()
 
