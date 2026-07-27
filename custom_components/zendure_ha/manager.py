@@ -473,20 +473,22 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.availableKwh.update_value(availableKwh)
         self.globalSoc.update_value((totalStoredkWh / onlinekWh * 100) if onlinekWh > 0 else 0)
 
-        # Bypass production of SOCFULL devices is non-dispatchable: it keeps flowing
-        # to the home regardless of the distribution (power_charge skips devices with
-        # byPass > 0). Remove it from the dispatchable setpoint. Because the per-device
-        # bypass is capped at its homeOutput contribution, this subtraction can never
-        # push the setpoint below "p1 - real charge credits": with no device charging
-        # and p1 >= 0, the result stays >= 0 — the #1151 guarantee holds structurally.
-        setpoint -= self.discharge_bypass
+        # Bypass production of SOCFULL devices is non-dispatchable: it keeps flowing to the
+        # home regardless of the distribution (power_charge skips devices with byPass > 0), so
+        # it must not count as headroom when deciding whether to charge. It is however part of
+        # the home output the devices are asked to deliver: outputLimit is an absolute output
+        # target and not a delta on top of the bypass, so the distribution keeps the full
+        # setpoint. Because the per-device bypass is capped at its homeOutput contribution,
+        # dispatchable can never drop below "p1 - real charge credits": with no device charging
+        # and p1 >= 0 it stays >= 0 — the #1151 guarantee holds structurally.
+        dispatchable = setpoint - self.discharge_bypass
 
         # Update power distribution.
-        _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW stored:%sW", p1, isFast, setpoint, self.produced)
+        _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW dispatchable:%sW stored:%sW", p1, isFast, setpoint, dispatchable, self.produced)
         match self.operation:
             case ManagerMode.MATCHING:
-                if setpoint < 0:
-                    await self.power_charge(setpoint, time)
+                if dispatchable < 0:
+                    await self.power_charge(dispatchable, time)
                 else:
                     await self.power_discharge(setpoint)
 
@@ -497,10 +499,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
                 # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
                 # d.pwr_produced is negative, but self.produced is positive
-                if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
+                if dispatchable > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
                     await self.power_discharge(min(self.produced, setpoint))
                 else:
-                    await self.power_charge(min(0, setpoint), time)
+                    await self.power_charge(min(0, dispatchable), time)
 
             case ManagerMode.MANUAL:
                 # Manual power into or from home
