@@ -193,6 +193,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         fg = FuseGroup(device.name, 2000, -2000)
                     case "group2400":
                         fg = FuseGroup(device.name, 2400, -2400)
+                    case "group4000":
+                        fg = FuseGroup(device.name, 4000, -4000)
+                    case "group5000":
+                        fg = FuseGroup(device.name, 5000, -5000)
                     case "unused":
                         # only switch off, if Manager is used
                         if self.operation != ManagerMode.OFF:
@@ -222,6 +226,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     5: "group2000",
                     6: "group2400",
                     7: "group3600",
+                    8: "group4000",
+                    9: "group5000",
                 }
                 for deviceId, fg in fuseGroups.items():
                     if deviceId != device.deviceId:

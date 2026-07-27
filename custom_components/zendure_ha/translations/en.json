@@ -413,13 +413,15 @@
         "name": "Device Fuse Group",
         "state": {
           "unused": "Unused, device has No FuseGroup",
-          "owncircuit": "Device has its own circuit or phase",
+          "owncircuit": "Device has its own circuit or phase, max. 3600w",
           "group800": "FuseGroup max. 800w / 1200w charge",
           "group800_2400": "FuseGroup max. 800w / 2400w charge",
           "group1200": "FuseGroup max. 1200w",
           "group2000": "FuseGroup max. 2000w",
           "group2400": "FuseGroup max. 2400w",
-          "group3600": "FuseGroup max. 3600w"
+          "group3600": "FuseGroup max. 3600w",
+          "group4000": "FuseGroup max. 4000w",
+          "group5000": "FuseGroup max. 5000w"
         }
       },
       "connection": {
