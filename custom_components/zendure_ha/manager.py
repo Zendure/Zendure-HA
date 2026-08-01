@@ -597,16 +597,22 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # Bypass already flows to the home and was subtracted from the setpoint, so it is
         # excluded from the capacities below and added back to the absolute command.
-        dispatch_limit = self.discharge_limit - self.discharge_bypass
+        # A device in bypass ignores an outputLimit above its pass-through, so it offers
+        # nothing dispatchable at all and another device has to cover the demand.
+        def dispatchable(d: ZendureDevice) -> int:
+            return 0 if d.byPass.asInt > 0 else max(0, d.pwr_max - d.pwr_bypass)
+
+        dispatch_limit = sum(dispatchable(d) for d in self.discharge)
         dispatch_produced = max(0, self.discharge_produced - self.discharge_bypass)
 
-        # distribute discharging devices, use produced power first, before adding another device
-        dev_start = max(0, setpoint - self.discharge_optimal * 2 - dispatch_produced) if setpoint > SmartMode.POWER_START else 0
+        # distribute discharging devices, use produced power first, before adding another device;
+        # start one as soon as the discharging devices run out of either optimal range or headroom
+        dev_start = max(0, setpoint - min(dispatch_limit, self.discharge_optimal * 2 + dispatch_produced)) if setpoint > SmartMode.POWER_START else 0
         solaronly = dispatch_produced >= setpoint
         limit = dispatch_produced if solaronly else dispatch_limit
         setpoint = min(limit, setpoint)
         for i, d in enumerate(sorted(self.discharge, key=lambda d: d.electricLevel.asInt, reverse=False)):
-            headroom = max(0, d.pwr_max - d.pwr_bypass)
+            headroom = dispatchable(d)
             solar = max(0, -d.pwr_produced - d.pwr_bypass)
 
             # Weight per device: pwr_max * SOC%. Devices with higher SOC get a
