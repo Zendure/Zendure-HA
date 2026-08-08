@@ -597,10 +597,18 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # Bypass already flows to the home and was subtracted from the setpoint, so it is
         # excluded from the capacities below and added back to the absolute command.
-        # A device in bypass ignores an outputLimit above its pass-through, so it offers
-        # nothing dispatchable at all and another device has to cover the demand.
+        def capacity(d: ZendureDevice) -> int:
+            return max(0, d.pwr_max - d.pwr_bypass)
+
+        # When all discharging devices are in bypass and no idle device is left to start, command them out of bypass
+        no_alternative = (
+            setpoint > 0
+            and sum(capacity(d) for d in self.discharge if d.byPass.asInt == 0) == 0
+            and not any(d.state != DeviceState.SOCEMPTY for d in self.idle)
+        )
+
         def dispatchable(d: ZendureDevice) -> int:
-            return 0 if d.byPass.asInt > 0 else max(0, d.pwr_max - d.pwr_bypass)
+            return capacity(d) if no_alternative or d.byPass.asInt == 0 else 0
 
         dispatch_limit = sum(dispatchable(d) for d in self.discharge)
         dispatch_produced = max(0, self.discharge_produced - self.discharge_bypass)
