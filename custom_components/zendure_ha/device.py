@@ -37,7 +37,7 @@ from .sensor import ZendureRestoreSensor, ZendureSensor
 _LOGGER = logging.getLogger(__name__)
 
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
-CONST_TIMEOUT = ClientTimeout(total=4)
+CONST_TIMEOUT = ClientTimeout(total=2)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 
 
