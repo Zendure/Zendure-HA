@@ -18,7 +18,8 @@ This Home Assistant integration connects your Zendure devices to Home Assistant,
     - [@Kieft-C](https://github.com/Kieft-C/Zendure-BKW-PV/wiki/Installation-Zendure-Home-Assistant-integration-%E2%80%93-Tutorial) 🇩🇪
   - Troubleshooting with few general hints
     - [Kieft-C](https://github.com/Kieft-C/Zendure-BKW-PV/wiki/Zendure-HA-integration-%E2%80%93-Troubleshoot-&-Mini-Anleitung) 🇩🇪
-
+  - Solution for Protocol Mosquitto local MQTT Error after Update Zendure Device
+    - [Kieft-C](https://github.com/Kieft-C/Zendure-BKW-PV/wiki/%E2%80%9EProtocol-error%22-im-Mosquitto%E2%80%90Log-nach-Zendure%E2%80%90Firmware%E2%80%90Update-(KW26-27-in-2026))🇩🇪
 - **Configuration:**
   - [Fuse Group](https://github.com/Zendure/Zendure-HA/wiki/Fuse-Group)
   - Zendure Manager
