@@ -326,13 +326,15 @@
         "name": "Device fusegroup",
         "state": {
           "unused": "Niet gebruikt, apparaat heeft geen zekeringgroep",
-          "owncircuit": "Apparaat is aangesloten op aparte groep of fase",
+          "owncircuit": "Apparaat is aangesloten op aparte groep of fase, max. 3600w",
           "group800": "Zekeringgroep max. 800w / 1200w batterijlading",
           "group800_2400": "Zekeringgroep max. 800w / 2400w batterijlading",
           "group1200": "Zekeringgroep max. 1200w",
           "group2000": "Zekeringgroep max. 2000w",
           "group2400": "Zekeringgroep max. 2400w",
-          "group3600": "Zekeringgroep max. 3600w"
+          "group3600": "Zekeringgroep max. 3600w",
+          "group4000": "Zekeringgroep max. 4000w",
+          "group5000": "Zekeringgroep max. 5000w"
         }
       },
       "connection": {

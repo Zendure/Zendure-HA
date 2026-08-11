@@ -402,13 +402,15 @@
         "name": "Geräte-Sicherungsgruppe",
         "state": {
           "unused": "Nicht verwendet, Gerät hat keine Sicherungsgruppe",
-          "owncircuit": "Gerät hat einen eigenen Stromkreis oder eine eigene Phase",
+          "owncircuit": "Gerät hat einen eigenen Stromkreis oder eine eigene Phase, max. 3600 W",
           "group800": "Sicherungsgruppe max. 800 W / 1200W laden",
           "group800_2400": "Sicherungsgruppe max. 800 W / 2400W laden",
           "group1200": "Sicherungsgruppe max. 1200 W",
           "group2000": "Sicherungsgruppe max. 2000 W",
           "group2400": "Sicherungsgruppe max. 2400 W",
-          "group3600": "Sicherungsgruppe max. 3600 W"
+          "group3600": "Sicherungsgruppe max. 3600 W",
+          "group4000": "Sicherungsgruppe max. 4000 W",
+          "group5000": "Sicherungsgruppe max. 5000 W"
         }
       },
       "connection": {
