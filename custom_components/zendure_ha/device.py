@@ -762,15 +762,7 @@ class ZendureZenSdk(ZendureDevice):
             _LOGGER.error("Entity %s has no translation_key, cannot write property %s", entity.name, self.name)
             return
 
-        # Route limit writes through the power routines so they send the full command
-        # (smartMode/acMode), exactly like the manager does. A bare outputLimit/inputLimit
-        # property write is silently ignored when the device has dropped out of smart mode
-        # (observed on SolarFlow 2400 Pro at 100% SoC, see #1505).
-        if entity.propertyName == "outputLimit":
-            await self.discharge(value)
-        elif entity.propertyName == "inputLimit":
-            await self.charge(-value)
-        elif self.online and self.connection.value == 0:
+        if self.online and self.connection.value == 0:
             await super().entityWrite(entity, value)
         else:
             _LOGGER.info("Writing property %s %s => %s", self.name, entity.propertyName, value)
