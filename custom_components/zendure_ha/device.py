@@ -143,6 +143,8 @@ class ZendureDevice(EntityDevice):
         self.maxSolar = 0
         self.pwr_max: int = 0
         self.pwr_produced: int = 0
+        # part of homeOutput the manager removes from its setpoint as non-dispatchable
+        self.pwr_bypass: int = 0
         self.actualKwh: float = 0.0
         self.state: DeviceState = DeviceState.OFFLINE
         self.exports_bypass: bool = True
