@@ -77,6 +77,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.charge_weight = 0
 
         self.discharge: list[ZendureDevice] = []
+        self.discharge_time = datetime.min
         self.discharge_bypass = 0
         self.discharge_produced = 0
         self.discharge_limit = 0
@@ -494,24 +495,25 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if setpoint < 0:
                     await self.power_charge(setpoint, time)
                 else:
-                    await self.power_discharge(setpoint)
+                    await self.power_discharge(setpoint, time)
 
             case ManagerMode.MATCHING_DISCHARGE:
-                # Discharge to cover demand and always pass through available solar; never charge
-                await self.power_discharge(max(self.produced, setpoint))
+                # Only discharge, do nothing if setpoint is negative
+                await self.power_discharge(max(0, setpoint), time)
+
 
             case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
                 # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
                 # d.pwr_produced is negative, but self.produced is positive
                 if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
-                    await self.power_discharge(min(self.produced, setpoint))
+                    await self.power_discharge(min(self.produced, setpoint), time)
                 else:
                     await self.power_charge(min(0, setpoint), time)
 
             case ManagerMode.MANUAL:
                 # Manual power into or from home
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
-                    await self.power_discharge(setpoint)
+                    await self.power_discharge(setpoint, time)
                 else:
                     await self.power_charge(setpoint, time)
 
@@ -522,22 +524,40 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         """Charge devices."""
         _LOGGER.info("Charge => setpoint %sW", setpoint)
 
-        # stop discharging devices
+        # prevent hysteria
+        if hold := self.charge_time > time:
+            if self.charge_time == datetime.max:
+                self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > SmartMode.HOLD_TIMEOUT else 60)
+                self.charge_last = self.charge_time
+                self.pwr_low = 0
+            setpoint = 0
+
+        # Stop discharging devices. While the switch timeout is running, keep them
+        # discharging at minimal power instead of going idle, so a temporary grid
+        # fluctuation (e.g. a slow ramping EV charger) can resume discharging
+        # immediately without an idle period or an extra mode switch (#1461).
         for d in self.discharge:
             # avoid stopping bypassing devices
             if d.byPass.asInt > 0:
                 continue
-            # avoid gridOff device to use power from the grid
-            await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
+            if hold and d.pwr_offgrid == 0 and d.state != DeviceState.SOCEMPTY:
+                await d.power_discharge(SmartMode.POWER_IDLE)
+            else:
+                # avoid gridOff device to use power from the grid
+                await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
+                # a device parked at hold power can be restarted right away
+                if d.pwr_offgrid == 0 and d.homeOutput.asInt <= SmartMode.POWER_IDLE:
+                    self.idle.append(d)
 
-        # prevent hysteria
-        if self.charge_time > time:
-            if self.charge_time == datetime.max:
-                self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
-                self.charge_last = self.charge_time
-                self.pwr_low = 0
-            setpoint = 0
         self.operationstate.update_value(ManagerState.CHARGE.value if setpoint < 0 else ManagerState.IDLE.value)
+
+        # While the switch timeout is running, keep devices that are still in charge
+        # mode at minimal input instead of stopping them, so charging can resume
+        # immediately once the timeout expires, without a mode switch (#1461).
+        if hold:
+            for d in self.charge:
+                await d.power_charge(-SmartMode.POWER_IDLE if d.pwr_offgrid == 0 and d.state != DeviceState.SOCFULL else 0)
+            return
 
         # distribute charging devices
         dev_start = min(0, setpoint - self.charge_optimal * 2) if setpoint < -SmartMode.POWER_START else 0
@@ -584,7 +604,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     break
             self.pwr_low: int = 0
 
-    async def power_discharge(self, setpoint: int) -> None:
+    async def power_discharge(self, setpoint: int, time: datetime) -> None:
         """Discharge devices."""
         _LOGGER.info("Discharge => setpoint %sW", setpoint)
         self.operationstate.update_value(ManagerState.DISCHARGE.value if setpoint > 0 and self.discharge else ManagerState.IDLE.value)
@@ -593,11 +613,22 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if self.charge_time != datetime.max:
             self.charge_time = datetime.max
             self.pwr_low = 0
+            self.discharge_time = time + timedelta(seconds=SmartMode.HOLD_TIMEOUT)
 
-        # stop charging devices
+        # Stop charging devices. While a flip back to charging is likely and the
+        # discharging devices can cover the setpoint on their own, keep the chargers
+        # at minimal input instead, so charging can resume without an idle period
+        # or an extra mode switch (#1461).
+        hold = time < self.discharge_time and (setpoint < SmartMode.POWER_START or setpoint <= self.discharge_limit)
         for d in self.charge:
-            # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
-            await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
+            if hold and max(0, d.pwr_offgrid) == 0 and d.state != DeviceState.SOCFULL:
+                await d.power_charge(-SmartMode.POWER_IDLE)
+            else:
+                # SF 2400 may show more gridInputPower than offGridPower and will be recognized as charging, so set power to 10 instead of 0
+                await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
+                # a device parked at hold power can be restarted right away
+                if max(0, d.pwr_offgrid) == 0 and d.homeInput.asInt <= SmartMode.POWER_IDLE:
+                    self.idle.append(d)
 
         # distribute discharging devices, use produced power first, before adding another device
         dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
