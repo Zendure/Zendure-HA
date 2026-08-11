@@ -45,7 +45,7 @@ class ZendureBattery(EntityDevice):
     """Zendure Battery class for devices."""
 
     @staticmethod
-    def get_battery_type(sn: str) -> tuple[str, str, float]:
+    def get_battery_type(sn: str, pack_type: int | None = None) -> tuple[str, str, float]:
         model = "???"
         match sn[0]:
             case "A":
@@ -56,8 +56,14 @@ class ZendureBattery(EntityDevice):
                     model = "AB1000"
                     kWh = 0.96
             case "B":
-                model = "AB1000S"
-                kWh = 0.96
+                # packType 70 is the SF4000 Mix AC+'s internal 8 kWh pack, which shares
+                # its serial prefix with the unrelated 0.96 kWh AB1000S.
+                if pack_type == 70:
+                    model = "I8000"
+                    kWh = 8.0
+                else:
+                    model = "AB1000S"
+                    kWh = 0.96
             case "C":
                 # External AB2000X and internal AB2000X of SF800+/SF800Pro/SF1600AC+ starting with CO4A. They are also described as additional battery in the Zendure App, even when they are integrated into the device.
                 model = "AB2000" + ("S" if sn[3] == "F" else "X" if sn[3] == "E" else "")
@@ -80,9 +86,9 @@ class ZendureBattery(EntityDevice):
         name = f"{model} {sn[-5:]}".strip()
         return name, model, kWh
 
-    def __init__(self, hass: HomeAssistant, sn: str, parent: EntityDevice) -> None:
+    def __init__(self, hass: HomeAssistant, sn: str, parent: EntityDevice, pack_type: int | None = None) -> None:
         """Initialize Device."""
-        name, model, self.kWh = ZendureBattery.get_battery_type(sn)
+        name, model, self.kWh = ZendureBattery.get_battery_type(sn, pack_type)
         super().__init__(hass, sn, name, model, "", sn, parent.sn)
         self.attr_device_info["serial_number"] = sn
         self.deltaVoltage = ZendureSensor(self, "deltaVoltage", None, "V", "voltage", "measurement", 3)
@@ -345,7 +351,7 @@ class ZendureDevice(EntityDevice):
                     continue
 
                 if (bat := self.batteries.get(sn, None)) is None:
-                    bat = ZendureBattery(self.hass, sn, self)
+                    bat = ZendureBattery(self.hass, sn, self, b.get("packType"))
                     self.batteries[sn] = bat
 
                 # Always apply properties — including for newly created batteries.
