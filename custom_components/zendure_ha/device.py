@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -28,7 +29,7 @@ from paho.mqtt import client as mqtt_client
 
 from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
-from .const import DeviceState, SmartMode
+from .const import COMMAND_VERIFY_DELAYS, POWER_OFF_TOLERANCE, DeviceState, SmartMode
 from .entity import EntityDevice, EntityZendure
 from .number import ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
@@ -39,7 +40,6 @@ _LOGGER = logging.getLogger(__name__)
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=2)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
-
 
 class ZendureBattery(EntityDevice):
     """Zendure Battery class for devices."""
@@ -680,6 +680,9 @@ class ZendureDevice(EntityDevice):
     async def power_off(self) -> None:
         """Set the power off."""
 
+    def cancel_command_verification(self) -> None:
+        """Cancel a pending command verification."""
+
     @property
     def online(self) -> bool:
         """Check if device is online."""
@@ -741,6 +744,7 @@ class ZendureZenSdk(ZendureDevice):
         super().__init__(hass, deviceId, name, model, definition, parent)
         self.connection = ZendureRestoreSelect(self, "connection", {0: "cloud", 2: "zenSDK"}, self.mqttSelect, 0)
         self.httpid = 0
+        self._command_verify_task: asyncio.Task[None] | None = None
 
     async def mqttSelect(self, select: Any, _value: Any) -> None:
         from .api import Api
@@ -800,9 +804,44 @@ class ZendureZenSdk(ZendureDevice):
 
     async def power_off(self) -> None:
         """Set the power off."""
-        await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}})
+        await self.doCommand({"properties": {"smartMode": 0 if self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": 0, "inputLimit": 0}}, self._is_power_off)
 
-    async def doCommand(self, command: Any) -> None:
+    def _is_power_off(self) -> bool:
+        solar = min(max(0, self.solarInput.asInt), max(0, self.homeOutput.asInt)) if self.state == DeviceState.SOCFULL else 0
+        battery = max(0, self.batteryOutput.asInt - self.batteryInput.asInt - max(0, self.pwr_offgrid) - solar)
+        return max(battery, self.homeOutput.asInt - solar, self.homeInput.asInt) <= POWER_OFF_TOLERANCE
+
+    async def _verify_command(self, command: Any, check: Callable[[], bool]) -> None:
+        """Retry a command when its expected state is not reached."""
+        task = asyncio.current_task()
+        try:
+            for attempt, delay in enumerate(COMMAND_VERIFY_DELAYS, start=1):
+                await asyncio.sleep(delay)
+                if self._command_verify_task is not task:
+                    return
+                if not await self.power_get() or check():
+                    continue
+                if self._command_verify_task is not task:
+                    return
+                _LOGGER.warning("Command retry %s/%s for %s", attempt, len(COMMAND_VERIFY_DELAYS), self.name)
+                await self.doCommand(command)
+        except Exception:
+            _LOGGER.exception("Command verification failed for %s", self.name)
+        finally:
+            if self._command_verify_task is task:
+                self._command_verify_task = None
+
+    def cancel_command_verification(self) -> None:
+        if task := self._command_verify_task:
+            self._command_verify_task = None
+            task.cancel()
+
+    async def doCommand(self, command: Any, check: Callable[[], bool] | None = None) -> None:
+        if check is not None:
+            self.cancel_command_verification()
+            self._command_verify_task = self.hass.async_create_task(
+                self._verify_command(command, check)
+            )
         if self.connection.value != 0:
             await self.httpPost("properties/write", command)
         else:

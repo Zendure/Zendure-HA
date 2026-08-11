@@ -261,6 +261,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         _LOGGER.info("Update operation: %s from: %s", operation, self.operation)
 
         self.operation = operation
+        if operation != ManagerMode.OFF:
+            for d in self.devices:
+                d.cancel_command_verification()
         if self.p1meterEvent is not None:
             if operation != ManagerMode.OFF and (len(self.devices) == 0 or all(not d.online for d in self.devices)):
                 _LOGGER.warning("No devices online, not possible to start the operation")
