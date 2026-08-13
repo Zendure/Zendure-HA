@@ -123,7 +123,8 @@ class ZendureDevice(EntityDevice):
 
         self.mqtt: mqtt_client.Client | None = None
         self.zendure: mqtt_client.Client | None = None
-        self.ipAddress = definition.get("ip", "") if definition.get("ip", "") != "" else f"zendure-{definition['productModel'].replace(' ', '')}-{self.snNumber}.local"
+        self.ipAddress = definition.get("ip", "")
+        self.mdnsHost = f"zendure-{definition['productModel'].replace(' ', '')}-{self.snNumber}.local"
 
         self.topic_read = f"iot/{self.prodkey}/{self.deviceId}/properties/read"
         self.topic_write = f"iot/{self.prodkey}/{self.deviceId}/properties/write"
@@ -808,30 +809,55 @@ class ZendureZenSdk(ZendureDevice):
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)
 
+    def _http_hosts(self) -> list[str]:
+        hosts: list[str] = []
+        for host in (self.mdnsHost, self.ipAddress):
+            if host and host not in hosts:
+                hosts.append(host)
+        return hosts
+
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
-        try:
-            url = f"http://{self.ipAddress}/{url}"
-            response = await self.session.get(url, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
-            payload = json.loads(await response.text())
-            self.lastseen = datetime.now()
-            return payload if key is None else payload.get(key, {})
-        except Exception as e:
-            _LOGGER.error("%s for %s during httpGet%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
-            self.lastseen = datetime.min
+        last_error: Exception | None = None
+        for host in self._http_hosts():
+            try:
+                endpoint = f"http://{host}/{url}"
+                response = await self.session.get(endpoint, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
+                payload = json.loads(await response.text())
+                self.lastseen = datetime.now()
+                if host != self.ipAddress:
+                    self.ipAddress = host
+                return payload if key is None else payload.get(key, {})
+            except Exception as err:
+                last_error = err
+
+        err_name = type(last_error).__name__ if last_error is not None else "ConnectionError"
+        err_msg = f": {last_error}" if last_error and str(last_error) else "!"
+        _LOGGER.error("%s for %s during httpGet on %s%s", err_name, self.name, self._http_hosts(), err_msg)
+        self.lastseen = datetime.min
         return {}
 
     async def httpPost(self, url: str, command: Any) -> bool:
-        try:
-            self.httpid += 1
-            command["id"] = self.httpid
-            command["sn"] = self.snNumber
-            url = f"http://{self.ipAddress}/{url}"
-            await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
-        except Exception as e:
-            _LOGGER.error("%s for %s during httpPost%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
-            self.lastseen = datetime.min
-            return False
-        return True
+        self.httpid += 1
+        command["id"] = self.httpid
+        command["sn"] = self.snNumber
+
+        last_error: Exception | None = None
+        for host in self._http_hosts():
+            try:
+                endpoint = f"http://{host}/{url}"
+                await self.session.post(endpoint, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
+                self.lastseen = datetime.now()
+                if host != self.ipAddress:
+                    self.ipAddress = host
+                return True
+            except Exception as err:
+                last_error = err
+
+        err_name = type(last_error).__name__ if last_error is not None else "ConnectionError"
+        err_msg = f": {last_error}" if last_error and str(last_error) else "!"
+        _LOGGER.error("%s for %s during httpPost on %s%s", err_name, self.name, self._http_hosts(), err_msg)
+        self.lastseen = datetime.min
+        return False
 
 
 @dataclass
