@@ -205,14 +205,14 @@ class ZendureDevice(EntityDevice):
         """Set the device limits."""
         try:
             self.charge_limit = charge
-            self.charge_optimal = charge // 4
-            self.charge_start = charge // 10
+            self.charge_optimal = int(charge // SmartMode.CHARGE_OPTIMAL_DIVISOR)
+            self.charge_start = int(charge // SmartMode.CHARGE_START_DIVISOR)
             self.limitInput.update_range(0, abs(charge))
 
             self.discharge_limit = discharge
-            self.discharge_optimal = discharge // 4
-            self.discharge_start = discharge // 10
-            self.limitOutput.update_range(0, discharge)
+            self.discharge_optimal = int(discharge // SmartMode.DISCHARGE_OPTIMAL_DIVISOR)
+            self.discharge_start = int(discharge // SmartMode.DISCHARGE_START_DIVISOR)
+            self.limitOutput.update_range(0, discharge)            
         except Exception:
             _LOGGER.error("SetLimits error %s %s %s!", self.name, charge, discharge)
 
