@@ -394,13 +394,15 @@
         "name": "Grupa bezpiecznikowa urządzenia",
         "state": {
           "unused": "Nieużywana, urządzenie nie ma grupy bezpiecznikowej",
-          "owncircuit": "Urządzenie ma własny obwód lub fazę",
+          "owncircuit": "Urządzenie ma własny obwód lub fazę, maks. 3600 W",
           "group800": "Grupa bezpiecznikowa maks. 800 W / 1200 W ładowanie",
           "group800_2400": "Grupa bezpiecznikowa maks. 800 W / 2400 W ładowanie",
           "group1200": "Grupa bezpiecznikowa maks. 1200 W",
           "group2000": "Grupa bezpiecznikowa maks. 2000 W",
           "group2400": "Grupa bezpiecznikowa maks. 2400 W",
-          "group3600": "Grupa bezpiecznikowa maks. 3600 W"
+          "group3600": "Grupa bezpiecznikowa maks. 3600 W",
+          "group4000": "Grupa bezpiecznikowa maks. 4000 W",
+          "group5000": "Grupa bezpiecznikowa maks. 5000 W"
         }
       },
       "connection": {

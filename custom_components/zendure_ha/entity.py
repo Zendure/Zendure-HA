@@ -275,6 +275,10 @@ class EntityDevice:
         from .sensor import ZendureCalcSensor, ZendureSensor
         from .switch import ZendureSwitch
 
+        if not snakecase(key):
+            _LOGGER.warning("Ignoring unusable property key %r for %s", key, self.name)
+            return False
+
         # check if entity is already created
         if (entity := self.entities.get(key, None)) is None:
             if info := self.createEntity.get(key, None):
