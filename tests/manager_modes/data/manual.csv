@@ -1,0 +1,81 @@
+mode,case,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,notes
+MANUAL,1,-300,0,EMPTY,0,300,-300,full grid charging
+MANUAL,2,-300,0,FULL,0,0,0,can't charge a full battery
+MANUAL,3,-300,0,not full,0,300,-300,full grid charging
+MANUAL,4,-300,50,EMPTY,0,350,-300,grid charge 300 W + 50 W solar into battery
+MANUAL,5,-300,50,FULL,0,0,50,battery full: bypass all solar to home
+MANUAL,6,-300,50,not full,0,350,-300,grid charge 300 W + 50 W solar into battery
+MANUAL,7,-300,200,EMPTY,0,500,-300,300 W from grid + 200 W solar into battery; net grid draw 300 W
+MANUAL,8,-300,200,FULL,0,0,200,"battery full, can't charge; bypass sends all solar to home"
+MANUAL,9,-300,200,not full,0,500,-300,300 W from grid + 200 W solar into battery; net grid draw 300 W
+MANUAL,10,-300,500,EMPTY,0,800,-300,300 W from grid + 500 W solar into battery; net grid draw 300 W
+MANUAL,11,-300,500,FULL,0,0,500,"battery full, can't charge; bypass sends all solar to home"
+MANUAL,12,-300,500,not full,0,800,-300,300 W from grid + 500 W solar into battery; net grid draw 300 W
+MANUAL,13,-100,0,EMPTY,0,100,-100,full grid charging
+MANUAL,14,-100,0,FULL,0,0,0,can't charge a full battery
+MANUAL,15,-100,0,not full,0,100,-100,full grid charging
+MANUAL,16,-100,50,EMPTY,0,150,-100,grid charge 100 W + 50 W solar into battery
+MANUAL,17,-100,50,FULL,0,0,50,battery full: bypass all solar to home
+MANUAL,18,-100,50,not full,0,150,-100,grid charge 100 W + 50 W solar into battery
+MANUAL,19,-100,200,EMPTY,0,300,-100,100 W from grid + 200 W solar into battery; net grid draw 100 W
+MANUAL,20,-100,200,FULL,0,0,200,"battery full, can't charge; bypass sends all solar to home"
+MANUAL,21,-100,200,not full,0,300,-100,100 W from grid + 200 W solar into battery; net grid draw 100 W
+MANUAL,22,-100,500,EMPTY,0,600,-100,grid charge 100 W + 500 W solar into battery
+MANUAL,23,-100,500,FULL,0,0,500,battery full: bypass all solar to home
+MANUAL,24,-100,500,not full,0,600,-100,grid charge 100 W + 500 W solar into battery
+MANUAL,25,-50,0,EMPTY,0,0,0,"-50W = -POWER_START: charge not restarted, idle"
+MANUAL,26,-50,0,FULL,0,0,0,can't charge a full battery
+MANUAL,27,-50,0,not full,0,0,0,"-50W = -POWER_START: charge not restarted, idle"
+MANUAL,28,-50,50,EMPTY,0,50,0,"-50W=POWER_START: solar stored, no grid charge"
+MANUAL,29,-50,50,FULL,0,0,50,battery full: bypass all solar to home
+MANUAL,30,-50,50,not full,0,50,0,"-50W=POWER_START: solar stored, no grid charge"
+MANUAL,31,-50,200,EMPTY,0,200,0,"-50W=POWER_START: solar stored, no grid charge"
+MANUAL,32,-50,200,FULL,0,0,200,"battery full, can't charge; bypass sends all solar to home"
+MANUAL,33,-50,200,not full,0,200,0,"-50W=POWER_START: solar stored, no grid charge"
+MANUAL,34,-50,500,EMPTY,0,500,0,"-50W=POWER_START: solar stored, no grid charge"
+MANUAL,35,-50,500,FULL,0,0,500,battery full: bypass all solar to home
+MANUAL,36,-50,500,not full,0,500,0,"-50W=POWER_START: solar stored, no grid charge"
+MANUAL,37,0,0,any,0,0,0,"idle, nothing to do"
+MANUAL,38,0,50,EMPTY,0,50,0,all solar stored in battery
+MANUAL,39,0,50,FULL,0,0,50,battery full: bypass all solar to home
+MANUAL,40,0,50,not full,0,50,0,all solar stored in battery
+MANUAL,41,0,200,EMPTY,0,200,0,solar charges empty battery
+MANUAL,42,0,200,FULL,0,0,200,FULL battery bypasses solar to home
+MANUAL,43,0,200,not full,0,200,0,solar charges battery
+MANUAL,44,0,500,EMPTY,0,500,0,all solar stored in battery
+MANUAL,45,0,500,FULL,0,0,500,battery full: bypass all solar to home
+MANUAL,46,0,500,not full,0,500,0,all solar stored in battery
+MANUAL,47,50,0,EMPTY,0,0,0,"can't discharge, no solar"
+MANUAL,48,50,0,FULL,0,0,0,nothing to bypass
+MANUAL,49,50,0,not full,50,0,50,pure battery discharge
+MANUAL,50,50,50,any,0,0,50,"solar passes to home, battery idle"
+MANUAL,51,50,200,EMPTY,0,150,50,"can't discharge; solar covers 50 W output, 150 W excess charges battery"
+MANUAL,52,50,200,FULL,0,0,200,"bypass overrides, all solar to home"
+MANUAL,53,50,200,not full,0,150,50,"solar covers all output, 150 W excess charges battery"
+MANUAL,54,50,500,EMPTY,0,450,50,surplus solar charges battery
+MANUAL,55,50,500,FULL,0,0,500,battery full: bypass all solar to home
+MANUAL,56,50,500,not full,0,450,50,surplus solar charges battery
+MANUAL,57,100,0,EMPTY,0,0,0,"can't discharge, no solar"
+MANUAL,58,100,0,FULL,0,0,0,nothing to bypass
+MANUAL,59,100,0,not full,100,0,100,pure battery discharge
+MANUAL,60,100,50,EMPTY,0,0,50,"can't discharge, solar only"
+MANUAL,61,100,50,FULL,0,0,50,bypass only
+MANUAL,62,100,50,not full,50,0,100,50W solar + 50W battery
+MANUAL,63,100,200,EMPTY,0,100,100,"can't discharge; solar covers 100 W output, 100 W excess charges battery"
+MANUAL,64,100,200,FULL,0,0,200,"bypass overrides, all solar to home"
+MANUAL,65,100,200,not full,0,100,100,"solar covers all output, 100 W excess charges battery"
+MANUAL,66,100,500,EMPTY,0,400,100,surplus solar charges battery
+MANUAL,67,100,500,FULL,0,0,500,battery full: bypass all solar to home
+MANUAL,68,100,500,not full,0,400,100,surplus solar charges battery
+MANUAL,69,300,0,EMPTY,0,0,0,"can't discharge, no solar"
+MANUAL,70,300,0,FULL,0,0,0,nothing to bypass
+MANUAL,71,300,0,not full,300,0,300,pure battery discharge
+MANUAL,72,300,50,EMPTY,0,0,50,"can't discharge, solar only"
+MANUAL,73,300,50,FULL,0,0,50,bypass only
+MANUAL,74,300,50,not full,250,0,300,mostly battery discharge
+MANUAL,75,300,200,EMPTY,0,0,200,"can't discharge, solar passes to home"
+MANUAL,76,300,200,FULL,0,0,200,bypass caps output at PV
+MANUAL,77,300,200,not full,100,0,300,"solar covers 200 W, battery covers 100 W"
+MANUAL,78,300,500,EMPTY,0,200,300,"can't discharge; solar covers 300 W output, 200 W excess charges battery"
+MANUAL,79,300,500,FULL,0,0,500,bypass overrides manual setpoint
+MANUAL,80,300,500,not full,0,200,300,"solar covers all output, 200 W excess charges battery"

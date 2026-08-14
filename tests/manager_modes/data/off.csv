@@ -1,0 +1,2 @@
+mode,case,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,notes
+OFF,1,any,any,any,0,0,0,device not managed by Zendure Manager (powered off)

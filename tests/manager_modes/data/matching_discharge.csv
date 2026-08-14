@@ -1,0 +1,55 @@
+mode,case,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,notes
+MATCHING_DISCHARGE,1,-300,0,any,0,0,0,"negative P1 clamped to 0, idle"
+MATCHING_DISCHARGE,2,-300,50,any,0,0,50,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,3,-300,100,any,0,0,100,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,4,-300,200,any,0,0,200,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,5,-100,0,any,0,0,0,"negative P1 clamped to 0, idle"
+MATCHING_DISCHARGE,6,-100,50,any,0,0,50,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,7,-100,100,any,0,0,100,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,8,-100,200,any,0,0,200,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,9,0,0,any,0,0,0,"idle, nothing to do"
+MATCHING_DISCHARGE,10,0,50,any,0,0,50,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,11,0,100,any,0,0,100,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,12,0,200,any,0,0,200,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,13,100,0,EMPTY,0,0,0,"can't discharge, P1 unmatched"
+MATCHING_DISCHARGE,14,100,0,FULL,0,0,0,nothing to give
+MATCHING_DISCHARGE,15,100,0,not full,100,0,100,pure battery discharge
+MATCHING_DISCHARGE,16,100,50,EMPTY,0,0,50,"partial match, solar only"
+MATCHING_DISCHARGE,17,100,50,FULL,0,0,50,"bypass only, partial match"
+MATCHING_DISCHARGE,18,100,50,not full,50,0,100,50 W solar + 50 W battery = matches P1
+MATCHING_DISCHARGE,19,100,100,any,0,0,100,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,20,100,200,any,0,0,200,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,21,200,0,EMPTY,0,0,0,"can't discharge, P1 unmatched"
+MATCHING_DISCHARGE,22,200,0,FULL,0,0,0,nothing to give
+MATCHING_DISCHARGE,23,200,0,not full,200,0,200,pure battery discharge
+MATCHING_DISCHARGE,24,200,50,EMPTY,0,0,50,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,25,200,50,FULL,0,0,50,battery full: bypass all solar to home
+MATCHING_DISCHARGE,26,200,50,not full,150,0,200,solar + battery cover demand
+MATCHING_DISCHARGE,27,200,100,EMPTY,0,0,100,"can't discharge, solar only"
+MATCHING_DISCHARGE,28,200,100,FULL,0,0,100,"bypass only, partial match"
+MATCHING_DISCHARGE,29,200,100,not full,100,0,200,100 W solar + 100 W battery = matches P1
+MATCHING_DISCHARGE,30,200,200,any,0,0,200,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,31,300,0,EMPTY,0,0,0,"can't discharge, P1 unmatched"
+MATCHING_DISCHARGE,32,300,0,FULL,0,0,0,nothing to give
+MATCHING_DISCHARGE,33,300,0,not full,300,0,300,"high demand, pure battery"
+MATCHING_DISCHARGE,34,300,50,EMPTY,0,0,50,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,35,300,50,FULL,0,0,50,battery full: bypass all solar to home
+MATCHING_DISCHARGE,36,300,50,not full,250,0,300,solar + battery cover demand
+MATCHING_DISCHARGE,37,300,100,EMPTY,0,0,100,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,38,300,100,FULL,0,0,100,battery full: bypass all solar to home
+MATCHING_DISCHARGE,39,300,100,not full,200,0,300,solar + battery cover demand
+MATCHING_DISCHARGE,40,300,200,EMPTY,0,0,200,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,41,300,200,FULL,0,0,200,battery full: bypass all solar to home
+MATCHING_DISCHARGE,42,300,200,not full,100,0,300,solar + battery cover demand
+MATCHING_DISCHARGE,43,500,0,EMPTY,0,0,0,"idle, nothing to do"
+MATCHING_DISCHARGE,44,500,0,FULL,0,0,0,"idle, nothing to bypass"
+MATCHING_DISCHARGE,45,500,0,not full,500,0,500,pure battery discharge
+MATCHING_DISCHARGE,46,500,50,EMPTY,0,0,50,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,47,500,50,FULL,0,0,50,battery full: bypass all solar to home
+MATCHING_DISCHARGE,48,500,50,not full,450,0,500,solar + battery cover demand
+MATCHING_DISCHARGE,49,500,100,EMPTY,0,0,100,"solar passes to home, battery idle"
+MATCHING_DISCHARGE,50,500,100,FULL,0,0,100,battery full: bypass all solar to home
+MATCHING_DISCHARGE,51,500,100,not full,400,0,500,solar + battery cover demand
+MATCHING_DISCHARGE,52,500,200,EMPTY,0,0,200,"can't discharge, solar only"
+MATCHING_DISCHARGE,53,500,200,FULL,0,0,200,"bypass only, can't fully match P1"
+MATCHING_DISCHARGE,54,500,200,not full,300,0,500,battery + solar combined
