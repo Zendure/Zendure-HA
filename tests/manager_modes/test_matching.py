@@ -10,15 +10,13 @@ import pytest
 
 from custom_components.zendure_ha.const import ManagerMode
 
-from .harness import Case, drive_metered, load_cases_from_csv, make_params
+from .harness import Case, assert_matches_spec, drive_metered, load_cases_from_csv, make_params
 
 CASES = load_cases_from_csv("matching")
 
 
 @pytest.mark.parametrize("case", make_params(CASES))
 async def test_matching_matches_spec(case: Case):
-    dev = await drive_metered(ManagerMode.MATCHING, case)
+    devs = await drive_metered(ManagerMode.MATCHING, case)
 
-    assert dev.net_to_home == case.device_to_grid, "Device to grid"
-    assert dev.batteryOutput.asInt == case.discharging, "Battery discharging"
-    assert dev.batteryInput.asInt == case.charging, "Battery charging"
+    assert_matches_spec(devs, case)

@@ -21,7 +21,7 @@ SOC_STATES = [DeviceState.SOCEMPTY, DeviceState.SOCFULL, DeviceState.INACTIVE]
 async def test_off_issues_no_commands(state: DeviceState, p1: int, pv: int):
     dev = FakeDevice(state, 50, pv=pv)
     dev.seed_spec(0, 0, 0)
-    mgr = build_manager(ManagerMode.OFF, dev)
+    mgr = build_manager(ManagerMode.OFF, [dev])
 
     await run_step(mgr, p1)
 
