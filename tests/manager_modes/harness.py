@@ -327,14 +327,14 @@ def assert_matches_spec(devs: list[FakeDevice], case: "Case") -> None:
         expected = (spec.discharging, spec.charging, spec.device_to_grid)
         ok = actual == expected
         failed |= not ok
-        table.append((f"dev{i}", expected, actual, ok))
+        table.append((f"dev{i}", spec.pv, expected, actual, ok))
 
     if failed:
         print(f"[case {case.num} {case.mode}] {case.notes}")
-        print(f"{'device':>7} | {'D exp':>6} {'C exp':>6} {'G exp':>6} | {'D act':>6} {'C act':>6} {'G act':>6}")
-        for name, (de, ce, ge), (da, ca, ga), ok in table:
+        print(f"{'device':>7} | {'PV':>5} | {'D exp':>6} {'C exp':>6} {'G exp':>6} | {'D act':>6} {'C act':>6} {'G act':>6}")
+        for name, pv, (de, ce, ge), (da, ca, ga), ok in table:
             mark = "" if ok else "  <-- mismatch"
-            print(f"{name:>7} | {de:>6} {ce:>6} {ge:>6} | {da:>6} {ca:>6} {ga:>6}{mark}")
+            print(f"{name:>7} | {pv:>5} | {de:>6} {ce:>6} {ge:>6} | {da:>6} {ca:>6} {ga:>6}{mark}")
 
     assert not failed, f"[case {case.num} {case.mode}] spec mismatch — {case.notes}"
 

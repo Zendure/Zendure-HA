@@ -53,8 +53,8 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 52,MATCHING_DISCHARGE,500,200,EMPTY,0,0,200,,,,,,,,,"P1=500/PV=200/EMPTY: can't discharge, solar only",,,,
 53,MATCHING_DISCHARGE,500,200,FULL,0,0,200,,,,,,,,,"P1=500/PV=200/FULL: bypass only, can't fully match P1",,,,
 54,MATCHING_DISCHARGE,500,200,not full,300,0,500,,,,,,,,,P1=500/PV=200/not full: battery + solar combined,,,,
-201,MATCHING_DISCHARGE,200,100,not full,50,0,150,0,not full,50,0,50,,,,"PINNED: hysteresis zeroes the PV-bearing dev1, solar stored instead of passed — solar on dev1 covers 100W; remaining 100W split 50/50"
-202,MATCHING_DISCHARGE,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,PINNED: EMPTY dev2 stores its solar instead of passing it — dev1 FULL bypasses; dev2 EMPTY passes its solar
-203,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,50,not full,0,0,50,,,,"PINNED: battery discharges beyond the PV gap, EMPTY dev1 charges — produced 100W exactly covers P1, no discharge"
+201,MATCHING_DISCHARGE,200,100,not full,0,0,100,0,not full,100,0,100,,,,"solar on dev1 covers its share (no battery drain), dev2 battery covers the remaining 100W"
+202,MATCHING_DISCHARGE,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,
+203,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,50,not full,0,0,50,,,,
 204,MATCHING_DISCHARGE,300,0,not full,300,0,300,0,not full,0,0,0,75,25,,"explicit levels: dev2's 75W share is below the optimal range (180W), load consolidates on dev1"
-205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,0,0,100,,,,"PINNED: not-full dev stores solar instead — same family as 201-203 — negative P1: FULL bypasses, not full must pass its solar"
+205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,0,0,100,,,,
