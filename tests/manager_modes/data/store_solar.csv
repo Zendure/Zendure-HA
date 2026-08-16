@@ -85,3 +85,4 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 204,STORE_SOLAR,100,200,not full,0,200,0,100,not full,0,100,0,,,1200,shared fuse 1200W: both store own solar (charge-branch fuse guard is a no-op with homeInput=0)
 205,STORE_SOLAR,100,200,not full,0,200,0,0,not full,0,0,0,,,,off-grid dev1: stores its solar; offgrid power keeps it out of the charge list,300,,,
 206,STORE_SOLAR,100,200,FULL,0,0,200,100,not full,0,100,0,,,,exports_bypass=False: FULL bypasses at hardware level; dev2 stores,,,0,
+207,STORE_SOLAR,300,200,FULL,0,0,200,0,not full,0,0,0,,,,FULL bypasses; dev2 has nothing to give — 100W deliberately unmatched,,,,

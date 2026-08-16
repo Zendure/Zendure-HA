@@ -85,3 +85,4 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 204,MATCHING_CHARGE,-100,200,not full,0,200,0,0,not full,0,0,0,,,,"negative P1: dev1 stores its 200W solar, dev2 idle"
 205,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,0,0,0,,,,"battery never discharges: FULL passes 200W, dev2 has no solar, 100W unmatched"
 206,MATCHING_CHARGE,300,300,not full,0,0,300,0,not full,0,0,0,75,25,1200,"shared fuse 1200W: dev1 passes its 300W solar, dev2 idle (discharge-branch fuse guard)"
+207,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,0,0,0,,,,bypass passes through; battery never discharges — 100W deliberately unmatched,,,,
