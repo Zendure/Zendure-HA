@@ -620,8 +620,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 pwr = int(setpoint / (len(self.discharge) - i))
             else:
                 pwr = 0
-            # SOCFULL devices should only pass through solar, not drain battery
-            if pwr < -d.pwr_produced and d.state == DeviceState.SOCFULL:
+            # producing devices should only pass through solar, not drain battery
+            if pwr < -d.pwr_produced:
                 pwr = -d.pwr_produced
             self.discharge_weight -= device_weight
 

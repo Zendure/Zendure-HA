@@ -80,7 +80,7 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 73,MATCHING_CHARGE,500,300,any,0,0,300,,,,,,,,,"P1=500/PV=300/any: solar passes to home, battery idle",,,,
 74,MATCHING_CHARGE,500,500,any,0,0,500,,,,,,,,,"P1=500/PV=500/any: solar passes to home, battery idle",,,,
 201,MATCHING_CHARGE,0,200,not full,0,200,0,100,EMPTY,0,100,0,,,,P1=0: each device stores its own solar
-202,MATCHING_CHARGE,300,200,FULL,0,0,200,100,not full,0,0,100,,,,"PINNED: dev2's level-weighted share (33W) is below its own 100W solar, so 67W is stored while grid serves P1 — produced 300W should pass to home, battery never discharges"
+202,MATCHING_CHARGE,300,200,FULL,0,0,200,100,not full,0,0,100,,,,"produced 300W passes to home, battery never discharges"
 203,MATCHING_CHARGE,100,200,not full,0,100,100,0,not full,0,0,0,,,,"solar only on dev1: 100W passes, 100W surplus stored on dev1"
 204,MATCHING_CHARGE,-100,200,not full,0,200,0,0,not full,0,0,0,,,,"negative P1: dev1 stores its 200W solar, dev2 idle"
 205,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,0,0,0,,,,"battery never discharges: FULL passes 200W, dev2 has no solar, 100W unmatched"
