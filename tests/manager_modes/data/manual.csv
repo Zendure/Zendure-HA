@@ -85,4 +85,4 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 204,MANUAL,-300,0,not full,0,0,0,0,not full,0,300,-300,75,25,,"manual -300W: charge hysteria zeroes both, idle-start restarts the lowest-SoC dev2; whole charge lands on dev2"
 205,MANUAL,-300,0,not full,0,0,0,0,not full,0,300,-300,75,25,1200,shared fuse 1200W: charge hysteria + idle-start consolidate the full -300W on dev2; 300W <= fuse cap
 206,MANUAL,200,100,not full,100,0,200,0,EMPTY,0,0,0,,,,"manual 200W with 100W solar on dev1: battery covers the 100W gap, dev2 empty idle"
-207,MANUAL,-100,200,not full,0,300,-100,0,EMPTY,0,0,0,,,,"PINNED: charge hysteria + idle-start put the grid charge on empty dev2 — solar-first violated — manual -100W with 200W solar on dev1: grid 100W + solar 200W all charge dev1, dev2 empty idle"
+207,MANUAL,-100,200,not full,0,234,-34,0,EMPTY,0,66,-66,,,,"manual -100W with 200W solar on dev1: charge weighting by remaining capacity — dev1 200W solar + 34W grid, dev2 66W grid"

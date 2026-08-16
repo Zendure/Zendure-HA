@@ -573,7 +573,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # start idle device if needed
         if dev_start < 0 and len(self.idle) > 0:
-            self.idle.sort(key=lambda d: d.electricLevel.asInt, reverse=False)
+            # start producing devices first, so the grid charge lands on the
+            # device already absorbing solar (solar-first)
+            self.idle.sort(key=lambda d: (d.pwr_produced == 0, d.electricLevel.asInt))
             for d in self.idle:
                 # offGrid device need to be started with at least their offgrid power, otherwise they will not be recognized as charging
                 # but should not be started with more than pwr_offgrid if they are full
@@ -629,7 +631,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 pwr = max(setpoint - limit, 0 if d.state != DeviceState.SOCFULL else -d.pwr_produced)
             pwr = min(pwr, setpoint, d.pwr_max)
 
-            # make sure we have devices in optimal working range;
+            # make sure we have devices in optimal working range
             if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL and d.pwr_produced == 0:
                 self.pwr_low = 0 if (delta := d.discharge_start * 1.5 - pwr) <= 0 else self.pwr_low + int(delta)
                 pwr = 0 if self.pwr_low > d.discharge_optimal else pwr
