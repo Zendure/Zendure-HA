@@ -11,4 +11,4 @@ pytest-homeassistant-custom-component==0.13.347
 # at runtime), so pin them explicitly for static test collection.
 aiousbwatcher==1.1.2
 serialx==1.8.2
-aioesphomeapi==45.7.0
+aioesphomeapi==45.10.2
