@@ -1,88 +1,88 @@
-case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,notes,offgrid_w,offgrid2_w,exports,exports2
-1,STORE_SOLAR,-300,0,any,0,0,0,,,,,,,,,"P1=-300/PV=0/any: idle, nothing to do",,,,
-2,STORE_SOLAR,-300,50,EMPTY,0,50,0,,,,,,,,,P1=-300/PV=50/EMPTY: all solar stored in battery,,,,
-3,STORE_SOLAR,-300,50,FULL,0,0,50,,,,,,,,,P1=-300/PV=50/FULL: battery full: bypass all solar to home,,,,
-4,STORE_SOLAR,-300,50,not full,0,50,0,,,,,,,,,P1=-300/PV=50/not full: all solar stored in battery,,,,
-5,STORE_SOLAR,-300,100,EMPTY,0,100,0,,,,,,,,,P1=-300/PV=100/EMPTY: all solar stored in battery,,,,
-6,STORE_SOLAR,-300,100,FULL,0,0,100,,,,,,,,,P1=-300/PV=100/FULL: battery full: bypass all solar to home,,,,
-7,STORE_SOLAR,-300,100,not full,0,100,0,,,,,,,,,P1=-300/PV=100/not full: all solar stored in battery,,,,
-8,STORE_SOLAR,-300,200,EMPTY,0,200,0,,,,,,,,,P1=-300/PV=200/EMPTY: charge capped at available solar,,,,
-9,STORE_SOLAR,-300,200,FULL,0,0,200,,,,,,,,,"P1=-300/PV=200/FULL: bypass overrides, solar to home",,,,
-10,STORE_SOLAR,-300,200,not full,0,200,0,,,,,,,,,P1=-300/PV=200/not full: charge capped at available solar,,,,
-11,STORE_SOLAR,-300,300,EMPTY,0,300,0,,,,,,,,,P1=-300/PV=300/EMPTY: all solar stored in battery,,,,
-12,STORE_SOLAR,-300,300,FULL,0,0,300,,,,,,,,,P1=-300/PV=300/FULL: battery full: bypass all solar to home,,,,
-13,STORE_SOLAR,-300,300,not full,0,300,0,,,,,,,,,P1=-300/PV=300/not full: all solar stored in battery,,,,
-14,STORE_SOLAR,-300,500,EMPTY,0,500,0,,,,,,,,,P1=-300/PV=500/EMPTY: charge from all available solar,,,,
-15,STORE_SOLAR,-300,500,FULL,0,0,500,,,,,,,,,"P1=-300/PV=500/FULL: bypass overrides, solar to home",,,,
-16,STORE_SOLAR,-300,500,not full,0,500,0,,,,,,,,,P1=-300/PV=500/not full: charge from all available solar,,,,
-17,STORE_SOLAR,-100,0,any,0,0,0,,,,,,,,,P1=-100/PV=0/any: nothing to charge from,,,,
-18,STORE_SOLAR,-100,50,EMPTY,0,50,0,,,,,,,,,P1=-100/PV=50/EMPTY: all solar stored in battery,,,,
-19,STORE_SOLAR,-100,50,FULL,0,0,50,,,,,,,,,P1=-100/PV=50/FULL: battery full: bypass all solar to home,,,,
-20,STORE_SOLAR,-100,50,not full,0,50,0,,,,,,,,,P1=-100/PV=50/not full: all solar stored in battery,,,,
-21,STORE_SOLAR,-100,100,EMPTY,0,100,0,,,,,,,,,P1=-100/PV=100/EMPTY: solar stored in battery,,,,
-22,STORE_SOLAR,-100,100,FULL,0,0,100,,,,,,,,,P1=-100/PV=100/FULL: bypass sends solar to home,,,,
-23,STORE_SOLAR,-100,100,not full,0,100,0,,,,,,,,,P1=-100/PV=100/not full: solar stored in battery,,,,
-24,STORE_SOLAR,-100,200,EMPTY,0,200,0,,,,,,,,,P1=-100/PV=200/EMPTY: all solar stored in battery,,,,
-25,STORE_SOLAR,-100,200,FULL,0,0,200,,,,,,,,,P1=-100/PV=200/FULL: bypass all solar to home,,,,
-26,STORE_SOLAR,-100,200,not full,0,200,0,,,,,,,,,P1=-100/PV=200/not full: all solar stored in battery,,,,
-27,STORE_SOLAR,-100,300,EMPTY,0,300,0,,,,,,,,,P1=-100/PV=300/EMPTY: all solar stored in battery,,,,
-28,STORE_SOLAR,-100,300,FULL,0,0,300,,,,,,,,,P1=-100/PV=300/FULL: battery full: bypass all solar to home,,,,
-29,STORE_SOLAR,-100,300,not full,0,300,0,,,,,,,,,P1=-100/PV=300/not full: all solar stored in battery,,,,
-30,STORE_SOLAR,-100,500,EMPTY,0,500,0,,,,,,,,,P1=-100/PV=500/EMPTY: all solar stored in battery,,,,
-31,STORE_SOLAR,-100,500,FULL,0,0,500,,,,,,,,,P1=-100/PV=500/FULL: battery full: bypass all solar to home,,,,
-32,STORE_SOLAR,-100,500,not full,0,500,0,,,,,,,,,P1=-100/PV=500/not full: all solar stored in battery,,,,
-33,STORE_SOLAR,0,0,any,0,0,0,,,,,,,,,P1=0/PV=0/any: everything idle,,,,
-34,STORE_SOLAR,0,50,EMPTY,0,50,0,,,,,,,,,P1=0/PV=50/EMPTY: all solar stored in battery,,,,
-35,STORE_SOLAR,0,50,FULL,0,0,50,,,,,,,,,P1=0/PV=50/FULL: battery full: bypass all solar to home,,,,
-36,STORE_SOLAR,0,50,not full,0,50,0,,,,,,,,,P1=0/PV=50/not full: all solar stored in battery,,,,
-37,STORE_SOLAR,0,100,EMPTY,0,100,0,,,,,,,,,P1=0/PV=100/EMPTY: all solar stored in battery,,,,
-38,STORE_SOLAR,0,100,FULL,0,0,100,,,,,,,,,P1=0/PV=100/FULL: battery full: bypass all solar to home,,,,
-39,STORE_SOLAR,0,100,not full,0,100,0,,,,,,,,,P1=0/PV=100/not full: all solar stored in battery,,,,
-40,STORE_SOLAR,0,200,EMPTY,0,200,0,,,,,,,,,P1=0/PV=200/EMPTY: solar charges empty battery,,,,
-41,STORE_SOLAR,0,200,FULL,0,0,200,,,,,,,,,P1=0/PV=200/FULL: bypass passes solar to home,,,,
-42,STORE_SOLAR,0,200,not full,0,200,0,,,,,,,,,P1=0/PV=200/not full: all solar stored in battery,,,,
-43,STORE_SOLAR,0,300,EMPTY,0,300,0,,,,,,,,,P1=0/PV=300/EMPTY: all solar stored in battery,,,,
-44,STORE_SOLAR,0,300,FULL,0,0,300,,,,,,,,,P1=0/PV=300/FULL: battery full: bypass all solar to home,,,,
-45,STORE_SOLAR,0,300,not full,0,300,0,,,,,,,,,P1=0/PV=300/not full: all solar stored in battery,,,,
-46,STORE_SOLAR,0,500,EMPTY,0,500,0,,,,,,,,,P1=0/PV=500/EMPTY: all solar stored in battery,,,,
-47,STORE_SOLAR,0,500,FULL,0,0,500,,,,,,,,,P1=0/PV=500/FULL: battery full: bypass all solar to home,,,,
-48,STORE_SOLAR,0,500,not full,0,500,0,,,,,,,,,P1=0/PV=500/not full: all solar stored in battery,,,,
-49,STORE_SOLAR,100,0,any,0,0,0,,,,,,,,,"P1=100/PV=0/any: no solar, everything idle",,,,
-50,STORE_SOLAR,100,50,EMPTY,0,50,0,,,,,,,,,P1=100/PV=50/EMPTY: all solar stored in battery,,,,
-51,STORE_SOLAR,100,50,FULL,0,0,50,,,,,,,,,P1=100/PV=50/FULL: bypass only,,,,
-52,STORE_SOLAR,100,50,not full,0,50,0,,,,,,,,,"P1=100/PV=50/not full: all solar stored, nothing to home",,,,
-53,STORE_SOLAR,100,100,EMPTY,0,100,0,,,,,,,,,P1=100/PV=100/EMPTY: all solar stored in battery,,,,
-54,STORE_SOLAR,100,100,FULL,0,0,100,,,,,,,,,P1=100/PV=100/FULL: battery full: bypass all solar to home,,,,
-55,STORE_SOLAR,100,100,not full,0,100,0,,,,,,,,,P1=100/PV=100/not full: all solar stored in battery,,,,
-56,STORE_SOLAR,100,200,EMPTY,0,200,0,,,,,,,,,P1=100/PV=200/EMPTY: solar charges empty battery,,,,
-57,STORE_SOLAR,100,200,FULL,0,0,200,,,,,,,,,P1=100/PV=200/FULL: bypass sends all solar to home,,,,
-58,STORE_SOLAR,100,200,not full,0,200,0,,,,,,,,,"P1=100/PV=200/not full: all solar stored, nothing to home",,,,
-59,STORE_SOLAR,100,300,EMPTY,0,300,0,,,,,,,,,P1=100/PV=300/EMPTY: all solar stored in battery,,,,
-60,STORE_SOLAR,100,300,FULL,0,0,300,,,,,,,,,P1=100/PV=300/FULL: bypass sends all solar to home,,,,
-61,STORE_SOLAR,100,300,not full,0,300,0,,,,,,,,,"P1=100/PV=300/not full: all solar stored, P1 unmatched",,,,
-62,STORE_SOLAR,100,500,EMPTY,0,500,0,,,,,,,,,P1=100/PV=500/EMPTY: all solar stored in battery,,,,
-63,STORE_SOLAR,100,500,FULL,0,0,500,,,,,,,,,P1=100/PV=500/FULL: bypass sends all solar to home,,,,
-64,STORE_SOLAR,100,500,not full,0,500,0,,,,,,,,,"P1=100/PV=500/not full: all solar stored, P1 unmatched",,,,
-65,STORE_SOLAR,300,0,any,0,0,0,,,,,,,,,"P1=300/PV=0/any: idle, nothing to do",,,,
-66,STORE_SOLAR,300,50,EMPTY,0,50,0,,,,,,,,,P1=300/PV=50/EMPTY: all solar stored in battery,,,,
-67,STORE_SOLAR,300,50,FULL,0,0,50,,,,,,,,,P1=300/PV=50/FULL: battery full: bypass all solar to home,,,,
-68,STORE_SOLAR,300,50,not full,0,50,0,,,,,,,,,P1=300/PV=50/not full: all solar stored in battery,,,,
-69,STORE_SOLAR,300,100,EMPTY,0,100,0,,,,,,,,,P1=300/PV=100/EMPTY: all solar stored in battery,,,,
-70,STORE_SOLAR,300,100,FULL,0,0,100,,,,,,,,,P1=300/PV=100/FULL: battery full: bypass all solar to home,,,,
-71,STORE_SOLAR,300,100,not full,0,100,0,,,,,,,,,P1=300/PV=100/not full: all solar stored in battery,,,,
-72,STORE_SOLAR,300,200,EMPTY,0,200,0,,,,,,,,,P1=300/PV=200/EMPTY: all solar stored in battery,,,,
-73,STORE_SOLAR,300,200,FULL,0,0,200,,,,,,,,,P1=300/PV=200/FULL: bypass only,,,,
-74,STORE_SOLAR,300,200,not full,0,200,0,,,,,,,,,"P1=300/PV=200/not full: all solar stored, P1 unmatched",,,,
-75,STORE_SOLAR,300,300,EMPTY,0,300,0,,,,,,,,,P1=300/PV=300/EMPTY: all solar stored in battery,,,,
-76,STORE_SOLAR,300,300,FULL,0,0,300,,,,,,,,,P1=300/PV=300/FULL: battery full: bypass all solar to home,,,,
-77,STORE_SOLAR,300,300,not full,0,300,0,,,,,,,,,P1=300/PV=300/not full: all solar stored in battery,,,,
-78,STORE_SOLAR,300,500,EMPTY,0,500,0,,,,,,,,,P1=300/PV=500/EMPTY: all solar stored in battery,,,,
-79,STORE_SOLAR,300,500,FULL,0,0,500,,,,,,,,,P1=300/PV=500/FULL: battery full: bypass all solar to home,,,,
-80,STORE_SOLAR,300,500,not full,0,500,0,,,,,,,,,P1=300/PV=500/not full: all solar stored in battery,,,,
-201,STORE_SOLAR,100,200,not full,0,200,0,100,EMPTY,0,100,0,,,,"all solar stored per device, nothing to home"
-202,STORE_SOLAR,100,200,FULL,0,0,200,100,not full,0,100,0,,,,dev1 FULL bypasses; dev2 stores its solar
-203,STORE_SOLAR,-100,200,not full,0,200,0,100,EMPTY,0,100,0,,,,negative P1: both devices store their own solar
-204,STORE_SOLAR,100,200,not full,0,200,0,100,not full,0,100,0,,,1200,shared fuse 1200W: both store own solar (charge-branch fuse guard is a no-op with homeInput=0)
-205,STORE_SOLAR,100,200,not full,0,200,0,0,not full,0,0,0,,,,off-grid dev1: stores its solar; offgrid power keeps it out of the charge list,300,,,
-206,STORE_SOLAR,100,200,FULL,0,0,200,100,not full,0,100,0,,,,exports_bypass=False: FULL bypasses at hardware level; dev2 stores,,,0,
-207,STORE_SOLAR,300,200,FULL,0,0,200,0,not full,0,0,0,,,,FULL bypasses; dev2 has nothing to give — 100W deliberately unmatched,,,,
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,notes
+1,STORE_SOLAR,-300,0,any,0,0,0,,,,,,,,,,,,,"P1=-300/PV=0/any: idle, nothing to do"
+2,STORE_SOLAR,-300,50,EMPTY,0,50,0,,,,,,,,,,,,,P1=-300/PV=50/EMPTY: all solar stored in battery
+3,STORE_SOLAR,-300,50,FULL,0,0,50,,,,,,,,,,,,,P1=-300/PV=50/FULL: battery full: bypass all solar to home
+4,STORE_SOLAR,-300,50,not full,0,50,0,,,,,,,,,,,,,P1=-300/PV=50/not full: all solar stored in battery
+5,STORE_SOLAR,-300,100,EMPTY,0,100,0,,,,,,,,,,,,,P1=-300/PV=100/EMPTY: all solar stored in battery
+6,STORE_SOLAR,-300,100,FULL,0,0,100,,,,,,,,,,,,,P1=-300/PV=100/FULL: battery full: bypass all solar to home
+7,STORE_SOLAR,-300,100,not full,0,100,0,,,,,,,,,,,,,P1=-300/PV=100/not full: all solar stored in battery
+8,STORE_SOLAR,-300,200,EMPTY,0,200,0,,,,,,,,,,,,,P1=-300/PV=200/EMPTY: charge capped at available solar
+9,STORE_SOLAR,-300,200,FULL,0,0,200,,,,,,,,,,,,,"P1=-300/PV=200/FULL: bypass overrides, solar to home"
+10,STORE_SOLAR,-300,200,not full,0,200,0,,,,,,,,,,,,,P1=-300/PV=200/not full: charge capped at available solar
+11,STORE_SOLAR,-300,300,EMPTY,0,300,0,,,,,,,,,,,,,P1=-300/PV=300/EMPTY: all solar stored in battery
+12,STORE_SOLAR,-300,300,FULL,0,0,300,,,,,,,,,,,,,P1=-300/PV=300/FULL: battery full: bypass all solar to home
+13,STORE_SOLAR,-300,300,not full,0,300,0,,,,,,,,,,,,,P1=-300/PV=300/not full: all solar stored in battery
+14,STORE_SOLAR,-300,500,EMPTY,0,500,0,,,,,,,,,,,,,P1=-300/PV=500/EMPTY: charge from all available solar
+15,STORE_SOLAR,-300,500,FULL,0,0,500,,,,,,,,,,,,,"P1=-300/PV=500/FULL: bypass overrides, solar to home"
+16,STORE_SOLAR,-300,500,not full,0,500,0,,,,,,,,,,,,,P1=-300/PV=500/not full: charge from all available solar
+17,STORE_SOLAR,-100,0,any,0,0,0,,,,,,,,,,,,,P1=-100/PV=0/any: nothing to charge from
+18,STORE_SOLAR,-100,50,EMPTY,0,50,0,,,,,,,,,,,,,P1=-100/PV=50/EMPTY: all solar stored in battery
+19,STORE_SOLAR,-100,50,FULL,0,0,50,,,,,,,,,,,,,P1=-100/PV=50/FULL: battery full: bypass all solar to home
+20,STORE_SOLAR,-100,50,not full,0,50,0,,,,,,,,,,,,,P1=-100/PV=50/not full: all solar stored in battery
+21,STORE_SOLAR,-100,100,EMPTY,0,100,0,,,,,,,,,,,,,P1=-100/PV=100/EMPTY: solar stored in battery
+22,STORE_SOLAR,-100,100,FULL,0,0,100,,,,,,,,,,,,,P1=-100/PV=100/FULL: bypass sends solar to home
+23,STORE_SOLAR,-100,100,not full,0,100,0,,,,,,,,,,,,,P1=-100/PV=100/not full: solar stored in battery
+24,STORE_SOLAR,-100,200,EMPTY,0,200,0,,,,,,,,,,,,,P1=-100/PV=200/EMPTY: all solar stored in battery
+25,STORE_SOLAR,-100,200,FULL,0,0,200,,,,,,,,,,,,,P1=-100/PV=200/FULL: bypass all solar to home
+26,STORE_SOLAR,-100,200,not full,0,200,0,,,,,,,,,,,,,P1=-100/PV=200/not full: all solar stored in battery
+27,STORE_SOLAR,-100,300,EMPTY,0,300,0,,,,,,,,,,,,,P1=-100/PV=300/EMPTY: all solar stored in battery
+28,STORE_SOLAR,-100,300,FULL,0,0,300,,,,,,,,,,,,,P1=-100/PV=300/FULL: battery full: bypass all solar to home
+29,STORE_SOLAR,-100,300,not full,0,300,0,,,,,,,,,,,,,P1=-100/PV=300/not full: all solar stored in battery
+30,STORE_SOLAR,-100,500,EMPTY,0,500,0,,,,,,,,,,,,,P1=-100/PV=500/EMPTY: all solar stored in battery
+31,STORE_SOLAR,-100,500,FULL,0,0,500,,,,,,,,,,,,,P1=-100/PV=500/FULL: battery full: bypass all solar to home
+32,STORE_SOLAR,-100,500,not full,0,500,0,,,,,,,,,,,,,P1=-100/PV=500/not full: all solar stored in battery
+33,STORE_SOLAR,0,0,any,0,0,0,,,,,,,,,,,,,P1=0/PV=0/any: everything idle
+34,STORE_SOLAR,0,50,EMPTY,0,50,0,,,,,,,,,,,,,P1=0/PV=50/EMPTY: all solar stored in battery
+35,STORE_SOLAR,0,50,FULL,0,0,50,,,,,,,,,,,,,P1=0/PV=50/FULL: battery full: bypass all solar to home
+36,STORE_SOLAR,0,50,not full,0,50,0,,,,,,,,,,,,,P1=0/PV=50/not full: all solar stored in battery
+37,STORE_SOLAR,0,100,EMPTY,0,100,0,,,,,,,,,,,,,P1=0/PV=100/EMPTY: all solar stored in battery
+38,STORE_SOLAR,0,100,FULL,0,0,100,,,,,,,,,,,,,P1=0/PV=100/FULL: battery full: bypass all solar to home
+39,STORE_SOLAR,0,100,not full,0,100,0,,,,,,,,,,,,,P1=0/PV=100/not full: all solar stored in battery
+40,STORE_SOLAR,0,200,EMPTY,0,200,0,,,,,,,,,,,,,P1=0/PV=200/EMPTY: solar charges empty battery
+41,STORE_SOLAR,0,200,FULL,0,0,200,,,,,,,,,,,,,P1=0/PV=200/FULL: bypass passes solar to home
+42,STORE_SOLAR,0,200,not full,0,200,0,,,,,,,,,,,,,P1=0/PV=200/not full: all solar stored in battery
+43,STORE_SOLAR,0,300,EMPTY,0,300,0,,,,,,,,,,,,,P1=0/PV=300/EMPTY: all solar stored in battery
+44,STORE_SOLAR,0,300,FULL,0,0,300,,,,,,,,,,,,,P1=0/PV=300/FULL: battery full: bypass all solar to home
+45,STORE_SOLAR,0,300,not full,0,300,0,,,,,,,,,,,,,P1=0/PV=300/not full: all solar stored in battery
+46,STORE_SOLAR,0,500,EMPTY,0,500,0,,,,,,,,,,,,,P1=0/PV=500/EMPTY: all solar stored in battery
+47,STORE_SOLAR,0,500,FULL,0,0,500,,,,,,,,,,,,,P1=0/PV=500/FULL: battery full: bypass all solar to home
+48,STORE_SOLAR,0,500,not full,0,500,0,,,,,,,,,,,,,P1=0/PV=500/not full: all solar stored in battery
+49,STORE_SOLAR,100,0,any,0,0,0,,,,,,,,,,,,,"P1=100/PV=0/any: no solar, everything idle"
+50,STORE_SOLAR,100,50,EMPTY,0,50,0,,,,,,,,,,,,,P1=100/PV=50/EMPTY: all solar stored in battery
+51,STORE_SOLAR,100,50,FULL,0,0,50,,,,,,,,,,,,,P1=100/PV=50/FULL: bypass only
+52,STORE_SOLAR,100,50,not full,0,50,0,,,,,,,,,,,,,"P1=100/PV=50/not full: all solar stored, nothing to home"
+53,STORE_SOLAR,100,100,EMPTY,0,100,0,,,,,,,,,,,,,P1=100/PV=100/EMPTY: all solar stored in battery
+54,STORE_SOLAR,100,100,FULL,0,0,100,,,,,,,,,,,,,P1=100/PV=100/FULL: battery full: bypass all solar to home
+55,STORE_SOLAR,100,100,not full,0,100,0,,,,,,,,,,,,,P1=100/PV=100/not full: all solar stored in battery
+56,STORE_SOLAR,100,200,EMPTY,0,200,0,,,,,,,,,,,,,P1=100/PV=200/EMPTY: solar charges empty battery
+57,STORE_SOLAR,100,200,FULL,0,0,200,,,,,,,,,,,,,P1=100/PV=200/FULL: bypass sends all solar to home
+58,STORE_SOLAR,100,200,not full,0,200,0,,,,,,,,,,,,,"P1=100/PV=200/not full: all solar stored, nothing to home"
+59,STORE_SOLAR,100,300,EMPTY,0,300,0,,,,,,,,,,,,,P1=100/PV=300/EMPTY: all solar stored in battery
+60,STORE_SOLAR,100,300,FULL,0,0,300,,,,,,,,,,,,,P1=100/PV=300/FULL: bypass sends all solar to home
+61,STORE_SOLAR,100,300,not full,0,300,0,,,,,,,,,,,,,"P1=100/PV=300/not full: all solar stored, P1 unmatched"
+62,STORE_SOLAR,100,500,EMPTY,0,500,0,,,,,,,,,,,,,P1=100/PV=500/EMPTY: all solar stored in battery
+63,STORE_SOLAR,100,500,FULL,0,0,500,,,,,,,,,,,,,P1=100/PV=500/FULL: bypass sends all solar to home
+64,STORE_SOLAR,100,500,not full,0,500,0,,,,,,,,,,,,,"P1=100/PV=500/not full: all solar stored, P1 unmatched"
+65,STORE_SOLAR,300,0,any,0,0,0,,,,,,,,,,,,,"P1=300/PV=0/any: idle, nothing to do"
+66,STORE_SOLAR,300,50,EMPTY,0,50,0,,,,,,,,,,,,,P1=300/PV=50/EMPTY: all solar stored in battery
+67,STORE_SOLAR,300,50,FULL,0,0,50,,,,,,,,,,,,,P1=300/PV=50/FULL: battery full: bypass all solar to home
+68,STORE_SOLAR,300,50,not full,0,50,0,,,,,,,,,,,,,P1=300/PV=50/not full: all solar stored in battery
+69,STORE_SOLAR,300,100,EMPTY,0,100,0,,,,,,,,,,,,,P1=300/PV=100/EMPTY: all solar stored in battery
+70,STORE_SOLAR,300,100,FULL,0,0,100,,,,,,,,,,,,,P1=300/PV=100/FULL: battery full: bypass all solar to home
+71,STORE_SOLAR,300,100,not full,0,100,0,,,,,,,,,,,,,P1=300/PV=100/not full: all solar stored in battery
+72,STORE_SOLAR,300,200,EMPTY,0,200,0,,,,,,,,,,,,,P1=300/PV=200/EMPTY: all solar stored in battery
+73,STORE_SOLAR,300,200,FULL,0,0,200,,,,,,,,,,,,,P1=300/PV=200/FULL: bypass only
+74,STORE_SOLAR,300,200,not full,0,200,0,,,,,,,,,,,,,"P1=300/PV=200/not full: all solar stored, P1 unmatched"
+75,STORE_SOLAR,300,300,EMPTY,0,300,0,,,,,,,,,,,,,P1=300/PV=300/EMPTY: all solar stored in battery
+76,STORE_SOLAR,300,300,FULL,0,0,300,,,,,,,,,,,,,P1=300/PV=300/FULL: battery full: bypass all solar to home
+77,STORE_SOLAR,300,300,not full,0,300,0,,,,,,,,,,,,,P1=300/PV=300/not full: all solar stored in battery
+78,STORE_SOLAR,300,500,EMPTY,0,500,0,,,,,,,,,,,,,P1=300/PV=500/EMPTY: all solar stored in battery
+79,STORE_SOLAR,300,500,FULL,0,0,500,,,,,,,,,,,,,P1=300/PV=500/FULL: battery full: bypass all solar to home
+80,STORE_SOLAR,300,500,not full,0,500,0,,,,,,,,,,,,,P1=300/PV=500/not full: all solar stored in battery
+201,STORE_SOLAR,100,200,not full,0,200,0,100,EMPTY,0,100,0,,,,,,,,"all solar stored per device, nothing to home"
+202,STORE_SOLAR,100,200,FULL,0,0,200,100,not full,0,100,0,,,,,,,,dev1 FULL bypasses; dev2 stores its solar
+203,STORE_SOLAR,-100,200,not full,0,200,0,100,EMPTY,0,100,0,,,,,,,,negative P1: both devices store their own solar
+204,STORE_SOLAR,100,200,not full,0,200,0,100,not full,0,100,0,,,1200,,,,,shared fuse 1200W: both store own solar (charge-branch fuse guard is a no-op with homeInput=0)
+205,STORE_SOLAR,100,200,not full,0,200,0,0,not full,0,0,0,,,,300,,,,off-grid dev1: stores its solar; offgrid power keeps it out of the charge list
+206,STORE_SOLAR,100,200,FULL,0,0,200,100,not full,0,100,0,,,,,,0,,exports_bypass=False: FULL bypasses at hardware level; dev2 stores
+207,STORE_SOLAR,300,200,FULL,0,0,200,0,not full,0,0,0,,,,,,,,FULL bypasses; dev2 has nothing to give — 100W deliberately unmatched (#1559)

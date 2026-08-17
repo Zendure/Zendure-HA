@@ -1,3 +1,3 @@
-case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,notes,offgrid_w,offgrid2_w,exports,exports2
-1,OFF,0,0,any,0,0,0,,,,,,device not managed by Zendure Manager (powered off),,,device not managed by Zendure Manager (powered off); all outputs zero regardless of inputs
-2,OFF,300,200,not full,0,0,0,100,EMPTY,0,0,0,,,,"two devices: both unmanaged, no commands"
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,notes
+1,OFF,0,0,any,0,0,0,,,,,,,,,,,,,device not managed by Zendure Manager (powered off); all outputs zero regardless of inputs
+2,OFF,300,200,not full,0,0,0,100,EMPTY,0,0,0,,,,,,,,"two devices: both unmanaged, no commands"

@@ -339,7 +339,7 @@ def assert_matches_spec(devs: list[FakeDevice], case: "Case") -> None:
             mark = "" if ok else "  <-- mismatch"
             print(f"{name:>7} | {pv:>5} | {de:>6} {ce:>6} {ge:>6} | {da:>6} {ca:>6} {ga:>6}{mark}")
 
-    assert not failed, f"[case {case.num} {case.mode}] spec mismatch — {case.notes}"
+    assert not failed, f"[{case.mode} case #{case.num}]"
 
 
 def make_params(cases: list["Case"]) -> list:
