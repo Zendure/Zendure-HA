@@ -2,7 +2,7 @@
 #   pip install -r requirements.txt -r requirements_test.txt
 pytest==9.0.3
 pytest-asyncio==1.4.0
-pytest-homeassistant-custom-component==0.13.347
+pytest-homeassistant-custom-component==0.13.355
 
 # device.py imports homeassistant.components.bluetooth at module level, which
 # transitively pulls in homeassistant.components.usb -> serialx -> aioesphomeapi.
