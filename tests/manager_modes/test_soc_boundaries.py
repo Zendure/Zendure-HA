@@ -60,6 +60,7 @@ class _FakeDevice:
         soc_set: float = 100,
         min_soc: float = 0,
     ) -> None:
+        self.name = "dev"
         self.state = state
         self.electricLevel = _sensor(electric_level)
         self.homeOutput = _sensor(home_output)

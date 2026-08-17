@@ -520,7 +520,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def power_charge(self, setpoint: int, time: datetime) -> None:
         """Charge devices."""
-        _LOGGER.info("Charge => setpoint %sW", setpoint)
 
         # stop discharging devices
         for d in self.discharge:
@@ -588,7 +587,6 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
     async def power_discharge(self, setpoint: int) -> None:
         """Discharge devices."""
-        _LOGGER.info("Discharge => setpoint %sW", setpoint)
         self.operationstate.update_value(ManagerState.DISCHARGE.value if setpoint > 0 and self.discharge else ManagerState.IDLE.value)
 
         # reset hysteria time
@@ -644,6 +642,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.idle.sort(key=lambda d: d.electricLevel.asInt, reverse=True)
             for d in self.idle:
                 if d.state != DeviceState.SOCEMPTY:
+                    _LOGGER.info("Start idle device %s => %sW (SoC %s%%)", d.name, SmartMode.POWER_START, d.electricLevel.asInt)
                     await d.power_discharge(SmartMode.POWER_START)
                     if (dev_start := dev_start - d.discharge_optimal * 2) <= 0:
                         break

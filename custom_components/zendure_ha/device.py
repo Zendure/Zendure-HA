@@ -673,7 +673,7 @@ class ZendureDevice(EntityDevice):
         """Set discharge power."""
         power = max(0, min(power, self.discharge_limit))
         if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
-            _LOGGER.info("Power discharge %s => no action [power %s]", self.name, power)
+            _LOGGER.info("Power discharge %s => no action, %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
             return self.homeOutput.asInt
         return await self.discharge(power)
 
@@ -791,10 +791,10 @@ class ZendureZenSdk(ZendureDevice):
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
+        _LOGGER.info("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
-            _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
+            _LOGGER.info("Power discharge kickstart %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
         return power
 

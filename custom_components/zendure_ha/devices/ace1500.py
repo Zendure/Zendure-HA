@@ -72,7 +72,7 @@ class ACE1500(ZendureLegacy):
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
+        _LOGGER.info("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         if self.hubMode.value == 1:
             self._dischargeStandalone(power)
         else:

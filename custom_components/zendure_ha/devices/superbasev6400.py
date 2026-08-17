@@ -44,7 +44,7 @@ class SuperBaseV6400(ZendureLegacy):
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
+        _LOGGER.info("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         self.mqttInvoke(
             {
                 "arguments": [

@@ -117,7 +117,9 @@ class FakeDevice:
 
     def __init__(self, soc_state: DeviceState, level: int, pv: int,
                  discharge_limit: int = 1200, charge_limit: int = -1200,
-                 pwr_offgrid: int = 0, exports_bypass: bool = True) -> None:
+                 pwr_offgrid: int = 0, exports_bypass: bool = True,
+                 name: str = "dev") -> None:
+        self.name = name
         self.state = soc_state
         self.pv = pv
         self.discharge_limit = discharge_limit
@@ -263,7 +265,8 @@ async def drive_metered(mode: ManagerMode, case: "Case", cycles: int = 60) -> li
         state, rep_level = SOC[spec.soc]
         dev = FakeDevice(state, spec.level if spec.level is not None else rep_level,
                          pv=spec.pv, charge_limit=charge_limit,
-                         pwr_offgrid=spec.offgrid, exports_bypass=spec.exports)
+                         pwr_offgrid=spec.offgrid, exports_bypass=spec.exports,
+                         name=f"dev{len(devs) + 1}")
         dev.seed_spec(spec.discharging, spec.charging, spec.device_to_grid)
         devs.append(dev)
     mgr = build_manager(mode, devs, case.fuse)
