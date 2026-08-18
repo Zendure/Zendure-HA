@@ -603,16 +603,30 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # Bypass already flows to the home and was subtracted from the setpoint, so it is
         # excluded from the capacities below and added back to the absolute command.
-        dispatch_limit = self.discharge_limit - self.discharge_bypass
+        def capacity(d: ZendureDevice) -> int:
+            return max(0, d.pwr_max - d.pwr_bypass)
+
+        # When all discharging devices are in bypass and no idle device is left to start, command them out of bypass
+        no_alternative = (
+            setpoint > 0
+            and sum(capacity(d) for d in self.discharge if d.byPass.asInt == 0) == 0
+            and not any(d.state != DeviceState.SOCEMPTY for d in self.idle)
+        )
+
+        def dispatchable(d: ZendureDevice) -> int:
+            return capacity(d) if no_alternative or d.byPass.asInt == 0 else 0
+
+        dispatch_limit = sum(dispatchable(d) for d in self.discharge)
         dispatch_produced = max(0, self.discharge_produced - self.discharge_bypass)
 
-        # distribute discharging devices, use produced power first, before adding another device
-        dev_start = max(0, setpoint - self.discharge_optimal * 2 - dispatch_produced) if setpoint > SmartMode.POWER_START else 0
+        # distribute discharging devices, use produced power first, before adding another device;
+        # start one as soon as the discharging devices run out of either optimal range or headroom
+        dev_start = max(0, setpoint - min(dispatch_limit, self.discharge_optimal * 2 + dispatch_produced)) if setpoint > SmartMode.POWER_START else 0
         solaronly = dispatch_produced >= setpoint
         limit = dispatch_produced if solaronly else dispatch_limit
         setpoint = min(limit, setpoint)
         for i, d in enumerate(sorted(self.discharge, key=lambda d: d.electricLevel.asInt, reverse=False)):
-            headroom = max(0, d.pwr_max - d.pwr_bypass)
+            headroom = dispatchable(d)
             solar = max(0, -d.pwr_produced - d.pwr_bypass)
 
             # Weight per device: pwr_max * SOC%. Devices with higher SOC get a
@@ -639,8 +653,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 pwr = max(setpoint - limit, 0 if d.state != DeviceState.SOCFULL else solar)
             pwr = min(pwr, setpoint, headroom)
 
-            # make sure we have devices in optimal working range
-            if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL and d.pwr_produced == 0:
+            # make sure we have devices in optimal working range; only park the lowest-SOC
+            # device when it is not producing and the other devices can actually absorb the
+            # setpoint. Bypassing peers contribute nothing dispatchable, so zeroing here would
+            # leave the demand uncovered and the device is restarted from idle on the next
+            # cycle - an endless start/stop cycle.
+            if i == 0 and d.state != DeviceState.SOCFULL and d.pwr_produced == 0 and dispatch_limit - headroom >= setpoint:
                 self.pwr_low = 0 if (delta := d.discharge_start * 1.5 - pwr) <= 0 else self.pwr_low + int(delta)
                 pwr = 0 if self.pwr_low > d.discharge_optimal else pwr
 
