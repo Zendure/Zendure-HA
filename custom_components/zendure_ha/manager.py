@@ -622,7 +622,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # distribute discharging devices, use produced power first, before adding another device;
         # start one as soon as the discharging devices run out of either optimal range or headroom
         dev_start = max(0, setpoint - min(dispatch_limit, self.discharge_optimal * 2 + dispatch_produced)) if setpoint > SmartMode.POWER_START else 0
-        solaronly = dispatch_produced >= setpoint
+        solaronly = dispatch_produced > setpoint
         limit = dispatch_produced if solaronly else dispatch_limit
         setpoint = min(limit, setpoint)
         for i, d in enumerate(sorted(self.discharge, key=lambda d: d.electricLevel.asInt, reverse=False)):
@@ -662,7 +662,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 self.pwr_low = 0 if (delta := d.discharge_start * 1.5 - pwr) <= 0 else self.pwr_low + int(delta)
                 pwr = 0 if self.pwr_low > d.discharge_optimal else pwr
 
-            setpoint -= max(0, await d.power_discharge(pwr + d.pwr_bypass) - d.pwr_bypass)
+            await d.power_discharge(pwr + d.pwr_bypass)
+            # In solar-only mode credit only the battery part of the command
+            # against the setpoint: the solar portion was already flowing and
+            # must not consume the battery budget of the remaining devices.
+            # Below solar-only the full command is the dispatchable share and
+            # is credited in full.
+            setpoint -= max(0, pwr - solar) if solaronly else pwr
             dev_start += 1 if pwr != 0 and d.electricLevel.asInt + 3 < self.idle_lvlmax else 0
 
         # start idle device if needed
