@@ -57,5 +57,5 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 202,MATCHING_DISCHARGE,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,,,,,
 203,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,50,not full,0,0,50,,,,,,,,
 204,MATCHING_DISCHARGE,300,0,not full,300,0,300,0,not full,0,0,0,75,25,,,,,,"explicit levels: dev2's 75W share is below the optimal range (180W), load consolidates on dev1"
-205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,0,0,100,,,,,,,,
-206,MATCHING_DISCHARGE,300,200,FULL,0,0,200,0,not full,100,0,100,,,,,,,,"bypass not added back in discharge-only mode — dev2 is never commanded the remaining 100W, grid covers it; expected dev2 100/0/100 (#1559)"
+205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,200,0,300,,,,,,,,surplus distributed to dev2 under #1565 dispatchable logic: 100W solar + 200W battery
+206,MATCHING_DISCHARGE,300,200,FULL,0,0,200,0,not full,200,0,200,,,,,,,,bypass added back and dev2 covers the remainder under #1565 (#1559)

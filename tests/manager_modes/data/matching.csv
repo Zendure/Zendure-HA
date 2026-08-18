@@ -140,4 +140,4 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 211,MATCHING,50,0,EMPTY,0,0,0,50,any,0,0,50,,,,,,,,soc2=any collapses: dev2 passes its 50W solar regardless of SoC
 212,MATCHING,-100,100,not full,0,100,0,0,not full,0,0,0,,,,200,,,,"off-grid dev1 (200W): never grid-charges, stores its 100W solar"
 213,MATCHING,200,200,FULL,0,0,200,0,EMPTY,0,0,0,,,,,,0,,"exports_bypass=False: full battery bypasses at hardware level, setpoint credits homeOutput"
-214,MATCHING,300,200,FULL,0,0,200,0,not full,100,0,100,,,,,,,,"SOCFULL bypass is not added back to the discharge command — dev1 passes 200W but dev2 is never commanded the remaining 100W, grid covers it; expected dev2 100/0/100 (#1559)"
+214,MATCHING,300,200,FULL,0,0,200,0,not full,100,0,100,,,,,,,,SOCFULL bypass is added back to the discharge command — dev2 battery covers the remaining 100W (#1559 #1565)

@@ -83,6 +83,6 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 202,MATCHING_CHARGE,300,200,FULL,0,0,200,100,not full,0,0,100,,,,,,,,"produced 300W passes to home, battery never discharges (#1555)"
 203,MATCHING_CHARGE,100,200,not full,0,100,100,0,not full,0,0,0,,,,,,,,"solar only on dev1: 100W passes, 100W surplus stored on dev1 (#1555)"
 204,MATCHING_CHARGE,-100,200,not full,0,200,0,0,not full,0,0,0,,,,,,,,"negative P1: dev1 stores its 200W solar, dev2 idle"
-205,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,0,0,0,,,,,,,,"battery never discharges: FULL passes 200W, dev2 has no solar, 100W unmatched"
+205,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,100,0,100,,,,,,,,"battery now covers the deficit under #1565 dispatchable logic: FULL passes 200W, dev2 discharges 100W"
 206,MATCHING_CHARGE,300,300,not full,0,0,300,0,not full,0,0,0,75,25,1200,,,,,"shared fuse 1200W: dev1 passes its 300W solar, dev2 idle (discharge-branch fuse guard)"
-207,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,0,0,0,,,,,,,,bypass passes through; battery never discharges — 100W deliberately unmatched (#1559)
+207,MATCHING_CHARGE,300,200,FULL,0,0,200,0,not full,100,0,100,,,,,,,,battery now covers the deficit under #1565 dispatchable logic (#1559)

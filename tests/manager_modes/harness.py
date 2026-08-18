@@ -142,7 +142,8 @@ class FakeDevice:
         self.batteryOutput = _sensor(0)   # packInputPower: battery -> out (discharge)
         self.batteryInput = _sensor(0)    # outputPackPower: into battery (charge)
         self.electricLevel = _sensor(level)
-        self.byPass = _sensor(0)
+        # a full battery passing its solar reports hardware bypass, like real devices
+        self.byPass = _sensor(1 if (soc_state == DeviceState.SOCFULL and pv > 0) else 0)
 
         self.commands: list[tuple[str, int]] = []
 
