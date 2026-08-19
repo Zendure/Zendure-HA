@@ -47,15 +47,18 @@ uv pip install --python .venv-ha-test/bin/python -r requirements.txt -r requirem
 |---|---|
 | `case` | unique case number (first column) |
 | `mode` | manager mode (`MATCHING`, `MANUAL`, …) |
-| `input_w` | P1 meter input in W (MANUAL: the manual power) |
-| `pv_w`, `soc` | device 1: solar in W, SoC label (`EMPTY` / `FULL` / `not full` / `any`) |
-| `battery_discharging_w`, `battery_charging_w`, `device_to_grid_w` | device 1 expected outputs in W |
-| `pv2_w` … `device2_to_grid_w` | device 2 (optional; all five must be filled) |
-| `level`, `level2` | explicit electric level in % (overrides the SoC label's representative value; never on `any` rows) |
-| `fuse_w` | shared fuse-group maxpower in W for both devices (empty = per-device groups) |
+| `input_w` | P1 meter input (W); MANUAL: the manual power |
+| `pv_w`, `soc` | device 1: solar (W), SoC label (`EMPTY` / `FULL` / `not full` / `any`) |
+| `battery_discharging_w`, `battery_charging_w`, `device_to_grid_w` | device 1 expected outputs (W) |
+| `pv2_w` … `device2_to_grid_w` | device 2 (W, default: none — all five empty = single-device case) |
+| `level`, `level2` | explicit electric level (%, default: label representative — EMPTY=5, FULL=100, not full=50); never on `any` rows |
+| `fuse_w` | shared fuse-group maxpower (W, default: per-device groups) |
 | `notes` | expected scenario description; `PINNED:` marks a known-failing divergence row |
-| `offgrid_w`, `offgrid2_w` | off-grid consumers on the device in W |
-| `exports`, `exports2` | `0` = no export bypass (`gridReverse` disabled); empty = default `True` |
+| `offgrid_w`, `offgrid2_w` | off-grid consumers (W, default 0) |
+| `exports`, `exports2` | `0` = no export bypass (`gridReverse` disabled; default: `True`) |
+
+An empty cell always means "use the default / not applicable" — each
+column lists its default above.
 
 ### Two-device rows
 

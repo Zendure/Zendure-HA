@@ -53,7 +53,7 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 52,MATCHING_DISCHARGE,500,200,EMPTY,0,0,200,,,,,,,,,,,,,"P1=500/PV=200/EMPTY: can't discharge, solar only"
 53,MATCHING_DISCHARGE,500,200,FULL,0,0,200,,,,,,,,,,,,,"P1=500/PV=200/FULL: bypass only, can't fully match P1"
 54,MATCHING_DISCHARGE,500,200,not full,300,0,500,,,,,,,,,,,,,P1=500/PV=200/not full: battery + solar combined
-201,MATCHING_DISCHARGE,200,100,not full,0,0,100,0,not full,100,0,100,,,,,,,,"solar on dev1 covers its share (no battery drain), dev2 battery covers the remaining 100W"
+201,MATCHING_DISCHARGE,200,100,not full,50,0,150,0,not full,50,0,50,,,,,,,,"battery budget 100W split 50/50 by SoC: dev1 = 100W solar + 50W battery (50/0/150), dev2 = 50W battery (50/0/50); solar-first floor keeps dev1 >= 100W"
 202,MATCHING_DISCHARGE,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,,,,,
 203,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,50,not full,0,0,50,,,,,,,,
 204,MATCHING_DISCHARGE,300,0,not full,300,0,300,0,not full,0,0,0,75,25,,,,,,"explicit levels: dev2's 75W share is below the optimal range (180W), load consolidates on dev1"
