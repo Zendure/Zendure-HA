@@ -109,7 +109,7 @@
       "soc_set": {
         "name": "Docelowe SoC"
       },
-      "min_battery_output_power": {
+      "min_output_power": {
         "name": "Minimalne rozładowanie"
       }
     },

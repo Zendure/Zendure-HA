@@ -266,6 +266,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if len(self.devices) > 0:
                         for d in self.devices:
                             await d.power_off()
+                            d.awake = False
 
     async def _async_update_data(self) -> None:
 
@@ -458,6 +459,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     self.discharge_weight += d.pwr_max * d.electricLevel.asInt
                     setpoint += home
 
+                elif d.min_output > 0 and d.state not in (DeviceState.SOCEMPTY, DeviceState.SOCFULL):
+                    # Idle but has a minimum discharge configured. Classify as discharge.
+                    self.discharge.append(d)
+                    self.discharge_limit += d.fuseGrp.discharge_limit(d)
+                    self.discharge_optimal += d.discharge_optimal
+                    self.discharge_produced -= d.pwr_produced
+                    self.discharge_weight += d.pwr_max * d.electricLevel.asInt
                 else:
                     self.idle.append(d)
                     self.idle_lvlmax = max(self.idle_lvlmax, d.electricLevel.asInt)
@@ -512,6 +520,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)
 
+    def _set_direction(self, charging: bool) -> None:
+        _LOGGER.info("Power direction => %s", "charge" if charging else "discharge")
+        for d in self.devices:
+            d.on_direction_change(charging)
+
     async def power_charge(self, setpoint: int, time: datetime) -> None:
         """Charge devices."""
         _LOGGER.info("Charge => setpoint %sW", setpoint)
@@ -530,6 +543,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
                 self.charge_last = self.charge_time
                 self.pwr_low = 0
+                self._set_direction(True)
             setpoint = 0
         self.operationstate.update_value(ManagerState.CHARGE.value if setpoint < 0 else ManagerState.IDLE.value)
 
@@ -587,6 +601,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if self.charge_time != datetime.max:
             self.charge_time = datetime.max
             self.pwr_low = 0
+            self._set_direction(False)
 
         # stop charging devices
         for d in self.charge:

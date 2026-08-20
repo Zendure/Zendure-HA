@@ -98,6 +98,9 @@
       },
       "soc_set": {
         "name": "SOC Maximaal"
+      },
+      "min_output_power": {
+        "name": "Minimale ontlading"
       }
     },
     "sensor": {

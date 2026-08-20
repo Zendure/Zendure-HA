@@ -3,10 +3,12 @@
 import logging
 from typing import Any
 
+from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.const import SmartMode
 from custom_components.zendure_ha.device import ZendureLegacy
+from custom_components.zendure_ha.number import ZendureRestoreNumber
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +20,7 @@ class AIO2400(ZendureLegacy):
         """AIO 2400 cannot charge using AC"""
         self.setLimits(0, 1200)
         self.maxSolar = -1200
+        self.minOutputPower = ZendureRestoreNumber(self, "min_output_power", self.localEntityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
 
     async def charge(self, power: int) -> int:
         _LOGGER.info("No AC charge for %s available", self.name)
