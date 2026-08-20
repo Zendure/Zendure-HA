@@ -146,6 +146,7 @@ class ZendureDevice(EntityDevice):
         self.actualKwh: float = 0.0
         self.state: DeviceState = DeviceState.OFFLINE
         self.exports_bypass: bool = True
+        self.awake: bool = False
 
         self.create_entities()
 
@@ -303,6 +304,22 @@ class ZendureDevice(EntityDevice):
 
         soc = self.minSoc.asNumber
         return 0 if level <= soc else min(999, self.kWh * 10 / power * (level - soc))
+
+    @property
+    def min_output(self) -> int:
+        # Minimum discharge power to keep the microinverter engaged; only HUB/AIO expose it.
+        entity = getattr(self, "minOutputPower", None)
+        return entity.asInt if entity is not None else 0
+
+    def on_direction_change(self, charging: bool) -> None:
+        # Awake while discharging so power_discharge can hold the microinverter above its minimum.
+        self.awake = not charging
+
+    def localEntityWrite(self, entity: EntityZendure, value: Any) -> None:
+        # Snap values below 101 to the nearest step in {0, 30, 60, 90, 100}.
+        if entity.propertyName == "min_output_power" and isinstance(value, (int, float)) and value <= 100:
+            value = min([0, 30, 60, 90, 100], key=lambda x: abs(x - value))
+        entity.update_value(value)
 
     async def entityWrite(self, entity: EntityZendure, value: Any) -> None:
         if entity.translation_key is None:
@@ -672,6 +689,8 @@ class ZendureDevice(EntityDevice):
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
         power = max(0, min(power, self.discharge_limit))
+        if self.awake and self.min_output > 0 and self.state not in (DeviceState.SOCEMPTY, DeviceState.SOCFULL) and self.electricLevel.asInt > self.minSoc.asNumber:
+            power = max(power, self.min_output)
         if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.info("Power discharge %s => no action [power %s]", self.name, power)
             return self.homeOutput.asInt

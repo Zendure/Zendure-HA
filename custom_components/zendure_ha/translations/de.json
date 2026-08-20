@@ -101,6 +101,9 @@
       },
       "soc_set": {
         "name": "SoC-Zielwert"
+      },
+      "min_output_power": {
+        "name": "Mindestentladung"
       }
     },
     "sensor": {

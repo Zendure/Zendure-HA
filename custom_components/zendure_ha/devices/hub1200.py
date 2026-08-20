@@ -3,9 +3,11 @@
 import logging
 from typing import Any
 
+from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.device import ZendureBattery, ZendureLegacy
+from custom_components.zendure_ha.number import ZendureRestoreNumber
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,6 +18,7 @@ class Hub1200(ZendureLegacy):
         super().__init__(hass, deviceId, prodName, definition["productModel"], definition)
         self.setLimits(0, 1200)
         self.maxSolar = -800
+        self.minOutputPower = ZendureRestoreNumber(self, "min_output_power", self.localEntityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
 
     async def charge(self, power: int) -> int:
         _LOGGER.info("AC Power charge %s not available => set power from %s to 0", self.name, power)
