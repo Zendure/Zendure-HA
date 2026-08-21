@@ -600,7 +600,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             await d.power_discharge(0 if max(0, d.pwr_offgrid) == 0 else 10)
 
         # distribute discharging devices, use produced power first, before adding another device
-        dev_start = max(0, setpoint - self.discharge_optimal * 2 - self.discharge_produced) if setpoint > SmartMode.POWER_START else 0
+        # Only *dispatchable* capacity may offset the setpoint. A device at either SoC limit has none:
+        # SOCFULL cannot supply from its battery (its bypass was already netted out in powerChanged),
+        # SOCEMPTY is pinned at minSoc. Crediting them cancels a real deficit and the grid pays instead.
+        blocked = (DeviceState.SOCFULL, DeviceState.SOCEMPTY)
+        blocked_optimal = sum(d.discharge_optimal for d in self.discharge if d.state in blocked)
+        dispatchable = (self.discharge_optimal - blocked_optimal) * 2 + (self.discharge_produced - self.discharge_bypass)
+        dev_start = max(0, setpoint - dispatchable) if setpoint > SmartMode.POWER_START else 0
         solaronly = self.discharge_produced >= setpoint
         limit = self.discharge_produced if solaronly else self.discharge_limit
         setpoint = min(limit, setpoint)
@@ -628,6 +634,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             if limit < setpoint - pwr:
                 pwr = max(setpoint - limit, 0 if d.state != DeviceState.SOCFULL else -d.pwr_produced)
             pwr = min(pwr, setpoint, d.pwr_max)
+
+            # Re-apply the SOCFULL floor: the min() above clamps to a setpoint that already had this
+            # device's bypass removed. Commanding it below its own production only curtails the PV.
+            if d.state == DeviceState.SOCFULL:
+                pwr = max(pwr, min(-d.pwr_produced, d.pwr_max))
 
             # make sure we have devices in optimal working range
             if len(self.discharge) > 1 and i == 0 and d.state != DeviceState.SOCFULL:
