@@ -23,11 +23,11 @@ class AIO2400(ZendureLegacy):
         self.minOutputPower = ZendureRestoreNumber(self, "min_output_power", self.localEntityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
 
     async def charge(self, power: int) -> int:
-        _LOGGER.info("No AC charge for %s available", self.name)
+        _LOGGER.debug("No AC charge for %s available", self.name)
         return 0
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
+        _LOGGER.debug("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         self.mqttInvoke(
             {
                 "arguments": [

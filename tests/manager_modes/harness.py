@@ -5,13 +5,14 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from custom_components.zendure_ha.const import DeviceState, ManagerMode
+from custom_components.zendure_ha.const import DeviceState, ManagerMode, PowerFlowDirection
+from custom_components.zendure_ha.device import ZendureDevice
 from custom_components.zendure_ha.manager import ZendureManager
 
 CSV_DIR = Path(__file__).resolve().parent / "data"
@@ -118,7 +119,7 @@ class FakeDevice:
     def __init__(self, soc_state: DeviceState, level: int, pv: int,
                  discharge_limit: int = 1200, charge_limit: int = -1200,
                  pwr_offgrid: int = 0, exports_bypass: bool = True,
-                 name: str = "dev") -> None:
+                 min_output: int = 0, name: str = "dev") -> None:
         self.name = name
         self.state = soc_state
         self.pv = pv
@@ -132,6 +133,12 @@ class FakeDevice:
         self.exports_bypass = exports_bypass
         self.pwr_offgrid = pwr_offgrid
         self.pwr_produced = 0
+        # Minimum discharge floor (HUB/AIO families only); 0 = no floor, the
+        # default for every device family and every CSV row that omits it.
+        self.min_output = min_output
+        # Mirrors ZendureDevice.awake: False until the manager signals a
+        # direction change, so the floor is inert on a fresh manager.
+        self.awake = False
         self.kWh = 2.0
         self.actualKwh = 1.0
         self.fuseGrp = FakeFuseGroup(devices=[self])
@@ -142,6 +149,7 @@ class FakeDevice:
         self.batteryOutput = _sensor(0)   # packInputPower: battery -> out (discharge)
         self.batteryInput = _sensor(0)    # outputPackPower: into battery (charge)
         self.electricLevel = _sensor(level)
+        self.minSoc = _sensor(0)
         # a full battery passing its solar reports hardware bypass, like real devices
         self.byPass = _sensor(1 if (soc_state == DeviceState.SOCFULL and pv > 0) else 0)
 
@@ -153,6 +161,9 @@ class FakeDevice:
 
     async def power_get(self) -> bool:
         return True  # state is fixed for the scenario
+
+    def on_direction_change(self, direction: PowerFlowDirection) -> None:
+        self.awake = direction == PowerFlowDirection.DISCHARGE
 
     def seed_spec(self, discharging: int, charging: int, device_to_grid: int) -> None:
         """Place the device at the spec's steady-state operating point."""
@@ -193,6 +204,14 @@ class FakeDevice:
 
     async def power_discharge(self, power: int) -> int:
         out = max(0, min(power, self.discharge_limit))   # mirror device.power_discharge clamp
+        out = ZendureDevice.apply_min_output_floor(
+            out,
+            awake=self.awake,
+            min_output=self.min_output,
+            state=self.state,
+            electric_level=self.electricLevel.asInt,
+            min_soc=self.minSoc.asNumber,
+        )
         self.commands.append(("discharge", power))
         self._apply_net(out)
         return self.homeOutput.asInt
@@ -267,7 +286,7 @@ async def drive_metered(mode: ManagerMode, case: "Case", cycles: int = 60) -> li
         dev = FakeDevice(state, spec.level if spec.level is not None else rep_level,
                          pv=spec.pv, charge_limit=charge_limit,
                          pwr_offgrid=spec.offgrid, exports_bypass=spec.exports,
-                         name=f"dev{len(devs) + 1}")
+                         min_output=spec.min_output, name=f"dev{len(devs) + 1}")
         dev.seed_spec(spec.discharging, spec.charging, spec.device_to_grid)
         devs.append(dev)
     mgr = build_manager(mode, devs, case.fuse)
@@ -294,6 +313,7 @@ class DeviceSpec:
     device_to_grid: int
     offgrid: int = 0        # off-grid consumers on this device, W (0 = none)
     exports: bool = True    # exports_bypass: gridReverse allows export
+    min_output: int = 0     # minimum discharge floor, W (0 = none; HUB/AIO only)
 
 
 @dataclass
@@ -309,12 +329,13 @@ class Case:
     @property
     def id(self) -> str:
         star = "*" if self.any_row else ""
+        mo = f":mo={self.devices[0].min_output}" if any(d.min_output for d in self.devices) else ""
         d0, *rest = self.devices
         if not rest:
-            return f"{self.num}:{self.mode}:p1={self.p1}:pv={d0.pv}:{d0.soc}{star}"
+            return f"{self.num}:{self.mode}:p1={self.p1}:pv={d0.pv}:{d0.soc}{mo}{star}"
         d1 = rest[0]
         lv = f"lv={d0.level}/{d1.level}:" if d0.level is not None or d1.level is not None else ""
-        return f"{self.num}:{self.mode}:p1={self.p1}:{lv}{d0.soc}:{d1.soc}{star}"
+        return f"{self.num}:{self.mode}:p1={self.p1}:{lv}{d0.soc}:{d1.soc}{mo}{star}"
 
 
 def assert_matches_spec(devs: list[FakeDevice], case: "Case") -> None:
@@ -362,7 +383,7 @@ def load_cases_from_csv(mode_stem: str) -> list[Case]:
                     return None
                 return int(cell)
 
-            def _offgrid(cell: str | None) -> int:
+            def _watts(cell: str | None) -> int:
                 return int(cell) if (cell or "").strip() else 0
 
             def _exports(cell: str | None) -> bool:
@@ -382,17 +403,15 @@ def load_cases_from_csv(mode_stem: str) -> list[Case]:
                 discharging=int(row["battery_discharging_w"]),
                 charging=int(row["battery_charging_w"]),
                 device_to_grid=int(row["device_to_grid_w"]),
-                offgrid=_offgrid(row.get("offgrid_w")),
+                offgrid=_watts(row.get("offgrid_w")),
                 exports=_exports(row.get("exports")),
+                min_output=_watts(row.get("min_output_w")),
             )
             soc2 = (row.get("soc2") or "").strip()
             if soc2 == "":
                 for s in (SOC_ALL if soc == "any" else (soc,)):
                     cases.append(Case(
-                        devices=[DeviceSpec(pv=spec1.pv, soc=s, level=spec1.level,
-                                           discharging=spec1.discharging, charging=spec1.charging,
-                                           device_to_grid=spec1.device_to_grid,
-                                           offgrid=spec1.offgrid, exports=spec1.exports)],
+                        devices=[replace(spec1, soc=s)],
                         any_row=soc == "any",
                         **base,
                     ))
@@ -404,24 +423,16 @@ def load_cases_from_csv(mode_stem: str) -> list[Case]:
                 discharging=int(row["battery2_discharging_w"]),
                 charging=int(row["battery2_charging_w"]),
                 device_to_grid=int(row["device2_to_grid_w"]),
-                offgrid=_offgrid(row.get("offgrid2_w")),
+                offgrid=_watts(row.get("offgrid2_w")),
                 exports=_exports(row.get("exports2")),
+                min_output=_watts(row.get("min_output2_w")),
             )
             socs1 = SOC_ALL if soc == "any" else (soc,)
             socs2 = SOC_ALL if soc2 == "any" else (soc2,)
             for s1 in socs1:
                 for s2 in socs2:
                     cases.append(Case(
-                        devices=[
-                            DeviceSpec(pv=spec1.pv, soc=s1, level=spec1.level,
-                                       discharging=spec1.discharging, charging=spec1.charging,
-                                       device_to_grid=spec1.device_to_grid,
-                                       offgrid=spec1.offgrid, exports=spec1.exports),
-                            DeviceSpec(pv=spec2.pv, soc=s2, level=spec2.level,
-                                       discharging=spec2.discharging, charging=spec2.charging,
-                                       device_to_grid=spec2.device_to_grid,
-                                       offgrid=spec2.offgrid, exports=spec2.exports),
-                        ],
+                        devices=[replace(spec1, soc=s1), replace(spec2, soc=s2)],
                         any_row=soc == "any" or soc2 == "any",
                         **base,
                     ))

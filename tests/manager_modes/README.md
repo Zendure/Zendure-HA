@@ -34,7 +34,7 @@ uv pip install --python .venv-ha-test/bin/python -r requirements.txt -r requirem
 | `manager_modes/test_matching_discharge.py` | ~84 | MATCHING_DISCHARGE — CSV-driven |
 | `manager_modes/test_matching_charge.py` | ~108 | MATCHING_CHARGE — CSV-driven |
 | `manager_modes/test_store_solar.py` | ~80 | STORE_SOLAR — CSV-driven |
-| `manager_modes/test_manual.py` | ~84 | MANUAL — CSV-driven |
+| `manager_modes/test_min_output.py` | 10 | minimum discharge — cross-mode CSV + lifecycle |
 | `manager_modes/test_off.py` | 9 | OFF — no distribution, state = OFF |
 | `manager_modes/test_smoke_import.py` | 1 | the real manager imports under the HA stack |
 | `manager_modes/test_soc_boundaries.py` | 6 | socSet / minSoc thresholds (SimpleNamespace fakes) |
@@ -56,6 +56,7 @@ uv pip install --python .venv-ha-test/bin/python -r requirements.txt -r requirem
 | `notes` | expected scenario description; `PINNED:` marks a known-failing divergence row |
 | `offgrid_w`, `offgrid2_w` | off-grid consumers (W, default 0) |
 | `exports`, `exports2` | `0` = no export bypass (`gridReverse` disabled; default: `True`) |
+| `min_output_w`, `min_output2_w` | minimum discharge floor (W, default 0; only HUB/AIO devices have one) |
 
 An empty cell always means "use the default / not applicable" — each
 column lists its default above.
@@ -69,7 +70,9 @@ Optional per-device `level`/`level2` override the SoC label's representative
 electric level (only on concrete-label rows, never `any`);
 optional `fuse_w` wires both devices into one shared fuse group with that maxpower;
 optional `offgrid_w`/`offgrid2_w` give a device off-grid consumers (W, default 0);
-optional `exports`/`exports2` (`0` = `exports_bypass` False, default True).
+optional `exports`/`exports2` (`0` = `exports_bypass` False, default True);
+optional `min_output_w`/`min_output2_w` set the minimum discharge floor
+(W, default 0).
 
 
 Example (MATCHING):

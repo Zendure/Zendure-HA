@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
-from custom_components.zendure_ha.const import DeviceState, ManagerState
+from custom_components.zendure_ha.const import DeviceState, ManagerMode, ManagerState, PowerFlowDirection
 from custom_components.zendure_ha.manager import ZendureManager
 
 
@@ -37,12 +37,17 @@ class _FakeDevice:
         self.pwr_produced = 0
         self.pwr_bypass = 0
         self.state = state
+        self.min_output = 0
+        self.awake = False
         self.charge_start = 0
         self.charge_optimal = 0
         self.discharge_start = 0
         self.discharge_optimal = 0
         self.charge_calls: list[int] = []
         self.discharge_calls: list[int] = []
+
+    def on_direction_change(self, direction: PowerFlowDirection) -> None:
+        self.awake = direction == PowerFlowDirection.DISCHARGE
 
     async def power_charge(self, power: int) -> int:
         self.charge_calls.append(power)
@@ -55,6 +60,7 @@ class _FakeDevice:
 
 def _make_manager_harness() -> ZendureManager:
     manager = object.__new__(ZendureManager)
+    manager.operation = ManagerMode.MATCHING
     manager.operationstate = _RecordingSensor()
     manager.charge = []
     manager.charge_limit = 0

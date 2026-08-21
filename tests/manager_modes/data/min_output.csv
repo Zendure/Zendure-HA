@@ -1,0 +1,6 @@
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,min_output_w,min_output2_w,notes
+1,MATCHING,50,0,not full,100,0,100,,,,,,,,,,,,,100,,"P1 below the floor: discharge is held at min_output, surplus exports to grid"
+2,MATCHING,200,0,not full,200,0,200,,,,,,,,,,,,,100,,"P1 above the floor: floor changes nothing, P1 is matched"
+3,MATCHING_DISCHARGE,100,200,not full,0,0,200,,,,,,,,,,,,,100,,discharge modes pass through solar without engaging the floor
+4,MATCHING_CHARGE,100,0,not full,0,0,0,,,,,,,,,,,,,100,,never discharges the battery: the floor must not engage in MATCHING_CHARGE
+5,STORE_SOLAR,100,0,not full,0,0,0,,,,,,,,,,,,,100,,never discharges the battery: the floor must not engage in STORE_SOLAR

@@ -21,7 +21,7 @@ class Hub1200(ZendureLegacy):
         self.minOutputPower = ZendureRestoreNumber(self, "min_output_power", self.localEntityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
 
     async def charge(self, power: int) -> int:
-        _LOGGER.info("AC Power charge %s not available => set power from %s to 0", self.name, power)
+        _LOGGER.debug("AC Power charge %s not available => set power from %s to 0", self.name, power)
         # The HUB family does not have AC charging possibility (even with ACE 1500), so set it to idle
 
         self.mqttInvoke(
@@ -33,7 +33,7 @@ class Hub1200(ZendureLegacy):
         return 0
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
+        _LOGGER.debug("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         self.mqttInvoke(
             {
                 "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],

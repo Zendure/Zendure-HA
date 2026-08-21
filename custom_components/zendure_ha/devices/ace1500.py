@@ -64,7 +64,7 @@ class ACE1500(ZendureLegacy):
             self.setLimits(-900, 800)
 
     async def charge(self, power: int) -> int:
-        _LOGGER.info("Power charge %s => %s", self.name, power)
+        _LOGGER.debug("Power charge %s => %s", self.name, power)
         if self.hubMode.value == 1:
             self._chargeStandalone(power)
         else:
@@ -72,7 +72,7 @@ class ACE1500(ZendureLegacy):
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
+        _LOGGER.debug("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         if self.hubMode.value == 1:
             self._dischargeStandalone(power)
         else:

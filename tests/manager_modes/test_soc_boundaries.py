@@ -12,7 +12,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any
 
-from custom_components.zendure_ha.const import DeviceState, ManagerMode
+from custom_components.zendure_ha.const import DeviceState, ManagerMode, PowerFlowDirection
 from custom_components.zendure_ha.manager import ZendureManager
 
 MODE = ManagerMode.MATCHING
@@ -77,7 +77,8 @@ class _FakeDevice:
         self.exports_bypass = True
         self.kWh = 10.0
         self.actualKwh = 10.0
-        self.minOutput = 0
+        self.min_output = 0
+        self.awake = False
         self.charge_optimal = 300
         self.charge_start = 120
         self.discharge_optimal = 300
@@ -91,6 +92,9 @@ class _FakeDevice:
     @property
     def online(self) -> bool:
         return True
+
+    def on_direction_change(self, direction: PowerFlowDirection) -> None:
+        self.awake = direction != PowerFlowDirection.CHARGE
 
     async def power_get(self) -> bool:
         # Mirrors ZendureDevice.power_get() classification (socLimit always 0 here).
