@@ -102,6 +102,9 @@
       },
       "soc_set": {
         "name": "SOC maximum"
+      },
+      "min_output_power": {
+        "name": "Décharge minimale"
       }
     },
     "sensor": {

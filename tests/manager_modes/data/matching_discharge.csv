@@ -1,0 +1,61 @@
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,notes
+1,MATCHING_DISCHARGE,-300,0,any,0,0,0,,,,,,,,,,,,,"P1=-300/PV=0/any: negative P1 clamped to 0, idle"
+2,MATCHING_DISCHARGE,-300,50,any,0,0,50,,,,,,,,,,,,,"P1=-300/PV=50/any: solar passes to home, battery idle"
+3,MATCHING_DISCHARGE,-300,100,any,0,0,100,,,,,,,,,,,,,"P1=-300/PV=100/any: solar passes to home, battery idle"
+4,MATCHING_DISCHARGE,-300,200,any,0,0,200,,,,,,,,,,,,,"P1=-300/PV=200/any: solar passes to home, battery idle"
+5,MATCHING_DISCHARGE,-100,0,any,0,0,0,,,,,,,,,,,,,"P1=-100/PV=0/any: negative P1 clamped to 0, idle"
+6,MATCHING_DISCHARGE,-100,50,any,0,0,50,,,,,,,,,,,,,"P1=-100/PV=50/any: solar passes to home, battery idle"
+7,MATCHING_DISCHARGE,-100,100,any,0,0,100,,,,,,,,,,,,,"P1=-100/PV=100/any: solar passes to home, battery idle"
+8,MATCHING_DISCHARGE,-100,200,any,0,0,200,,,,,,,,,,,,,"P1=-100/PV=200/any: solar passes to home, battery idle"
+9,MATCHING_DISCHARGE,0,0,any,0,0,0,,,,,,,,,,,,,"P1=0/PV=0/any: idle, nothing to do"
+10,MATCHING_DISCHARGE,0,50,any,0,0,50,,,,,,,,,,,,,"P1=0/PV=50/any: solar passes to home, battery idle"
+11,MATCHING_DISCHARGE,0,100,any,0,0,100,,,,,,,,,,,,,"P1=0/PV=100/any: solar passes to home, battery idle"
+12,MATCHING_DISCHARGE,0,200,any,0,0,200,,,,,,,,,,,,,"P1=0/PV=200/any: solar passes to home, battery idle"
+13,MATCHING_DISCHARGE,100,0,EMPTY,0,0,0,,,,,,,,,,,,,"P1=100/PV=0/EMPTY: can't discharge, P1 unmatched"
+14,MATCHING_DISCHARGE,100,0,FULL,0,0,0,,,,,,,,,,,,,P1=100/PV=0/FULL: nothing to give
+15,MATCHING_DISCHARGE,100,0,not full,100,0,100,,,,,,,,,,,,,P1=100/PV=0/not full: pure battery discharge
+16,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,,,,,,,,,,,,,"P1=100/PV=50/EMPTY: partial match, solar only"
+17,MATCHING_DISCHARGE,100,50,FULL,0,0,50,,,,,,,,,,,,,"P1=100/PV=50/FULL: bypass only, partial match"
+18,MATCHING_DISCHARGE,100,50,not full,50,0,100,,,,,,,,,,,,,P1=100/PV=50/not full: 50 W solar + 50 W battery = matches P1
+19,MATCHING_DISCHARGE,100,100,any,0,0,100,,,,,,,,,,,,,"P1=100/PV=100/any: solar passes to home, battery idle"
+20,MATCHING_DISCHARGE,100,200,any,0,0,200,,,,,,,,,,,,,"P1=100/PV=200/any: solar passes to home, battery idle"
+21,MATCHING_DISCHARGE,200,0,EMPTY,0,0,0,,,,,,,,,,,,,"P1=200/PV=0/EMPTY: can't discharge, P1 unmatched"
+22,MATCHING_DISCHARGE,200,0,FULL,0,0,0,,,,,,,,,,,,,P1=200/PV=0/FULL: nothing to give
+23,MATCHING_DISCHARGE,200,0,not full,200,0,200,,,,,,,,,,,,,P1=200/PV=0/not full: pure battery discharge
+24,MATCHING_DISCHARGE,200,50,EMPTY,0,0,50,,,,,,,,,,,,,"P1=200/PV=50/EMPTY: solar passes to home, battery idle"
+25,MATCHING_DISCHARGE,200,50,FULL,0,0,50,,,,,,,,,,,,,P1=200/PV=50/FULL: battery full: bypass all solar to home
+26,MATCHING_DISCHARGE,200,50,not full,150,0,200,,,,,,,,,,,,,P1=200/PV=50/not full: solar + battery cover demand
+27,MATCHING_DISCHARGE,200,100,EMPTY,0,0,100,,,,,,,,,,,,,"P1=200/PV=100/EMPTY: can't discharge, solar only"
+28,MATCHING_DISCHARGE,200,100,FULL,0,0,100,,,,,,,,,,,,,"P1=200/PV=100/FULL: bypass only, partial match"
+29,MATCHING_DISCHARGE,200,100,not full,100,0,200,,,,,,,,,,,,,P1=200/PV=100/not full: 100 W solar + 100 W battery = matches P1
+30,MATCHING_DISCHARGE,200,200,any,0,0,200,,,,,,,,,,,,,"P1=200/PV=200/any: solar passes to home, battery idle"
+31,MATCHING_DISCHARGE,300,0,EMPTY,0,0,0,,,,,,,,,,,,,"P1=300/PV=0/EMPTY: can't discharge, P1 unmatched"
+32,MATCHING_DISCHARGE,300,0,FULL,0,0,0,,,,,,,,,,,,,P1=300/PV=0/FULL: nothing to give
+33,MATCHING_DISCHARGE,300,0,not full,300,0,300,,,,,,,,,,,,,"P1=300/PV=0/not full: high demand, pure battery"
+34,MATCHING_DISCHARGE,300,50,EMPTY,0,0,50,,,,,,,,,,,,,"P1=300/PV=50/EMPTY: solar passes to home, battery idle"
+35,MATCHING_DISCHARGE,300,50,FULL,0,0,50,,,,,,,,,,,,,P1=300/PV=50/FULL: battery full: bypass all solar to home
+36,MATCHING_DISCHARGE,300,50,not full,250,0,300,,,,,,,,,,,,,P1=300/PV=50/not full: solar + battery cover demand
+37,MATCHING_DISCHARGE,300,100,EMPTY,0,0,100,,,,,,,,,,,,,"P1=300/PV=100/EMPTY: solar passes to home, battery idle"
+38,MATCHING_DISCHARGE,300,100,FULL,0,0,100,,,,,,,,,,,,,P1=300/PV=100/FULL: battery full: bypass all solar to home
+39,MATCHING_DISCHARGE,300,100,not full,200,0,300,,,,,,,,,,,,,P1=300/PV=100/not full: solar + battery cover demand
+40,MATCHING_DISCHARGE,300,200,EMPTY,0,0,200,,,,,,,,,,,,,"P1=300/PV=200/EMPTY: solar passes to home, battery idle"
+41,MATCHING_DISCHARGE,300,200,FULL,0,0,200,,,,,,,,,,,,,P1=300/PV=200/FULL: battery full: bypass all solar to home
+42,MATCHING_DISCHARGE,300,200,not full,100,0,300,,,,,,,,,,,,,P1=300/PV=200/not full: solar + battery cover demand
+43,MATCHING_DISCHARGE,500,0,EMPTY,0,0,0,,,,,,,,,,,,,"P1=500/PV=0/EMPTY: idle, nothing to do"
+44,MATCHING_DISCHARGE,500,0,FULL,0,0,0,,,,,,,,,,,,,"P1=500/PV=0/FULL: idle, nothing to bypass"
+45,MATCHING_DISCHARGE,500,0,not full,500,0,500,,,,,,,,,,,,,P1=500/PV=0/not full: pure battery discharge
+46,MATCHING_DISCHARGE,500,50,EMPTY,0,0,50,,,,,,,,,,,,,"P1=500/PV=50/EMPTY: solar passes to home, battery idle"
+47,MATCHING_DISCHARGE,500,50,FULL,0,0,50,,,,,,,,,,,,,P1=500/PV=50/FULL: battery full: bypass all solar to home
+48,MATCHING_DISCHARGE,500,50,not full,450,0,500,,,,,,,,,,,,,P1=500/PV=50/not full: solar + battery cover demand
+49,MATCHING_DISCHARGE,500,100,EMPTY,0,0,100,,,,,,,,,,,,,"P1=500/PV=100/EMPTY: solar passes to home, battery idle"
+50,MATCHING_DISCHARGE,500,100,FULL,0,0,100,,,,,,,,,,,,,P1=500/PV=100/FULL: battery full: bypass all solar to home
+51,MATCHING_DISCHARGE,500,100,not full,400,0,500,,,,,,,,,,,,,P1=500/PV=100/not full: solar + battery cover demand
+52,MATCHING_DISCHARGE,500,200,EMPTY,0,0,200,,,,,,,,,,,,,"P1=500/PV=200/EMPTY: can't discharge, solar only"
+53,MATCHING_DISCHARGE,500,200,FULL,0,0,200,,,,,,,,,,,,,"P1=500/PV=200/FULL: bypass only, can't fully match P1"
+54,MATCHING_DISCHARGE,500,200,not full,300,0,500,,,,,,,,,,,,,P1=500/PV=200/not full: battery + solar combined
+201,MATCHING_DISCHARGE,200,100,not full,50,0,150,0,not full,50,0,50,,,,,,,,"battery budget 100W split 50/50 by SoC: dev1 = 100W solar + 50W battery (50/0/150), dev2 = 50W battery (50/0/50); solar-first floor keeps dev1 >= 100W"
+202,MATCHING_DISCHARGE,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,,,,,
+203,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,50,not full,0,0,50,,,,,,,,
+204,MATCHING_DISCHARGE,300,0,not full,300,0,300,0,not full,0,0,0,75,25,,,,,,"explicit levels: dev2's 75W share is below the optimal range (180W), load consolidates on dev1"
+205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,200,0,300,,,,,,,,surplus distributed to dev2 under #1565 dispatchable logic: 100W solar + 200W battery
+206,MATCHING_DISCHARGE,300,200,FULL,0,0,200,0,not full,200,0,200,,,,,,,,bypass added back and dev2 covers the remainder under #1565 (#1559)

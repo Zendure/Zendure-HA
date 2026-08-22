@@ -22,7 +22,7 @@ class SuperBaseV4600(ZendureLegacy):
         self.dcSwitch = ZendureSelect(self, "dcSwitch", {0: "off", 1: "on"}, self.entityWrite, 1)
 
     async def charge(self, power: int) -> int:
-        _LOGGER.info("Power charge %s => %s", self.name, power)
+        _LOGGER.debug("Power charge %s => %s", self.name, power)
         self.mqttInvoke(
             {
                 "arguments": [
@@ -44,7 +44,7 @@ class SuperBaseV4600(ZendureLegacy):
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
+        _LOGGER.debug("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         self.mqttInvoke(
             {
                 "arguments": [

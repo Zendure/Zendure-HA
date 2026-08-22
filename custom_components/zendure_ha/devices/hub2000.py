@@ -3,9 +3,11 @@
 import logging
 from typing import Any
 
+from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 
 from custom_components.zendure_ha.device import ZendureBattery, ZendureLegacy
+from custom_components.zendure_ha.number import ZendureRestoreNumber
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,9 +21,10 @@ class Hub2000(ZendureLegacy):
         """power to micro inverter up to 1200W"""
         self.setLimits(0, 1200)
         self.maxSolar = -2400
+        self.minOutputPower = ZendureRestoreNumber(self, "min_output_power", self.localEntityWrite, None, "W", "power", 800, 0, NumberMode.SLIDER)
 
     async def charge(self, power: int) -> int:
-        _LOGGER.info("AC Power charge %s not available => set power from %s to 0", self.name, power)
+        _LOGGER.debug("AC Power charge %s not available => set power from %s to 0", self.name, power)
         # The HUB family does not have AC charging possibility (even with ACE 1500), so set it to idle
         self.mqttInvoke(
             {
@@ -32,7 +35,7 @@ class Hub2000(ZendureLegacy):
         return 0
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
+        _LOGGER.debug("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         self.mqttInvoke(
             {
                 "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],

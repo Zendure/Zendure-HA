@@ -28,7 +28,7 @@ from paho.mqtt import client as mqtt_client
 
 from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
-from .const import DeviceState, SmartMode
+from .const import DeviceState, PowerFlowDirection, SmartMode
 from .entity import EntityDevice, EntityZendure
 from .number import ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
@@ -110,6 +110,17 @@ class ZendureBattery(EntityDevice):
 class ZendureDevice(EntityDevice):
     """Zendure Device class for devices integration."""
 
+    @staticmethod
+    def apply_min_output_floor(power: int, *, awake: bool, min_output: int, state: DeviceState, electric_level: int, min_soc: float) -> int:
+        """Raise a discharge command to min_output while awake and the battery can serve it.
+
+        Shared by power_discharge and the manager-mode test fakes so the floor can
+        never drift between production code and what the tests assert against.
+        """
+        if awake and min_output > 0 and state not in (DeviceState.SOCEMPTY, DeviceState.SOCFULL) and electric_level > min_soc:
+            return max(power, min_output)
+        return power
+
     def __init__(self, hass: HomeAssistant, deviceId: str, name: str, model: str, definition: dict[str, str], parent: str | None = None) -> None:
         """Initialize Device."""
         from .fusegroup import FuseGroup
@@ -143,9 +154,12 @@ class ZendureDevice(EntityDevice):
         self.maxSolar = 0
         self.pwr_max: int = 0
         self.pwr_produced: int = 0
+        # part of homeOutput the manager removes from its setpoint as non-dispatchable
+        self.pwr_bypass: int = 0
         self.actualKwh: float = 0.0
         self.state: DeviceState = DeviceState.OFFLINE
         self.exports_bypass: bool = True
+        self.awake: bool = False
 
         self.create_entities()
 
@@ -303,6 +317,22 @@ class ZendureDevice(EntityDevice):
 
         soc = self.minSoc.asNumber
         return 0 if level <= soc else min(999, self.kWh * 10 / power * (level - soc))
+
+    @property
+    def min_output(self) -> int:
+        # Minimum discharge power to keep the microinverter engaged; only HUB/AIO expose it.
+        entity = getattr(self, "minOutputPower", None)
+        return entity.asInt if entity is not None else 0
+
+    def on_direction_change(self, direction: PowerFlowDirection) -> None:
+        # Awake while discharging so power_discharge can hold the microinverter above its minimum.
+        self.awake = direction == PowerFlowDirection.DISCHARGE
+
+    def localEntityWrite(self, entity: EntityZendure, value: Any) -> None:
+        # Snap values below 101 to the nearest step in {0, 30, 60, 90, 100}.
+        if entity.propertyName == "min_output_power" and isinstance(value, (int, float)) and value <= 100:
+            value = min([0, 30, 60, 90, 100], key=lambda x: abs(x - value))
+        entity.update_value(value)
 
     async def entityWrite(self, entity: EntityZendure, value: Any) -> None:
         if entity.translation_key is None:
@@ -661,7 +691,7 @@ class ZendureDevice(EntityDevice):
         power = min(0, max(power, self.charge_limit))
         """power is here a negative value, but homeInput and homeOutput are always positive"""
         if abs(power + self.homeInput.asInt - self.homeOutput.asInt) <= SmartMode.POWER_TOLERANCE:
-            _LOGGER.info("Power charge %s => no action [power %s]", self.name, power)
+            _LOGGER.debug("Power charge %s => no action [power %s]", self.name, power)
             return - self.homeInput.asInt
         return await self.charge(power)
 
@@ -672,8 +702,16 @@ class ZendureDevice(EntityDevice):
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
         power = max(0, min(power, self.discharge_limit))
+        power = self.apply_min_output_floor(
+            power,
+            awake=self.awake,
+            min_output=self.min_output,
+            state=self.state,
+            electric_level=self.electricLevel.asInt,
+            min_soc=self.minSoc.asNumber,
+        )
         if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
-            _LOGGER.info("Power discharge %s => no action [power %s]", self.name, power)
+            _LOGGER.debug("Power discharge %s => no action, %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
             return self.homeOutput.asInt
         return await self.discharge(power)
 
@@ -783,18 +821,18 @@ class ZendureZenSdk(ZendureDevice):
 
     async def charge(self, power: int, _off: bool = False) -> int:
         """Set charge power."""
-        _LOGGER.info("Power charge %s => %s", self.name, power)
+        _LOGGER.debug("Power charge %s => %s", self.name, power)
         if power == -SmartMode.POWER_START and self.limitInput.asInt >= SmartMode.POWER_START and self.homeInput.asInt == 0:
             power = -min(self.limitInput.asInt + 4, 2 * SmartMode.POWER_START)
-            _LOGGER.info("Power charge kickstart %s => %s", self.name, power)
+            _LOGGER.debug("Power charge kickstart %s => %s", self.name, power)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 1, "outputLimit": 0, "inputLimit": -power}})
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
+        _LOGGER.debug("Power discharge %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         if power == SmartMode.POWER_START and self.limitOutput.asInt >= SmartMode.POWER_START and self.homeOutput.asInt == 0:
             power = min(self.limitOutput.asInt + 4, 2 * SmartMode.POWER_START)
-            _LOGGER.info("Power discharge kickstart %s => %s", self.name, power)
+            _LOGGER.debug("Power discharge kickstart %s => %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
         await self.doCommand({"properties": {"smartMode": 0 if power == 0 and self.pwr_offgrid == 0 else 1, "acMode": 2, "outputLimit": power, "inputLimit": 0}})
         return power
 
