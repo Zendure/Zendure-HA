@@ -26,6 +26,7 @@ from homeassistant.loader import async_get_integration
 
 from .api import Api
 from .const import (
+    BLOCKING_DEVICE_STATES,
     CONF_AUTO_MQTT_USER,
     CONF_P1METER,
     DOMAIN,
@@ -603,8 +604,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # Only *dispatchable* capacity may offset the setpoint. A device at either SoC limit has none:
         # SOCFULL cannot supply from its battery (its bypass was already netted out in powerChanged),
         # SOCEMPTY is pinned at minSoc. Crediting them cancels a real deficit and the grid pays instead.
-        blocked = (DeviceState.SOCFULL, DeviceState.SOCEMPTY)
-        blocked_optimal = sum(d.discharge_optimal for d in self.discharge if d.state in blocked)
+        blocked_optimal = sum(d.discharge_optimal for d in self.discharge if d.state in BLOCKING_DEVICE_STATES)
         dispatchable = (self.discharge_optimal - blocked_optimal) * 2 + (self.discharge_produced - self.discharge_bypass)
         dev_start = max(0, setpoint - dispatchable) if setpoint > SmartMode.POWER_START else 0
         solaronly = self.discharge_produced >= setpoint
