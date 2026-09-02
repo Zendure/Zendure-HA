@@ -823,21 +823,20 @@ class ZendureZenSdk(ZendureDevice):
 
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         last_error: Exception | None = None
-        for host in self._http_hosts():
+        hosts = self._http_hosts()
+        for host in hosts:
             try:
                 endpoint = f"http://{host}/{url}"
                 response = await self.session.get(endpoint, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
                 payload = json.loads(await response.text())
                 self.lastseen = datetime.now()
-                if host != self.ipAddress:
-                    self.ipAddress = host
                 return payload if key is None else payload.get(key, {})
             except Exception as err:
                 last_error = err
 
         err_name = type(last_error).__name__ if last_error is not None else "ConnectionError"
         err_msg = f": {last_error}" if last_error and str(last_error) else "!"
-        _LOGGER.error("%s for %s during httpGet on %s%s", err_name, self.name, self._http_hosts(), err_msg)
+        _LOGGER.error("%s for %s during httpGet on %s%s", err_name, self.name, hosts, err_msg)
         self.lastseen = datetime.min
         return {}
 
@@ -847,20 +846,19 @@ class ZendureZenSdk(ZendureDevice):
         command["sn"] = self.snNumber
 
         last_error: Exception | None = None
-        for host in self._http_hosts():
+        hosts = self._http_hosts()
+        for host in hosts:
             try:
                 endpoint = f"http://{host}/{url}"
                 await self.session.post(endpoint, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
                 self.lastseen = datetime.now()
-                if host != self.ipAddress:
-                    self.ipAddress = host
                 return True
             except Exception as err:
                 last_error = err
 
         err_name = type(last_error).__name__ if last_error is not None else "ConnectionError"
         err_msg = f": {last_error}" if last_error and str(last_error) else "!"
-        _LOGGER.error("%s for %s during httpPost on %s%s", err_name, self.name, self._http_hosts(), err_msg)
+        _LOGGER.error("%s for %s during httpPost on %s%s", err_name, self.name, hosts, err_msg)
         self.lastseen = datetime.min
         return False
 
