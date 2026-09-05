@@ -3,6 +3,27 @@
 from __future__ import annotations
 
 from custom_components.zendure_ha.const import SmartMode
+from custom_components.zendure_ha.device import ZendureZenSdk
+
+
+def _host_list(ip_address: str = "192.0.2.10", use_mdns: bool = True) -> list[str]:
+    device = object.__new__(ZendureZenSdk)
+    device.useMdns = use_mdns
+    device.mdnsHost = "device.local"
+    device.ipAddress = ip_address
+    return device._http_hosts()
+
+
+def test_http_hosts_prefers_manual_ip() -> None:
+    assert _host_list("192.0.2.20", use_mdns=False) == ["192.0.2.20"]
+
+
+def test_http_hosts_can_disable_mdns() -> None:
+    assert _host_list(use_mdns=False) == ["192.0.2.10"]
+
+
+def test_http_hosts_falls_back_from_mdns_to_cloud_ip() -> None:
+    assert _host_list() == ["device.local", "192.0.2.10"]
 
 
 def _last_props(device) -> dict:  # noqa: ANN001

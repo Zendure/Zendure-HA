@@ -128,6 +128,7 @@ class ZendureDevice(EntityDevice):
         self.zendure: mqtt_client.Client | None = None
         self.ipAddress = definition.get("ip", "")
         self.mdnsHost = f"zendure-{definition['productModel'].replace(' ', '')}-{self.snNumber}.local"
+        self.useMdns = definition.get("use_mdns", True)
 
         self.topic_read = f"iot/{self.prodkey}/{self.deviceId}/properties/read"
         self.topic_write = f"iot/{self.prodkey}/{self.deviceId}/properties/write"
@@ -816,7 +817,12 @@ class ZendureZenSdk(ZendureDevice):
 
     def _http_hosts(self) -> list[str]:
         hosts: list[str] = []
-        for host in (self.mdnsHost, self.ipAddress):
+        candidates = (
+            (self.mdnsHost, self.ipAddress)
+            if self.useMdns
+            else (self.ipAddress,)
+        )
+        for host in candidates:
             if host and host not in hosts:
                 hosts.append(host)
         return hosts
