@@ -20,6 +20,9 @@ _INPUT_LIMIT_MIN_INTERVAL = timedelta(seconds=30)
 
 
 class ACE1500(ZendureLegacy):
+
+    _kWh: float = 0.0
+
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any, parent: str | None = None) -> None:
         """Initialise Ace1500."""
         super().__init__(hass, deviceId, prodName, definition["productModel"], definition, parent)
@@ -45,6 +48,16 @@ class ACE1500(ZendureLegacy):
         # will adjust them after state restore if hubMode comes back as
         # "standalone".
         self.setLimits(-900, 800)
+
+    @property
+    def kWh(self) -> float:
+        """Battery capacity this device contributes to the system.
+        """
+        return 0.0 if getattr(self, "hubMode", None) is not None and self.hubMode.value == 0 else self._kWh
+
+    @kWh.setter
+    def kWh(self, value: float) -> None:
+        self._kWh = value
 
     async def _onHubModeChange(self, select: Any, _value: Any) -> None:
         """Adjust device limits when the user toggles hubMode. Standalone
