@@ -641,7 +641,7 @@ class ZendureDevice(EntityDevice):
 
         self.actualKwh = self.availableKwh.asNumber
 
-        if not self.online or self.socSet.asNumber == 0 or self.kWh == 0:
+        if not self.online or self.socSet.asNumber == 0 or (self.kWh == 0 and not self.batteries):
             self.state = DeviceState.OFFLINE
         elif self.socLimit.asInt == SmartMode.SOCFULL or self.electricLevel.asInt >= self.socSet.asNumber:
             self.state = DeviceState.SOCFULL
