@@ -52,14 +52,15 @@ case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_gr
 51,MATCHING_DISCHARGE,500,100,not full,400,0,500,,,,,,,,,,,,,P1=500/PV=100/not full: solar + battery cover demand
 52,MATCHING_DISCHARGE,500,200,EMPTY,0,0,200,,,,,,,,,,,,,"P1=500/PV=200/EMPTY: can't discharge, solar only"
 53,MATCHING_DISCHARGE,500,200,FULL,0,0,200,,,,,,,,,,,,,"P1=500/PV=200/FULL: bypass only, can't fully match P1"
-54,MATCHING_DISCHARGE,500,200,not full,300,0,500,,,,,,,,,,,,,P1=500/PV=200/not full: battery + solar combined
+54,MATCHING_DISCHARGE,500,200,not full,300,0,500,,,,,,,,,,,,,"P1=500/PV=200/not full: battery + solar combined"
 201,MATCHING_DISCHARGE,200,100,not full,50,0,150,0,not full,50,0,50,,,,,,,,"battery budget 100W split 50/50 by SoC: dev1 = 100W solar + 50W battery (50/0/150), dev2 = 50W battery (50/0/50); solar-first floor keeps dev1 >= 100W"
 202,MATCHING_DISCHARGE,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,,,,,
 203,MATCHING_DISCHARGE,100,50,EMPTY,0,0,50,50,not full,0,0,50,,,,,,,,
 204,MATCHING_DISCHARGE,300,0,not full,300,0,300,0,not full,0,0,0,75,25,,,,,,"explicit levels: dev2's 75W share is below the optimal range (180W), load consolidates on dev1"
-205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,200,0,300,,,,,,,,surplus distributed to dev2 under #1565 dispatchable logic: 100W solar + 200W battery
-206,MATCHING_DISCHARGE,300,200,FULL,0,0,200,0,not full,200,0,200,,,,,,,,bypass added back and dev2 covers the remainder under #1565 (#1559)
-207,MATCHING_DISCHARGE,1000,0,not full,800,0,800,0,not full,200,0,200,80,20,,,,,,pure battery-budget SoC-weighted split, no PV: 80/20 SoC -> 800/200W
+205,MATCHING_DISCHARGE,-100,200,FULL,0,0,200,100,not full,0,0,100,,,,,,,,"FULL bypasses its 200W solar to home on its own: dev2 passes only its own 100W solar, battery stays idle"
+206,MATCHING_DISCHARGE,300,200,FULL,0,0,200,0,not full,100,0,100,,,,,,,,"dev2 covers only the real leftover demand (100W) from battery: the 200W bypass already covers the rest, nothing exports"
+207,MATCHING_DISCHARGE,1000,0,not full,800,0,800,0,not full,200,0,200,80,20,,,,,,"pure battery-budget SoC-weighted split, no PV: 80/20 SoC -> 800/200W"
 208,MATCHING_DISCHARGE,0,340,not full,0,0,340,470,EMPTY,0,470,0,,,,,,,,"SOCEMPTY dev2 stores all its own solar (never exports, no kickstart) - that solar must not inflate self.produced/the group discharge target, or dev1 gets forced to drain its own battery covering a phantom gap dev2 was never going to help with"
 209,MATCHING_DISCHARGE,150,0,EMPTY,0,0,0,0,not full,150,0,150,,,,,,,,"PV=0 two-device: SOCEMPTY dev1 has nothing to discharge/pass (idle), dev2 alone covers the 150W setpoint - pins the produced SOCEMPTY exclusion at the PV=0 boundary"
 210,MATCHING_DISCHARGE,150,0,FULL,0,0,0,0,not full,150,0,150,,,,,,,,"PV=0 two-device: FULL dev1 has nothing to bypass (idle), dev2 alone covers the 150W setpoint"
+211,MATCHING_DISCHARGE,-1050,550,FULL,0,0,550,500,not full,0,0,500,,,,,,,,"P1 negative, FULL sibling bypassing 550W: dev2 passes only its own 500W solar, battery stays at 0 - the bypass already flows to home and must not be covered by dev2's battery"

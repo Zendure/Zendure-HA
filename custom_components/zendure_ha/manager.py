@@ -539,8 +539,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     await self.power_discharge(setpoint)
 
             case ManagerMode.MATCHING_DISCHARGE:
-                # Discharge to cover demand and always pass through available solar; never charge
-                await self.power_discharge(max(self.produced, setpoint))
+                # Discharge to cover demand and always pass through available solar; never charge.
+                await self.power_discharge(max(self.produced - self.discharge_bypass, setpoint))
 
             case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
                 # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
