@@ -39,6 +39,19 @@ _LOGGER = logging.getLogger(__name__)
 CONST_FACTOR = 2
 
 
+def device_by_identifier(hass: HomeAssistant, identifier: str) -> DeviceEntry | None:
+    """Find one of our devices by identifier.
+
+    Uses the entry-scoped lookup where the core has it (HA >= 2026.8.0), else the
+    deprecated registry-wide one. Scoping to our entry returns the same device:
+    identifiers are unique within an entry, and the manifest sets single_config_entry.
+    """
+    registry = dr.async_get(hass)
+    if (entries := hass.config_entries.async_entries(DOMAIN)) and hasattr(registry, "async_get_device_by_identifier"):
+        return registry.async_get_device_by_identifier((DOMAIN, identifier), entries[0].entry_id)
+    return registry.async_get_device(identifiers={(DOMAIN, identifier)})
+
+
 class EntityZendure(Entity):
     """Common elements for all Zendure entities."""
 
@@ -225,8 +238,7 @@ class EntityDevice:
         )
         if parent is None:
             self.attr_device_info["hw_version"] = deviceId
-        device_registry = dr.async_get(self.hass)
-        if di := device_registry.async_get_device(identifiers={(DOMAIN, sn)}):
+        if di := device_by_identifier(self.hass, sn):
             self.attr_device_info["connections"] = di.connections
             self.check_entities(di, snakecase(self.name.lower()))
 
@@ -354,6 +366,6 @@ class EntityDevice:
         _LOGGER.info("Updating %s software version from %s to %s", self.name, self.attr_device_info.get("sw_version"), version)
         device_registry = dr.async_get(self.hass)
         identifier = self.sn or self.name
-        device_entry = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
+        device_entry = device_by_identifier(self.hass, identifier)
         if device_entry is not None:
             device_registry.async_update_device(device_entry.id, sw_version=version)

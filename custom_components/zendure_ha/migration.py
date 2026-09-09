@@ -11,7 +11,7 @@ from homeassistant.helpers import restore_state as rs
 
 from .const import DOMAIN
 from .device import ZendureBattery
-from .entity import snakecase
+from .entity import device_by_identifier, snakecase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,10 +32,10 @@ class Migration:
         if not identifier:
             return
 
-        existing = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
+        existing = device_by_identifier(hass, identifier)
         if existing is None:
             for ident in [name, name.lower(), unique, fallback, fallback.lower()]:
-                existing = device_registry.async_get_device(identifiers={(DOMAIN, ident)})
+                existing = device_by_identifier(hass, ident)
                 if existing is not None:
                     break
 
