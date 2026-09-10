@@ -52,6 +52,34 @@ def device_by_identifier(hass: HomeAssistant, identifier: str) -> DeviceEntry | 
     return registry.async_get_device(identifiers={(DOMAIN, identifier)})
 
 
+def core_has_via_device_id() -> bool:
+    """Whether this core takes `via_device_id` in DeviceInfo (HA >= 2026.8.0).
+
+    Older cores reject the key with a TypeError inside async_get_or_create, which
+    entity_platform turns into a failed entity add -- so it must never be sent there.
+    """
+    return "via_device_id" in DeviceInfo.__optional_keys__
+
+
+def link_via_device(hass: HomeAssistant, info: DeviceInfo, parent: str) -> None:
+    """Mark the device described by `info` as reached through the device `parent`.
+
+    `via_device` (an identifier) is deprecated and removed in HA 2027.8.0 in favour
+    of `via_device_id` (a registry id). The id can only be looked up now, at
+    construction, whereas the identifier was resolved by the core later, when the
+    entity was added. A `via_device_id` the core cannot resolve raises and fails the
+    entity add, so when the parent is not registered yet the link is skipped rather
+    than guessed.
+    """
+    if not core_has_via_device_id():
+        info["via_device"] = (DOMAIN, parent)
+        return
+    if (via := device_by_identifier(hass, parent)) is None:
+        _LOGGER.warning("Parent device %s is not registered yet; %s is not linked to it", parent, info.get("name"))
+        return
+    info["via_device_id"] = via.id
+
+
 class EntityZendure(Entity):
     """Common elements for all Zendure entities."""
 
@@ -243,7 +271,7 @@ class EntityDevice:
             self.check_entities(di, snakecase(self.name.lower()))
 
         if parent is not None:
-            self.attr_device_info["via_device"] = (DOMAIN, parent)
+            link_via_device(self.hass, self.attr_device_info, parent)
 
     def check_entities(self, di: DeviceEntry, name: str) -> None:
         # Get all entities for this device and group them by translation_key if they match the current device and platform
