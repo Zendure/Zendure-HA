@@ -60,6 +60,7 @@ def _make_manager_harness() -> ZendureManager:
     manager.charge_optimal = 0
     manager.charge_time = datetime.max
     manager.charge_last = datetime.min
+    manager.charge_hold_start = datetime.max
     manager.charge_weight = 0
     manager.discharge = []
     manager.discharge_produced = 0
@@ -108,3 +109,61 @@ async def test_power_charge_first_call_primes_hysteria_and_forces_zero_setpoint(
     assert manager.charge_time == now + timedelta(seconds=2)
     assert manager.pwr_low == 0
     assert manager.operationstate.values == [ManagerState.IDLE.value]
+
+
+async def test_power_charge_single_flip_keeps_full_holdoff() -> None:
+    """A single discharge->charge flip shortly after a previous charge release
+    still gets the full 60 s hold-off (unchanged behaviour)."""
+    manager = _make_manager_harness()
+    t0 = datetime(2026, 7, 24, 12, 0, 0)
+    manager.charge_last = t0 - timedelta(seconds=30)
+
+    await manager.power_charge(-500, t0)
+
+    assert manager.charge_time == t0 + timedelta(seconds=60)
+    assert manager.operationstate.values == [ManagerState.IDLE.value]
+
+
+async def test_power_charge_holdoff_is_bounded_under_repeated_flips() -> None:
+    """Regression for #1525: a grid point that keeps flipping faster than the
+    hold-off must not re-arm a fresh 60 s window on every flip. The hold-off
+    ends at most 60 s after the first arming of the episode."""
+    manager = _make_manager_harness()
+    t0 = datetime(2026, 7, 24, 12, 0, 0)
+    manager.charge_last = t0 - timedelta(seconds=30)
+
+    # flip pattern like a thermostat appliance or a wallbox following PV surplus
+    await manager.power_charge(-500, t0)
+    await manager.power_discharge(300)
+    await manager.power_charge(-500, t0 + timedelta(seconds=35))
+    assert manager.charge_time == t0 + timedelta(seconds=60)
+
+    await manager.power_discharge(300)
+    await manager.power_charge(-500, t0 + timedelta(seconds=55))
+    assert manager.charge_time == t0 + timedelta(seconds=60)
+    assert manager.operationstate.values[-1] == ManagerState.IDLE.value
+
+    # after the bound has passed, the next flip releases charging immediately
+    await manager.power_discharge(300)
+    await manager.power_charge(-500, t0 + timedelta(seconds=70))
+    assert manager.operationstate.values[-1] == ManagerState.CHARGE.value
+    assert manager.charge_hold_start == datetime.max
+
+
+async def test_power_charge_new_episode_after_release_gets_new_holdoff() -> None:
+    """Once charging was released, the next flip starts a new episode with a
+    fresh hold-off, so flapping is still damped."""
+    manager = _make_manager_harness()
+    t0 = datetime(2026, 7, 24, 12, 0, 0)
+    manager.charge_last = t0 - timedelta(seconds=30)
+
+    await manager.power_charge(-500, t0)
+    await manager.power_charge(-500, t0 + timedelta(seconds=60))
+    assert manager.operationstate.values[-1] == ManagerState.CHARGE.value
+
+    await manager.power_discharge(300)
+    t1 = t0 + timedelta(seconds=90)
+    await manager.power_charge(-500, t1)
+    assert manager.charge_time == t1 + timedelta(seconds=60)
+    assert manager.operationstate.values[-1] == ManagerState.IDLE.value
+    
