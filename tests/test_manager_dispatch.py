@@ -108,3 +108,42 @@ async def test_power_charge_first_call_primes_hysteria_and_forces_zero_setpoint(
     assert manager.charge_time == now + timedelta(seconds=2)
     assert manager.pwr_low == 0
     assert manager.operationstate.values == [ManagerState.IDLE.value]
+
+
+async def test_power_charge_recent_flip_holds_off_for_60s() -> None:
+    """A flip less than 300s after the previous arming re-arms the long (60s) hold-off
+    and clamps the setpoint to 0: no charge command reaches the device.
+    """
+    manager = _make_manager_harness()
+    device = _FakeDevice(pwr_max=-2400, electric_level=50)
+    manager.charge = [device]
+    manager.charge_limit = -2400
+    manager.charge_weight = device.pwr_max * (100 - device.electricLevel.asInt)
+    now = datetime(2026, 7, 24, 12, 0, 0)
+    manager.charge_last = now - timedelta(seconds=30)
+
+    await manager.power_charge(-2400, now)
+
+    assert manager.charge_time == now + timedelta(seconds=60)
+    assert device.charge_calls == [0]
+    assert manager.operationstate.values == [ManagerState.IDLE.value]
+
+
+async def test_power_charge_without_debounce_skips_hold_off() -> None:
+    """Callers whose direction is not driven by the measurement (MANUAL, STORE_SOLAR)
+    pass debounce=False: the same state that arms the 60s hold-off above dispatches
+    the requested power on the first call instead.
+    """
+    manager = _make_manager_harness()
+    device = _FakeDevice(pwr_max=-2400, electric_level=50)
+    manager.charge = [device]
+    manager.charge_limit = -2400
+    manager.charge_weight = device.pwr_max * (100 - device.electricLevel.asInt)
+    now = datetime(2026, 7, 24, 12, 0, 0)
+    manager.charge_last = now - timedelta(seconds=30)
+
+    await manager.power_charge(-2400, now, debounce=False)
+
+    assert manager.charge_time == datetime.max
+    assert device.charge_calls == [-2400]
+    assert manager.operationstate.values == [ManagerState.CHARGE.value]
