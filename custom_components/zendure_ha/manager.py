@@ -506,20 +506,21 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
                     await self.power_discharge(min(self.produced, setpoint))
                 else:
-                    await self.power_charge(min(0, setpoint), time)
+                    # STORE_SOLAR never discharges, so there is no flip to debounce
+                    await self.power_charge(min(0, setpoint), time, debounce=self.operation == ManagerMode.MATCHING_CHARGE)
 
             case ManagerMode.MANUAL:
-                # Manual power into or from home
+                # Manual power into or from home; the user fixes the direction, nothing to debounce
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
                     await self.power_discharge(setpoint)
                 else:
-                    await self.power_charge(setpoint, time)
+                    await self.power_charge(setpoint, time, debounce=False)
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)
 
-    async def power_charge(self, setpoint: int, time: datetime) -> None:
-        """Charge devices."""
+    async def power_charge(self, setpoint: int, time: datetime, debounce: bool = True) -> None:
+        """Charge devices. With debounce, hold off charging for a while after a discharge->charge flip."""
         _LOGGER.info("Charge => setpoint %sW", setpoint)
 
         # stop discharging devices
@@ -531,7 +532,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
 
         # prevent hysteria
-        if self.charge_time > time:
+        if debounce and self.charge_time > time:
             if self.charge_time == datetime.max:
                 self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
                 self.charge_last = self.charge_time
