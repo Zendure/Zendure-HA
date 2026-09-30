@@ -107,6 +107,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         )
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
+        self.p1bias = ZendureRestoreNumber(self, "p1_bias", self.update_p1bias, None, "W", "power", 1000, 0, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
@@ -272,6 +273,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if len(self.devices) > 0:
                         for d in self.devices:
                             await d.power_off()
+
+    def update_p1bias(self, _entity: ZendureRestoreNumber, _value: Any) -> None:
+        # apply the new bias on the next P1 update instead of waiting for TIMEZERO
+        self.zero_next = datetime.min
 
     async def _async_update_data(self) -> None:
 
@@ -487,8 +492,20 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # and p1 >= 0, the result stays >= 0 — the #1151 guarantee holds structurally.
         setpoint -= self.discharge_bypass
 
+        # P1 bias: while discharging, keep drawing `bias` W from the grid so that
+        # regulation lag never feeds battery power into the grid. Only the battery
+        # share is held back: solar the devices produce, plus the curtailed headroom
+        # of SOCFULL devices (extra output there is solar, not battery), still goes
+        # to the home. The result stays within [0, setpoint], so the bias never
+        # flips the direction and never causes charging from the grid; charging
+        # (setpoint < 0) always takes the full solar surplus.
+        bias = self.p1bias.asInt
+        if setpoint > 0 and bias > 0:
+            solar = self.produced + sum(max(0, d.pwr_max + d.pwr_produced) for d in self.discharge if d.state == DeviceState.SOCFULL)
+            setpoint = max(min(setpoint, solar), setpoint - bias)
+
         # Update power distribution.
-        _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW stored:%sW", p1, isFast, setpoint, self.produced)
+        _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW stored:%sW bias:%sW", p1, isFast, setpoint, self.produced, bias)
         match self.operation:
             case ManagerMode.MATCHING:
                 if setpoint < 0:

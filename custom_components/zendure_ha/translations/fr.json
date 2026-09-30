@@ -97,6 +97,9 @@
       "manual_power": {
         "name": "Puissance manuelle"
       },
+      "p1_bias": {
+        "name": "Décalage P1"
+      },
       "min_soc": {
         "name": "SOC minimum"
       },

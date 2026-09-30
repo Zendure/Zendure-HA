@@ -107,6 +107,9 @@
       "manual_power": {
         "name": "Manual Power"
       },
+      "p1_bias": {
+        "name": "P1 Bias"
+      },
       "min_soc": {
         "name": "SoC Minimum"
       },
