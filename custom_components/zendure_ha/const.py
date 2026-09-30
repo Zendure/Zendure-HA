@@ -21,6 +21,25 @@ CONF_AUTO_MQTT_USER = "auto_mqtt_user"
 
 CONF_HAKEY = "C*dafwArEOXK"
 
+# Keys whose values are masked before API replies, device definitions and
+# BLE/MQTT payloads are written to the log.
+LOG_REDACT_KEYS = frozenset(
+    {
+        "accessToken",
+        "appKey",
+        "clientId",
+        "password",
+        "secret",
+        "ssid",
+        "token",
+        "username",
+        CONF_MQTTPSW,
+        CONF_MQTTUSER,
+        CONF_WIFIPSW,
+        CONF_WIFISSID,
+    }
+)
+
 
 class AcMode:
     INPUT = 1
