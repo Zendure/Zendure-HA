@@ -1,7 +1,7 @@
-"""Interfaces with the Zendure Integration."""
+"""Select platform for the Zendure integration."""
 
-import asyncio
-import logging
+from __future__ import annotations
+
 from collections.abc import Callable
 from typing import Any
 
@@ -9,110 +9,67 @@ from homeassistant.components.select import SelectEntity, SelectEntityDescriptio
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 
-from .entity import EntityDevice, EntityZendure
-
-_LOGGER = logging.getLogger(__name__)
+from .entity import EntityDevice, HaEntity
 
 
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    """Set up the Zendure select."""
-    ZendureSelect.add = async_add_entities
+async def async_setup_entry(
+    _hass: HomeAssistant,
+    _config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the selects."""
+    HaSelect.add = async_add_entities
 
 
-class ZendureSelect(EntityZendure, SelectEntity):
-    """Representation of a Zendure select entity."""
+class HaSelect(SelectEntity, HaEntity):
+    """Select entity."""
 
     add: AddEntitiesCallback
 
-    def __init__(self, device: EntityDevice, uniqueid: str, options: dict[Any, str], onchanged: Callable | None, current: int | None = None) -> None:
-        """Initialize a select entity."""
-        super().__init__(device, uniqueid, "select")
-        self.entity_description = SelectEntityDescription(key=uniqueid, name=uniqueid)
+    def __init__(
+        self,
+        device: EntityDevice,
+        key: str,
+        options: dict[Any, str],
+        vendor_id: str | None = None,
+        on_changed: Callable | None = None,
+        restore: bool = False,
+        disabled: bool = False,
+    ) -> None:
+        super().__init__(device, key, vendor_id, disabled)
         self._options = options
         self._attr_options = list(options.values())
-        if current:
-            self._attr_current_option = options[current]
-        else:
-            self._attr_current_option = self._attr_options[0]
-        self.onchanged = onchanged
-        self.add([self])
+        self._on_changed = on_changed
+        self.entity_description = SelectEntityDescription(key=key, name=key)
+        if restore:
+            device._restore.append(self)
+        device.add_entity(self)
 
-    def setDict(self, options: dict[Any, str]) -> None:
-        """Set the options for the select entity."""
-        self._options = options
-        self._attr_options = list(options.values())
-        if self._attr_current_option not in self._attr_options:
-            self._attr_current_option = self._attr_options[0]
-        if self.hass and self.hass.loop.is_running():
-            self.async_write_ha_state()
+    def _key(self, option: Any, default: Any = None) -> Any:
+        # the option string is only the display label; the key is the semantic value
+        return next((k for k, v in self._options.items() if v == option), default)
 
-    def setList(self, options: list[str]) -> None:
-        """Set the options for the select entity."""
-        self._options = None
-        self._attr_options = options
-        if self._attr_current_option not in self._attr_options:
-            self._attr_current_option = self._attr_options[0]
-        if self.hass and self.hass.loop.is_running():
-            self.async_write_ha_state()
-
-    def update_value(self, value: Any) -> bool:
-        try:
-            if self._options is None or value not in self._options:
-                return False
-
-            if self._options is not None:
-                new_value = self._options[value]
-                if new_value != self._attr_current_option:
-                    self._attr_current_option = new_value
-                    if self.hass and self.hass.loop.is_running():
-                        self.schedule_update_ha_state()
-
-        except Exception as err:
-            _LOGGER.error("Error %s setting state: %s => %s", err, self._attr_unique_id, value)
+    def set_state(self, value: Any, restore: bool = False) -> bool:
+        key = self._key(value, value)  # accept the option name as well as the key
+        option = self._options.get(key)
+        if option is None or self._attr_current_option == option:
+            return False
+        self._attr_current_option = option
+        self.set_attr(key)  # the key is the semantic value; the option string is only the display label
         return True
 
     async def async_select_option(self, option: str) -> None:
-        """Update the current selected option."""
+        """Handle option selected from UI."""
         self._attr_current_option = option
-        value = self.value
-        if self.onchanged:
-            if asyncio.iscoroutinefunction(self.onchanged):
-                await self.onchanged(self, value)
-            else:
-                self.onchanged(self, value)
+        key = self._key(option, option)
+        self.set_attr(key)  # the key is the semantic value; the option string is only the display label
+        if self._on_changed is not None:
+            await self._invoke(self._on_changed, self, self._attr_current_option)
+        else:
+            await self._invoke(self.device.entity_write, self, key)  # a plain device property: the key goes to the hardware
         self.async_write_ha_state()
 
     @property
     def value(self) -> Any:
-        if self._options is not None:
-            for key, value in self._options.items():
-                if value == self._attr_current_option:
-                    return key
-        return None
-
-
-class ZendureRestoreSelect(ZendureSelect, RestoreEntity):
-    """Representation of a Zendure select entity with restore."""
-
-    def __init__(self, device: EntityDevice, uniqueid: str, options: dict[int, str], onchanged: Callable | None, current: int | None = None) -> None:
-        """Initialize a select entity."""
-        super().__init__(device, uniqueid, options, onchanged, current)
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        state = await self.async_get_last_state()
-        if state is not None and state.state in self._attr_options:
-            self._attr_current_option = state.state
-        elif self._attr_current_option not in self._attr_options:
-            self._attr_current_option = self._attr_options[0]
-
-        # do the onchanged callback
-        if self.onchanged:
-            if asyncio.iscoroutinefunction(self.onchanged):
-                await self.onchanged(self, self.current_option)
-            else:
-                self.onchanged(self, self.current_option)
+        return self._key(self._attr_current_option)

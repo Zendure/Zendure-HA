@@ -1,154 +1,86 @@
-"""Interfaces with the Zendure Integration number."""
+"""Number platform for the Zendure integration."""
 
-import asyncio
-import logging
-from collections.abc import Callable
+from __future__ import annotations
+
+from decimal import Decimal
 from typing import Any
 
 from homeassistant.components.number import NumberEntity, NumberEntityDescription, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.template import Template
 
-from .entity import EntityDevice, EntityZendure
-
-_LOGGER = logging.getLogger(__name__)
+from .entity import EntityDevice, HaEntity
 
 
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    """Set up the Zendure number."""
-    ZendureNumber.add = async_add_entities
+async def async_setup_entry(
+    _hass: HomeAssistant,
+    _config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the numbers."""
+    HaNumber.add = async_add_entities
 
 
-class ZendureNumber(EntityZendure, NumberEntity):
+class HaNumber(NumberEntity, HaEntity):
+    """Number entity."""
+
     add: AddEntitiesCallback
 
     def __init__(
         self,
         device: EntityDevice,
-        uniqueid: str,
-        onwrite: Callable | None,
-        template: Template | None = None,
+        key: str,
+        vendor_id: str | None = None,
+        *,
         uom: str | None = None,
-        deviceclass: Any | None = None,
-        maximum: int = 2000,
-        minimum: int = 0,
+        factor: float = 1.0,
+        minimum: float = 0,
+        maximum: float = 2000,
         mode: NumberMode = NumberMode.AUTO,
-        factor: int = 1,
-        doupdate: bool = False,
+        step: float | None = None,
+        restore: bool = False,
+        disabled: bool = False,
     ) -> None:
-        """Initialize a number entity."""
-        super().__init__(device, uniqueid, "number")
-        self.entity_description = NumberEntityDescription(
-            key=uniqueid,
-            name=uniqueid,
-            native_unit_of_measurement=uom,
-            device_class=deviceclass,
-        )
-
-        self._value_template: Template | None = template
-        self._onwrite = onwrite
-        self._attr_native_max_value = maximum
-        self._attr_native_min_value = minimum
-        self.device_min = minimum
-        self.device_max = maximum
-        self._attr_mode = mode
+        super().__init__(device, key, vendor_id, disabled)
         self.factor = factor
-        self.doupdate = doupdate
-        self.add([self])
+        self._step = step  # NumberEntity owns `step`; a float knob keeps the resolution of its step; None is the integer device knob
+        self._decimals = max(0, -Decimal(str(step)).normalize().as_tuple().exponent) if step is not None else 0
+        self.entity_description = NumberEntityDescription(
+            key=key,
+            name=key,
+            native_unit_of_measurement=uom,
+        )
+        self._attr_native_min_value = minimum
+        self._attr_native_max_value = maximum
+        self._attr_mode = mode
+        if step is not None:
+            self._attr_native_step = step
+        if restore:
+            device._restore.append(self)
+        device.add_entity(self)
 
-    def update_value(self, value: Any) -> bool:
-        try:
-            new_value = int(float(self._value_template.async_render_with_possible_json_value(value, None)) if self._value_template is not None else float(value)) / self.factor
+    def _round(self, raw: float) -> float:
+        # an integer knob truncates, a stepped knob keeps the resolution of its step
+        return int(raw) if self._step is None else int(round(raw)) if not self._decimals else round(raw, self._decimals)
 
-            if self._attr_native_value == new_value:
-                return False
-
-            self._attr_native_value = new_value
-            if self.hass and self.hass.loop.is_running():
-                self.schedule_update_ha_state()
-        except Exception as err:
-            _LOGGER.error("Error %s setting state: %s => %s", err, self._attr_unique_id, value)
-
+    def set_state(self, value: Any, restore: bool = False) -> bool:
+        value = self._round(float(value) * self.factor if not restore else float(value))
+        if self._attr_native_value == value:
+            return False
+        self._attr_native_value = value
+        self.set_attr(value)
         return True
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set the value, clamped to the device's current limits."""
-        clamped = min(max(value, self.device_min), self.device_max)
-        if clamped != value:
-            _LOGGER.warning("Clamping %s from %s to %s [%s..%s]", self._attr_unique_id, value, clamped, self.device_min, self.device_max)
-            value = clamped
+        # optimistic update: soc knobs are not echoed back by the device, without this the UI never reflects the change
+        raw = self._round(value / self.factor)
+        await self._invoke(self.device.entity_write, self, raw)
+        self.update_value(raw)
 
-        if self.doupdate:
-            self._attr_native_value = value
-            if self.hass and self.hass.loop.is_running():
-                self.schedule_update_ha_state()
-
-        if self._onwrite is not None:
-            if asyncio.iscoroutinefunction(self._onwrite):
-                await self._onwrite(self, int(self.factor * value))
-            else:
-                self._onwrite(self, int(self.factor * value))
-
-    def update_range(self, minimum: int, maximum: int) -> None:
-        # Track the device's current limits for clamping outgoing writes.
-        self.device_min = minimum
-        self.device_max = maximum
-        # Only ever widen the advertised entity range. Narrowing it makes HA
-        # core reject higher setpoints with ServiceValidationError
-        # (out_of_range) in the number.set_value service wrapper - before the
-        # integration ever sees the value - so the command is lost entirely
-        # and external controllers silently lose control. Observed on a
-        # SolarFlow 2400 Pro temporarily reporting inverseMaxPower=800 (#1505).
-        # Writes above the device limit are clamped in async_set_native_value.
-        self._attr_native_min_value = min(minimum, self._attr_native_min_value)
-        self._attr_native_max_value = max(maximum, self._attr_native_max_value)
+    def update_range(self, minimum: float, maximum: float) -> None:
+        """Update min/max range."""
+        self._attr_native_min_value = minimum
+        self._attr_native_max_value = maximum
         if self.hass and self.hass.loop.is_running():
             self.schedule_update_ha_state()
-
-    @property
-    def asNumber(self) -> int | float:
-        """Return the current value of the sensor."""
-        return self._attr_native_value if isinstance(self._attr_native_value, (int, float)) else 0
-
-    @property
-    def asInt(self) -> int:
-        """Return the current value as int."""
-        return int(self._attr_native_value) if isinstance(self._attr_native_value, (int, float)) else 0
-
-
-class ZendureRestoreNumber(ZendureNumber, RestoreEntity):
-    """Representation of a Zendure number entity with restore."""
-
-    def __init__(
-        self,
-        device: EntityDevice,
-        uniqueid: str,
-        onwrite: Callable | None,
-        template: Template | None = None,
-        uom: str | None = None,
-        deviceclass: Any | None = None,
-        maximum: int = 2000,
-        minimum: int = 0,
-        mode: NumberMode = NumberMode.AUTO,
-        doupdate: bool = False,
-    ) -> None:
-        """Initialize a number entity."""
-        super().__init__(device, uniqueid, onwrite, template, uom, deviceclass, maximum, minimum, mode, 1, doupdate)
-        self._attr_native_value = 0
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-        if state := await self.async_get_last_state():
-            if state.state is None or state.state == "unknown":
-                self._attr_native_value = 0
-                return
-            self._attr_native_value = int(float(state.state))
-            if self._onwrite is not None:
-                if asyncio.iscoroutinefunction(self._onwrite):
-                    await self._onwrite(self, self._attr_native_value)
-                else:
-                    self._onwrite(self, self._attr_native_value)

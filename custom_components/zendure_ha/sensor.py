@@ -1,190 +1,102 @@
-"""Interfaces with the Zendure Integration api sensors."""
+"""Sensor platform for the Zendure integration."""
 
-import logging
-import traceback
+from __future__ import annotations
+
+import time
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.template import Template
-from homeassistant.util import dt as dt_util
-from homeassistant.util.dt import parse_datetime
 
-from .entity import EntityDevice, EntityZendure
+from .entity import EntityDevice, HaEntity
 
-_LOGGER = logging.getLogger(__name__)
+AGGREGATE_MAX_GAP_S = 300.0  # longer telemetry gaps are not integrated: the device state was unknown
+AGGREGATE_PUSH_S = 60.0  # the counter integrates every telemetry tick but pushes to HA at most this often
 
 
-async def async_setup_entry(_hass: HomeAssistant, _config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    """Set up the Zendure sensor."""
-    ZendureSensor.add = async_add_entities
+async def async_setup_entry(
+    _hass: HomeAssistant,
+    _config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the sensors."""
+    HaSensor.add = async_add_entities
 
 
-class ZendureSensor(EntityZendure, SensorEntity):
+class HaSensor(SensorEntity, HaEntity):
+    """Sensor entity."""
+
     add: AddEntitiesCallback
 
     def __init__(
         self,
         device: EntityDevice,
-        uniqueid: str,
-        template: Template | None = None,
+        key: str,
+        vendor_id: str | None = None,
+        *,
         uom: str | None = None,
-        deviceclass: Any | None = None,
-        stateclass: Any | None = None,
+        device_class: str | None = None,
+        state_class: str | None = None,
         precision: int | None = None,
-        factor: int = 1,
-        state: Any = None,
         icon: str | None = None,
+        aggr: bool = False,
+        convert: Callable[[Any], Any] | None = None,
+        disabled: bool = False,
     ) -> None:
-        """Initialize a Zendure entity."""
-        super().__init__(device, uniqueid, "sensor")
-        self.entity_description = SensorEntityDescription(key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon)
-        self._value_template: Template | None = template
-        if precision is not None:
-            self._attr_suggested_display_precision = precision
-        if state is not None:
-            self._attr_native_value = state
-        self.factor = factor
-        self.add([self])
-
-    def update_value(self, value: Any) -> bool:
-        try:
-            new_value = self._value_template.async_render_with_possible_json_value(value, None) if self._value_template is not None else value
-            if self.factor != 1:
-                try:
-                    new_value = float(new_value) / self.factor
-                except ValueError:
-                    new_value = 0
-
-            if self.hass and new_value != self._attr_native_value:
-                self._attr_native_value = new_value
-                if self.hass and self.hass.loop.is_running():
-                    self.schedule_update_ha_state()
-                return True
-
-        except Exception as err:
-            self._attr_native_value = value
-            _LOGGER.error("Error %s setting state: %s => %s", err, self._attr_unique_id, value)
-            _LOGGER.error(traceback.format_exc())
-        return False
+        super().__init__(device, key, vendor_id, disabled)
+        self._attr_suggested_display_precision = precision
+        self._convert = convert
+        self._aggr: HaSensor | None = None
+        self.entity_description = SensorEntityDescription(key=key, name=key, native_unit_of_measurement=uom, device_class=device_class, state_class=state_class, icon=icon)
+        if aggr:
+            # the kWh integrator lives beside its power sensor, under its own key
+            self._aggr = HaSensor(device, f"{key}_aggr", uom="kWh", device_class="energy", state_class="total_increasing")
+            self._aggr._aggregate_init()
+            device._restore.append(self._aggr)
+        device.add_entity(self)
 
     @property
-    def asNumber(self) -> int | float:
-        """Return the current value of the sensor."""
-        if self._attr_native_value is None:
-            return 0
-        return self._attr_native_value if isinstance(self._attr_native_value, (int, float)) else 0
+    def state(self) -> Any:
+        return self._attr_native_value
 
-    @property
-    def asInt(self) -> int:
-        """Return the current value of the sensor."""
-        if self._attr_native_value is None:
-            return 0
-        return int(self._attr_native_value / self.factor) if isinstance(self._attr_native_value, (int, float)) else 0
+    def set_state(self, value: Any, restore: bool = False) -> bool:
+        if self._convert is not None:
+            value = self._convert(value)
+        elif self._attr_suggested_display_precision:
+            value = round(value, self._attr_suggested_display_precision)
 
+        # integrate on every report, also unchanged ones: otherwise hours of constant power are lost on a restart
+        if self._aggr is not None:
+            self._aggr._aggregate(value)
 
-class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
-    """Representation of a Zendure sensor entity with restore."""
+        if self._attr_native_value == value:
+            return False
+        self._attr_native_value = value
+        self.set_attr(value)
+        return True
 
-    def __init__(
-        self,
-        device: EntityDevice,
-        uniqueid: str,
-        template: Template | None = None,
-        uom: str | None = None,
-        deviceclass: Any | None = None,
-        stateclass: Any | None = None,
-        precision: int | None = None,
-    ) -> None:
-        """Initialize a select entity."""
-        super().__init__(device, uniqueid, template, uom, deviceclass, stateclass, precision)
-        self.last_value = 0
-        self.lastValueUpdate = dt_util.utcnow()
+    def _aggregate_init(self) -> None:
+        self._last_value = 0.0
+        self._last_update = 0.0
+        self._last_push = 0.0
 
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-        init_value = None if self.device_class in ["date", "timestamp"] else 0.0
+    def _aggregate(self, aggr: float) -> None:
+        """Accumulate kWh from watts."""
+        # monotonic clock: NTP jumps and suspends must not distort the integration
+        now = time.monotonic()
 
-        self._attr_native_value = init_value
-        state = await self.async_get_last_state()
-        try:
-            self._attr_native_value = init_value if state is None else parse_datetime(state.state) if self.device_class in ["date", "timestamp"] else float(state.state)
-            _LOGGER.debug("Restored state for %s: %s", self.entity_id, self._attr_native_value)
-        except ValueError:
-            self._attr_native_value = init_value
+        # integrate the previous power over the elapsed interval; after a long gap the device state was unknown, so only re-prime
+        if 0 < self._last_update and now - self._last_update <= AGGREGATE_MAX_GAP_S:
+            dt_h = (now - self._last_update) / 3600.0
+            kwh = (self._attr_native_value or 0.0) + self._last_value * dt_h / 1000.0
+            self._attr_native_value = kwh
 
-    def aggregate(self, time: datetime, value: Any) -> None:
-        # Get the kWh value from the last value and the time since the last update
-        value = float(value) if isinstance(value, (int, float)) else 0.0
-        if (self.last_reset is None or self.last_reset.date() != time.date()) and self.state_class != "total_increasing":
-            self._attr_native_value = 0.0
-            self._attr_last_reset = time
-        else:
-            try:
-                kWh = self.last_value * (time.timestamp() - self.lastValueUpdate.timestamp()) / 3600000
-                self._attr_native_value = kWh + (float(self._attr_native_value) if isinstance(self._attr_native_value, (int, float)) else 0.0)
-            except Exception as e:
-                if not isinstance(self.state, (int, float)):
-                    self._attr_native_value = 0.0
-
-                _LOGGER.error("Unable to update aggregation %s!", e)
-
-        self.last_value = value
-        self.lastValueUpdate = time
-        if self.hass and self.hass.loop.is_running():
-            self.schedule_update_ha_state()
-
-
-class ZendureCalcSensor(ZendureSensor):
-    """Representation of a Zendure Calculated Sensor."""
-
-    def __init__(
-        self,
-        device: EntityDevice,
-        uniqueid: str,
-        calculate: Callable[[Any], Any] | None = None,
-        uom: str | None = None,
-        deviceclass: Any | None = None,
-        stateclass: Any | None = None,
-        precision: int | None = None,
-    ) -> None:
-        """Initialize a Zendure entity."""
-        super().__init__(device, uniqueid, None, uom, deviceclass, stateclass, precision)
-        self.calculate = calculate
-
-    def update_value(self, value: Any) -> bool:
-        try:
-            new_value = self._value_template.async_render_with_possible_json_value(value, None) if self._value_template is not None else value
-
-            if self.hass and new_value != self._attr_native_value and self.calculate is not None:
-                self._attr_native_value = self.calculate(new_value)
-                if self.hass and self.hass.loop.is_running():
-                    self.schedule_update_ha_state()
-                return True
-
-        except Exception as err:
-            self._attr_native_value = value
-            _LOGGER.error("Error %s setting state: %s => %s", err, self._attr_unique_id, value)
-            _LOGGER.error(traceback.format_exc())
-        return False
-
-    def calculate_version(self, value: Any) -> Any:
-        """Calculate the version from the value."""
-        version = int(value)
-        version = f"v{(version & 0xF000) >> 12}.{(version & 0x0F00) >> 8}.{version & 0x00FF}" if version > 10 else "not provided" if version <= 0 else version
-        if self._attr_native_value == version:
-            return version
-        if (
-            self._attr_translation_key in {"soft_version", "master_soft_version", "master_firmware_version"}
-            and self.device_info is not None
-            and self.device_info.get("sw_version") != version
-        ):
-            self.device.updateVersion(version)
-
-        return version
+            # the counter updates every telemetry tick; throttle the HA push to spare the recorder
+            if now - self._last_push >= AGGREGATE_PUSH_S and self.hass and self.hass.loop.is_running():
+                self._last_push = now
+                self.schedule_update_ha_state()
+        self._last_value = aggr
+        self._last_update = now

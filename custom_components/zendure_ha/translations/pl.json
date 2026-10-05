@@ -1,456 +1,229 @@
 {
   "config": {
-    "abort": {
-      "already_configured": "Urządzenie jest już skonfigurowane",
-      "reconfigure_successful": "Rekonfiguracja zakończona pomyślnie"
-    },
-    "error": {
-      "cannot_connect": "Nie udało się połączyć",
-      "invalid_auth": "Nieprawidłowe dane uwierzytelniające",
-      "unknown": "Nieoczekiwany błąd"
-    },
+    "flow_title": "{name}",
     "step": {
       "user": {
-        "data": {
-          "token": "Token Zendure",
-          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
-          "mqttlog": "Rejestruj komunikację MQTT",
-          "mqttlocal": "Użyj lokalnego MQTT",
-          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
-          "wifissid": "SSID sieci Wi-Fi",
-          "wifipsw": "Hasło Wi-Fi"
-        }
-      },
-      "local": {
-        "data": {
-          "mqttserver": "Serwer MQTT",
-          "mqttport": "Port MQTT",
-          "mqttuser": "Użytkownik MQTT",
-          "mqttpsw": "Hasło MQTT",
-          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
-          "wifissid": "SSID sieci Wi-Fi",
-          "wifipsw": "Hasło Wi-Fi"
+        "title": "Zendure",
+        "description": "Ustawienia floty i połączenia. Urządzenia są wykrywane przez chmurę, lokalny broker, mDNS i Bluetooth i pojawiają się jako urządzenia tej integracji.",
+        "sections": {
+          "distribution": {
+            "name": "Flota",
+            "data": {
+              "max_kw": "Przyłącze sieciowe",
+              "max_output": "Maksymalne zasilanie domu",
+              "p1_device": "Licznik P1",
+              "mqtt_log": "Rejestruj ruch MQTT"
+            },
+            "data_description": {
+              "max_kw": "Moc przyłącza sieciowego, wszystkie fazy łącznie.",
+              "max_output": "Górny limit tego, co wszystkie baterie łącznie dostarczają do domu, w W. 0 = brak limitu. Niemcy: 800.",
+              "p1_device": "Urządzenie, którego encje mocy raportują pobór i oddawanie energii do sieci.",
+              "mqtt_log": "Zapisuj każdą wiadomość MQTT do zendure_ha_mqtt.jsonl w katalogu konfiguracji."
+            }
+          },
+          "cloud": {
+            "name": "Chmura Zendure",
+            "data": {
+              "apptoken": "Token Home Assistant",
+              "cloud_url": "Host MQTT w chmurze"
+            },
+            "data_description": {
+              "apptoken": "Z aplikacji Zendure: Ustawienia, Programista.",
+              "cloud_url": "Wypełniane automatycznie na podstawie tokena."
+            }
+          },
+          "local_broker": {
+            "name": "Lokalny broker MQTT",
+            "data": {
+              "mqtt_host": "Host",
+              "mqtt_port": "Port",
+              "mqtt_user": "Użytkownik",
+              "mqtt_psw": "Hasło"
+            }
+          },
+          "wifi": {
+            "name": "Wi-Fi",
+            "data": {
+              "wifi_ssid": "SSID",
+              "wifi_psw": "Hasło"
+            }
+          }
         }
       },
       "reconfigure": {
-        "data": {
-          "token": "Token Zendure",
-          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
-          "mqttlog": "Rejestruj komunikację MQTT",
-          "mqttlocal": "Użyj lokalnego MQTT",
-          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
-          "wifissid": "SSID sieci Wi-Fi",
-          "wifipsw": "Hasło Wi-Fi"
+        "title": "Zendure",
+        "description": "Ustawienia floty i połączenia.",
+        "sections": {
+          "distribution": {
+            "name": "Flota",
+            "data": {
+              "max_kw": "Przyłącze sieciowe",
+              "max_output": "Maksymalne zasilanie domu",
+              "p1_device": "Licznik P1",
+              "mqtt_log": "Rejestruj ruch MQTT"
+            },
+            "data_description": {
+              "max_kw": "Moc przyłącza sieciowego, wszystkie fazy łącznie.",
+              "max_output": "Górny limit tego, co wszystkie baterie łącznie dostarczają do domu, w W. 0 = brak limitu. Niemcy: 800.",
+              "p1_device": "Urządzenie, którego encje mocy raportują pobór i oddawanie energii do sieci.",
+              "mqtt_log": "Zapisuj każdą wiadomość MQTT do zendure_ha_mqtt.jsonl w katalogu konfiguracji."
+            }
+          },
+          "cloud": {
+            "name": "Chmura Zendure",
+            "data": {
+              "apptoken": "Token Home Assistant",
+              "cloud_url": "Host MQTT w chmurze"
+            },
+            "data_description": {
+              "apptoken": "Z aplikacji Zendure: Ustawienia, Programista.",
+              "cloud_url": "Wypełniane automatycznie na podstawie tokena."
+            }
+          },
+          "local_broker": {
+            "name": "Lokalny broker MQTT",
+            "data": {
+              "mqtt_host": "Host",
+              "mqtt_port": "Port",
+              "mqtt_user": "Użytkownik",
+              "mqtt_psw": "Hasło"
+            }
+          },
+          "wifi": {
+            "name": "Wi-Fi",
+            "data": {
+              "wifi_ssid": "SSID",
+              "wifi_psw": "Hasło"
+            }
+          }
         }
       }
+    },
+    "abort": {
+      "already_configured": "Zendure jest już skonfigurowane",
+      "single_instance_allowed": "Zendure jest już skonfigurowane",
+      "reconfigure_successful": "Ustawienia zapisane",
+      "not_supported": "To nie jest urządzenie Zendure"
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "data": {
-          "p1meter": "Czujnik P1 do inteligentnego dopasowania",
-          "mqttlog": "Rejestruj komunikację MQTT",
-          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT"
+  "config_subentries": {
+    "distribution": {
+      "entry_type": "Sterowanie flotą",
+      "initiate_flow": {
+        "user": "Dodaj sterowanie flotą"
+      },
+      "step": {
+        "user": {
+          "title": "Dodaj sterowanie flotą"
+        }
+      }
+    },
+    "zendure": {
+      "entry_type": "Urządzenie Zendure",
+      "initiate_flow": {
+        "user": "Dodaj urządzenie Zendure",
+        "reconfigure": "Skonfiguruj urządzenie ponownie"
+      },
+      "step": {
+        "user": {
+          "title": "Dodaj urządzenie Zendure",
+          "description": "Urządzenia są zwykle wykrywane automatycznie. Dodaj ręcznie tylko wtedy, gdy urządzenie nigdy się nie pojawia.",
+          "data": {
+            "prodkey": "Klucz produktu",
+            "device_id": "Klucz urządzenia",
+            "sn": "Numer seryjny",
+            "ip": "Adres IP",
+            "blemac": "Adres Bluetooth"
+          },
+          "data_description": {
+            "prodkey": "productKey, który chmura Zendure raportuje dla urządzenia.",
+            "device_id": "deviceKey, który chmura Zendure raportuje dla urządzenia.",
+            "sn": "Numer seryjny z etykiety urządzenia.",
+            "ip": "Stały adres lokalnego API; ustalany automatycznie, gdy pusty.",
+            "blemac": "Ustalany automatycznie z rozgłoszenia Bluetooth, gdy pusty."
+          }
         },
-        "description": "Zmień swoje opcje.",
-        "title": "Opcje integracji Zendure"
+        "reconfigure": {
+          "title": "{name}",
+          "description": "Nazwa urządzenia nigdy się nie zmienia; jego adresy mogą.",
+          "data": {
+            "ip": "Adres IP",
+            "blemac": "Adres Bluetooth"
+          },
+          "data_description": {
+            "ip": "Stały adres lokalnego API; ustalany automatycznie, gdy pusty.",
+            "blemac": "Ustalany automatycznie z rozgłoszenia Bluetooth, gdy pusty."
+          }
+        }
+      },
+      "error": {
+        "device_exists": "To urządzenie jest już skonfigurowane",
+        "unknown_prodkey": "Nieznany klucz produktu"
+      },
+      "abort": {
+        "reconfigure_successful": "Ustawienia zapisane"
+      }
+    },
+    "solar_panel": {
+      "entry_type": "Solar group",
+      "initiate_flow": {
+        "user": "Add solar group",
+        "reconfigure": "Reconfigure solar group"
+      },
+      "step": {
+        "user": {
+          "title": "Add solar group",
+          "description": "A group of panels on one inverter. The fleet reads its power live and can throttle it when export is not allowed.",
+          "data": {
+            "name": "Name",
+            "power_entity": "Power",
+            "derate_entity": "Throttle"
+          },
+          "data_description": {
+            "name": "The name of the group, as it appears in the panel.",
+            "power_entity": "The sensor the inverter reports its power on.",
+            "derate_entity": "The number entity that limits the inverter; leave empty when it cannot be throttled."
+          }
+        },
+        "reconfigure": {
+          "title": "{name}",
+          "description": "The name of a solar group never changes; its entities can.",
+          "data": {
+            "power_entity": "Power",
+            "derate_entity": "Throttle"
+          },
+          "data_description": {
+            "power_entity": "The sensor the inverter reports its power on.",
+            "derate_entity": "The number entity that limits the inverter; leave empty when it cannot be throttled."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Settings saved"
       }
     }
   },
   "entity": {
-    "button": {
-      "mqtt_reset": {
-        "name": "Resetuj połączenie"
-      }
-    },
-    "binary_sensor": {
-      "master_switch": {
-        "name": "Przełącznik główny"
-      },
-      "wifi_state": {
-        "name": "Stan Wi-Fi"
-      },
-      "heat_state": {
-        "name": "Ogrzewanie baterii"
-      },
-      "rest_state": {
-        "name": "Tryb oszczędzania energii"
-      },
-      "reverse_state": {
-        "name": "Stan przepływu zwrotnego"
-      },
-      "local_state": {
-        "name": "Połączenie lokalne"
-      },
-      "ct_off": {
-        "name": "CT odłączony"
-      },
-      "low_temperature": {
-        "name": "Niska temperatura"
-      },
-      "hems_state": {
-        "name": "HEMS aktywny"
-      }
-    },
-    "number": {
-      "input_limit": {
-        "name": "Limit wejścia AC"
-      },
-      "output_limit": {
-        "name": "Limit wyjścia"
-      },
-      "manual_power": {
-        "name": "Moc ustawiana ręcznie"
-      },
-      "min_soc": {
-        "name": "Minimalne SoC"
-      },
-      "soc_set": {
-        "name": "Docelowe SoC"
-      },
-      "min_battery_output_power": {
-        "name": "Minimalne rozładowanie"
-      }
-    },
-    "sensor": {
-      "ambient_light_color": {
-        "name": "Kolor światła otoczenia"
-      },
-      "available_kwh": {
-        "name": "Dostępna energia"
-      },
-      "total_kwh": {
-        "name": "Całkowita pojemność baterii"
-      },
-      "auto_model": {
-        "name": "Program baterii",
-        "state": {
-          "0": "Brak",
-          "6": "Tryb priorytetu baterii",
-          "7": "Tryb harmonogramu",
-          "8": "Tryb inteligentnego dopasowania",
-          "9": "Tryb inteligentnego CT",
-          "10": "Cena energii elektrycznej"
-        }
-      },
-      "aggr_charge": {
-        "name": "Całkowita naładowana energia"
-      },
-      "aggr_discharge": {
-        "name": "Całkowita rozładowana energia"
-      },
-      "aggr_output_home": {
-        "name": "Całkowita energia domowa"
-      },
-      "aggr_solar": {
-        "name": "Całkowita energia słoneczna"
-      },
-      "aggr_grid_input_power": {
-        "name": "Całkowita energia z sieci"
-      },
-      "aggr_grid_off_power": {
-        "name": "Całkowita energia off-grid"
-      },
-      "grid_input_power": {
-        "name": "Moc wejściowa sieci"
-      },
-      "grid_off_power": {
-        "name": "Moc off-grid"
-      },
-      "plug_state": {
-        "name": "Listwa off-grid",
-        "state": {
-          "0": "niedostępna",
-          "1": "podłączona"
-        }
-      },
-      "connection_status": {
-        "name": "Status połączenia",
-        "state": {
-          "0": "Nieznany",
-          "1": "Kalibracja",
-          "2": "HEMS",
-          "3": "Brak grupy bezpiecznikowej",
-          "10": "Połączono z chmurą",
-          "11": "Połączono lokalnie",
-          "12": "Połączono (zenSDK)"
-        }
-      },
-      "soh": {
-        "name": "SoH"
-      },
-      "soc_status": {
-        "name": "Stan kalibracji SoC",
-        "state": {
-          "0": "Praca",
-          "1": "Automatyczna kalibracja"
-        }
-      },
-      "soc_limit": {
-        "name": "Stan limitu SoC",
-        "state": {
-          "0": "Normalny",
-          "1": "Ograniczanie",
-          "2": "Pełny"
-        }
-      },
-      "hub_state": {
-        "name": "Status huba",
-        "state": {
-          "0": "Zatrzymaj wyjście i przejdź w stan gotowości",
-          "1": "Zatrzymaj wyjście i wyłącz"
-        }
-      },
-      "pack_num": {
-        "name": "Liczba baterii"
-      },
-      "bat_volt": {
-        "name": "Napięcie baterii"
-      },
-      "electric_level": {
-        "name": "Bateria (SoC)"
-      },
-      "charging_mode": {
-        "name": "Tryb ładowania",
-        "state": {
-          "0": "Brak",
-          "1": "Tryb 1",
-          "2": "Tryb 2"
-        }
-      },
-      "charging_type": {
-        "name": "Typ ładowania",
-        "state": {
-          "0": "Typ 0",
-          "1": "Typ 1",
-          "2": "Typ 2"
-        }
-      },
-      "charging_time": {
-        "name": "Czas ładowania"
-      },
-      "pack_state": {
-        "name": "Stan baterii",
-        "state": {
-          "0": "Uśpienie",
-          "1": "Ładowanie",
-          "2": "Rozładowanie"
-        }
-      },
-      "operation_state": {
-        "name": "Stan pracy",
-        "state": {
-          "0": "Bezczynny",
-          "1": "Ładowanie",
-          "2": "Rozładowanie",
-          "3": "Wyłączony"
-        }
-      },
-      "state": {
-        "name": "Stan",
-        "state": {
-          "0": "Uśpienie",
-          "1": "Ładowanie",
-          "2": "Rozładowanie"
-        }
-      },
-      "soc_level": {
-        "name": "Poziom naładowania (SoC)"
-      },
-      "max_temp": {
-        "name": "Najwyższa temperatura ogniwa"
-      },
-      "total_vol": {
-        "name": "Napięcie całkowite"
-      },
-      "max_vol": {
-        "name": "Najwyższe napięcie ogniwa"
-      },
-      "min_vol": {
-        "name": "Najniższe napięcie ogniwa"
-      },
-      "batcur": {
-        "name": "Prąd baterii"
-      },
-      "bat_in_out": {
-        "name": "Moc baterii"
-      },
-      "pack_input_power": {
-        "name": "Moc rozładowania baterii"
-      },
-      "power": {
-        "name": "Moc"
-      },
-      "pass": {
-        "name": "Bypass",
-        "state": {
-          "0": "Wyłączony",
-          "1": "Włączony",
-          "2": "Auto włączony"
-        }
-      },
-      "hyper_2000_pass": {
-        "name": "Stan bypass"
-      },
-      "output_pack_power": {
-        "name": "Moc ładowania baterii"
-      },
-      "solar_input_power": {
-        "name": "Moc wejściowa słoneczna"
-      },
-      "solar_power1": {
-        "name": "Moc PV1"
-      },
-      "solar_power2": {
-        "name": "Moc PV2"
-      },
-      "solar_power3": {
-        "name": "Moc PV3"
-      },
-      "solar_power4": {
-        "name": "Moc PV4"
-      },
-      "output_home_power": {
-        "name": "Moc wyjściowa do domu"
-      },
-      "hyper_tmp": {
-        "name": "Temperatura urządzenia"
-      },
-      "strength": {
-        "name": "Siła sygnału Wi-Fi"
-      },
-      "remaining_time": {
-        "name": "Pozostały czas"
-      },
-      "soft_version": {
-        "name": "Oprogramowanie BMS"
-      },
-      "dspversion": {
-        "name": "Oprogramowanie AC"
-      },
-      "master_soft_version": {
-        "name": "Oprogramowanie główne"
-      },
-      "masterhaer_version": {
-        "name": "Wersja sprzętowa"
-      },
-      "inverse_max_power": {
-        "name": "Maksymalna moc falownika"
-      },
-      "grid_power": {
-        "name": "Moc sieci"
-      },
-      "next_calibration": {
-        "name": "Następna kalibracja"
-      },
-      "switch_count": {
-        "name": "Liczba przełączeń"
-      },
-      "pv_brand": {
-        "name": "Marka falownika",
-        "state": {
-          "0": "Inny/Zintegrowany",
-          "1": "Hoymiles",
-          "2": "Enphase",
-          "3": "APsystems",
-          "4": "Anker",
-          "5": "Deye",
-          "6": "BossWerk",
-          "7": "TSun"
-        }
-      }
-    },
     "select": {
-      "ac_mode": {
-        "name": "Tryb pracy AC",
-        "state": {
-          "input": "Tryb wejścia AC",
-          "output": "Tryb wyjścia AC"
-        }
+      "power_phase": {
+        "name": "Faza"
       },
-      "dc_switch": {
-        "name": "Port DC",
+      "mode": {
+        "name": "Tryb pracy",
         "state": {
-          "on": "Włączony/Wyjście",
-          "off": "Wyłączony/Wejście"
-        }
-      },
-      "hems_state": {
-        "name": "Stan HEMS",
-        "state": {
-          "off": "dezaktywowany",
-          "on": "aktywowany"
+          "off": "Wył.",
+          "manual": "Moc ręczna",
+          "smart": "Inteligentne dopasowanie",
+          "smart_discharging": "Tylko inteligentne rozładowanie",
+          "smart_charging": "Tylko inteligentne ładowanie",
+          "store_solar": "Magazynuj energię słoneczną"
         }
       },
       "auto_heat": {
         "name": "Automatyczne ogrzewanie baterii",
         "state": {
-          "off": "dezaktywowane",
-          "on": "aktywowane"
-        }
-      },
-      "fuse_group": {
-        "name": "Grupa bezpiecznikowa urządzenia",
-        "state": {
-          "unused": "Nieużywana, urządzenie nie ma grupy bezpiecznikowej",
-          "owncircuit": "Urządzenie ma własny obwód lub fazę, maks. 3600 W",
-          "group800": "Grupa bezpiecznikowa maks. 800 W / 1200 W ładowanie",
-          "group800_2400": "Grupa bezpiecznikowa maks. 800 W / 2400 W ładowanie",
-          "group1200": "Grupa bezpiecznikowa maks. 1200 W",
-          "group2000": "Grupa bezpiecznikowa maks. 2000 W",
-          "group2400": "Grupa bezpiecznikowa maks. 2400 W",
-          "group3600": "Grupa bezpiecznikowa maks. 3600 W",
-          "group4000": "Grupa bezpiecznikowa maks. 4000 W",
-          "group5000": "Grupa bezpiecznikowa maks. 5000 W"
-        }
-      },
-      "connection": {
-        "name": "Tryb połączenia",
-        "state": {
-          "local": "Lokalny",
-          "cloud": "Chmura"
-        }
-      },
-      "ble_adapter": {
-        "name": "Adapter BLE",
-        "state": {
-          "auto": "Automatyczny"
-        }
-      },
-      "operation": {
-        "name": "Tryb pracy",
-        "state": {
-          "off": "Wyłączony",
-          "manual": "Ręczne ustawianie mocy",
-          "smart": "Inteligentne dopasowanie",
-          "smart_discharging": "Inteligentne rozładowanie",
-          "smart_charging": "Inteligentne ładowanie",
-          "store_solar": "Magazynowanie energii słonecznej"
-        }
-      },
-      "pass_mode": {
-        "name": "Tryb bypassa",
-        "state": {
-          "auto": "Auto",
-          "off": "Zawsze wyłączony",
-          "on": "Zawsze włączony"
-        }
-      },
-      "grid_off_mode": {
-        "name": "Tryb off-grid",
-        "state": {
-          "normal": "Normalny",
-          "eco": "Ekonomiczny",
-          "off": "Wyłączony"
-        }
-      },
-      "grid_reverse": {
-        "name": "Eksport energii",
-        "state": {
-          "disabled": "wyłączony",
-          "allow": "dozwolony",
-          "forbidden": "zabroniony"
+          "off": "Wył.",
+          "on": "Wł."
         }
       },
       "fan_speed": {
@@ -461,42 +234,373 @@
           "fast": "Szybka"
         }
       },
-      "fanspeed": {
-        "name": "Inteligentna prędkość wentylatora",
+      "grid_off_mode": {
+        "name": "Tryb off-grid",
+        "state": {
+          "normal": "Normalna",
+          "eco": "Ekonomiczny",
+          "off": "Wył."
+        }
+      },
+      "grid_reverse": {
+        "name": "Oddawanie do sieci",
+        "state": {
+          "disabled": "Wyłączone",
+          "allow": "Dozwolone",
+          "forbidden": "Zabronione"
+        }
+      },
+      "pass_mode": {
+        "name": "Tryb bypass",
         "state": {
           "auto": "Auto",
-          "normal": "Normalna",
-          "fast": "Szybka"
+          "on": "Zawsze wł.",
+          "off": "Zawsze wył."
         }
       }
     },
+    "number": {
+      "manual_power": {
+        "name": "Moc ręczna"
+      },
+      "setpoint_correction": {
+        "name": "Korekta wartości zadanej"
+      },
+      "soc_min": {
+        "name": "Minimalny SoC"
+      },
+      "soc_max": {
+        "name": "Maksymalny SoC"
+      },
+      "output_limit": {
+        "name": "Limit wyjścia"
+      },
+      "input_limit": {
+        "name": "Limit wejścia"
+      }
+    },
     "switch": {
-      "lamp_switch": {
-        "name": "LED"
-      },
-      "ac_switch": {
-        "name": "Gniazdo AC"
-      },
-      "buzzer_switch": {
-        "name": "Buzzer"
+      "allow_export": {
+        "name": "Allow export"
       },
       "auto_recover": {
         "name": "Reset trybu bypass"
+      },
+      "buzzer_switch": {
+        "name": "Brzęczyk"
       },
       "fan_switch": {
         "name": "Wentylator"
       },
       "fanmode": {
         "name": "Inteligentny wentylator"
+      },
+      "lamp_switch": {
+        "name": "LED"
       }
-    }
-  },
-  "exceptions": {
-    "no_zendure_token": {
-      "message": "Nie podano tokenu Zendure."
     },
-    "no_user_password": {
-      "message": "Nie podano nazwy użytkownika lub hasła."
+    "binary_sensor": {
+      "bypass": {
+        "name": "Bypass"
+      },
+      "heat_state": {
+        "name": "Ogrzewanie baterii"
+      },
+      "hems_state": {
+        "name": "HEMS aktywny"
+      },
+      "ct_off": {
+        "name": "CT odłączony"
+      },
+      "local_state": {
+        "name": "Połączenie lokalne"
+      },
+      "low_temperature": {
+        "name": "Niska temperatura"
+      },
+      "master_switch": {
+        "name": "Wyłącznik główny"
+      },
+      "rest_state": {
+        "name": "Tryb oszczędzania energii"
+      },
+      "reverse_state": {
+        "name": "Przepływ wsteczny"
+      },
+      "wifi_state": {
+        "name": "Wi-Fi"
+      }
+    },
+    "sensor": {
+      "soc": {
+        "name": "SoC"
+      },
+      "capacity_kwh": {
+        "name": "Pojemność"
+      },
+      "available_kwh": {
+        "name": "Dostępna energia"
+      },
+      "charge_power": {
+        "name": "Moc ładowania"
+      },
+      "charge_power_aggr": {
+        "name": "Energia naładowana"
+      },
+      "discharge_power": {
+        "name": "Moc rozładowania"
+      },
+      "discharge_power_aggr": {
+        "name": "Energia rozładowana"
+      },
+      "house_load": {
+        "name": "Zużycie domu"
+      },
+      "house_load_aggr": {
+        "name": "Energia domu"
+      },
+      "house_solar": {
+        "name": "House solar"
+      },
+      "house_solar_aggr": {
+        "name": "Solar energy"
+      },
+      "grid_import": {
+        "name": "Pobór z sieci"
+      },
+      "grid_import_aggr": {
+        "name": "Energia pobrana z sieci"
+      },
+      "grid_export": {
+        "name": "Oddawanie do sieci"
+      },
+      "grid_export_aggr": {
+        "name": "Energia oddana do sieci"
+      },
+      "soc_limit": {
+        "name": "Stan limitu SoC"
+      },
+      "home_input": {
+        "name": "Moc wejściowa domu"
+      },
+      "home_input_aggr": {
+        "name": "Energia wejściowa domu"
+      },
+      "home_output": {
+        "name": "Moc wyjściowa domu"
+      },
+      "home_output_aggr": {
+        "name": "Energia wyjściowa domu"
+      },
+      "battery_input": {
+        "name": "Moc ładowania baterii"
+      },
+      "battery_input_aggr": {
+        "name": "Energia naładowana baterii"
+      },
+      "battery_output": {
+        "name": "Moc rozładowania baterii"
+      },
+      "battery_output_aggr": {
+        "name": "Energia rozładowana baterii"
+      },
+      "temp": {
+        "name": "Temperatura urządzenia"
+      },
+      "remaining_time": {
+        "name": "Pozostały czas"
+      },
+      "power_max": {
+        "name": "Maksymalna moc falownika"
+      },
+      "power_setpoint": {
+        "name": "Zadana moc"
+      },
+      "kwh": {
+        "name": "Pojemność baterii"
+      },
+      "rte": {
+        "name": "Sprawność cyklu"
+      },
+      "ac_firmware_version": {
+        "name": "Firmware AC"
+      },
+      "ac_hardware_version": {
+        "name": "Sprzęt AC"
+      },
+      "ac_output_power": {
+        "name": "Moc wyjściowa AC"
+      },
+      "battery_electric": {
+        "name": "Moc elektryczna baterii"
+      },
+      "bat_volt": {
+        "name": "Napięcie baterii"
+      },
+      "bms_firmware_version": {
+        "name": "Firmware BMS"
+      },
+      "bms_hardware_version": {
+        "name": "Sprzęt BMS"
+      },
+      "dc_firmware_version": {
+        "name": "Firmware DC"
+      },
+      "dc_hardware_version": {
+        "name": "Sprzęt DC"
+      },
+      "dc_output_power": {
+        "name": "Moc wyjściowa DC"
+      },
+      "dsp_version": {
+        "name": "Firmware DSP"
+      },
+      "energy_power": {
+        "name": "Moc energii"
+      },
+      "grid_off_power": {
+        "name": "Moc off-grid"
+      },
+      "grid_off_power_aggr": {
+        "name": "Energia off-grid"
+      },
+      "grid_power": {
+        "name": "Moc sieci"
+      },
+      "grid_power_aggr": {
+        "name": "Energia sieci"
+      },
+      "inverse_max_power": {
+        "name": "Limit falownika"
+      },
+      "master_firmware_version": {
+        "name": "Firmware główny"
+      },
+      "masterhaer_version": {
+        "name": "Wersja sprzętu"
+      },
+      "master_hardware_version": {
+        "name": "Sprzęt główny"
+      },
+      "master_soft_version": {
+        "name": "Oprogramowanie główne"
+      },
+      "mppt_firmware_version": {
+        "name": "Firmware MPPT"
+      },
+      "offgrid": {
+        "name": "Wyjście off-grid"
+      },
+      "offgrid_aggr": {
+        "name": "Energia wyjścia off-grid"
+      },
+      "rssi": {
+        "name": "Siła sygnału Wi-Fi"
+      },
+      "soft_version": {
+        "name": "Firmware"
+      },
+      "soh": {
+        "name": "SoH"
+      },
+      "solar": {
+        "name": "Moc słoneczna"
+      },
+      "solar_aggr": {
+        "name": "Energia słoneczna"
+      },
+      "solar_power1": {
+        "name": "Moc słoneczna PV1"
+      },
+      "solar_power2": {
+        "name": "Moc słoneczna PV2"
+      },
+      "solar_power3": {
+        "name": "Moc słoneczna PV3"
+      },
+      "solar_power4": {
+        "name": "Moc słoneczna PV4"
+      },
+      "solar_power5": {
+        "name": "Moc słoneczna PV5"
+      },
+      "solar_power6": {
+        "name": "Moc słoneczna PV6"
+      },
+      "total_battery_volt": {
+        "name": "Całkowite napięcie baterii"
+      },
+      "volt_wakeup": {
+        "name": "Napięcie wybudzenia"
+      },
+      "total_power": {
+        "name": "Moc całkowita"
+      },
+      "total_import": {
+        "name": "Całkowity pobór"
+      },
+      "total_export": {
+        "name": "Całkowite oddawanie"
+      },
+      "phase1_power": {
+        "name": "Moc fazy 1"
+      },
+      "phase1_current": {
+        "name": "Prąd fazy 1"
+      },
+      "phase1_voltage": {
+        "name": "Napięcie fazy 1"
+      },
+      "phase2_power": {
+        "name": "Moc fazy 2"
+      },
+      "phase2_current": {
+        "name": "Prąd fazy 2"
+      },
+      "phase2_voltage": {
+        "name": "Napięcie fazy 2"
+      },
+      "phase3_power": {
+        "name": "Moc fazy 3"
+      },
+      "phase3_current": {
+        "name": "Prąd fazy 3"
+      },
+      "phase3_voltage": {
+        "name": "Napięcie fazy 3"
+      },
+      "pack_state": {
+        "name": "Stan baterii"
+      },
+      "state": {
+        "name": "Stan"
+      },
+      "power": {
+        "name": "Moc"
+      },
+      "max_temp": {
+        "name": "Najwyższa temperatura ogniwa"
+      },
+      "total_vol": {
+        "name": "Napięcie całkowite"
+      },
+      "batcur": {
+        "name": "Prąd baterii"
+      },
+      "max_vol": {
+        "name": "Najwyższe napięcie ogniwa"
+      },
+      "min_vol": {
+        "name": "Najniższe napięcie ogniwa"
+      }
+    },
+    "button": {
+      "detect_phase": {
+        "name": "Wykryj faze"
+      },
+      "export_replay": {
+        "name": "Eksportuj dane replay"
+      }
     }
   }
 }

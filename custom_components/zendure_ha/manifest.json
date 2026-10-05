@@ -1,22 +1,38 @@
 {
   "domain": "zendure_ha",
-  "name": "Zendure Home Assistant Integration",
+  "name": "Zendure",
+  "bluetooth": [
+    {
+      "local_name": "Zen*",
+      "connectable": true
+    }
+  ],
   "codeowners": [
     "@fireson"
   ],
   "config_flow": true,
   "dependencies": [
     "bluetooth",
-    "mqtt",
-    "recorder"
+    "recorder",
+    "zeroconf"
   ],
   "documentation": "https://github.com/zendure/zendure-ha",
-  "iot_class": "local_polling",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/zendure/zendure-ha/issues",
   "requirements": [
     "bleak-retry-connector>=3.9.0",
     "paho-mqtt==2.1.0"
   ],
   "single_config_entry": true,
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "zeroconf": [
+    {
+      "type": "_http._tcp.local.",
+      "name": "zendure-*"
+    },
+    {
+      "type": "_zendure._tcp.local.",
+      "name": "zendure-*"
+    }
+  ]
 }

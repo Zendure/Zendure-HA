@@ -27,3 +27,6 @@ config/*
 # Home Assistant configuration
 custom_components/*
 !custom_components/zendure_ha
+
+# Claude Code local settings and worktrees
+.claude/

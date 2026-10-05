@@ -1,73 +1,32 @@
-"""Constants for Zendure."""
+"""Constants for the Zendure integration."""
 
-from datetime import timedelta
-from enum import Enum
+from enum import IntEnum
+from math import sqrt
+from typing import Any
 
 DOMAIN = "zendure_ha"
 
-CONF_APPTOKEN = "token"
-CONF_P1METER = "p1meter"
-CONF_PRICE = "price"
-CONF_MQTTLOG = "mqttlog"
-CONF_MQTTLOCAL = "mqttlocal"
-CONF_MQTTSERVER = "mqttserver"
-CONF_SIM = "simulation"
-CONF_MQTTPORT = "mqttport"
-CONF_MQTTUSER = "mqttuser"
-CONF_MQTTPSW = "mqttpsw"
-CONF_WIFISSID = "wifissid"
-CONF_WIFIPSW = "wifipsw"
-CONF_AUTO_MQTT_USER = "auto_mqtt_user"
+PANEL_TITLE = "Zendure"
 
-CONF_HAKEY = "C*dafwArEOXK"
+class Phase(IntEnum):
+    all = 0
+    l1 = 1
+    l2 = 2
+    l3 = 3
+
+    def __str__(self) -> str:
+        return self.name.upper()
 
 
-class AcMode:
-    INPUT = 1
-    OUTPUT = 2
+PhaseModi = {p: p.name for p in Phase}  # the select options; the key is the Phase itself, the label its name
 
 
-class DeviceState(Enum):
-    OFFLINE = 0
-    SOCEMPTY = 1
-    INACTIVE = 2
-    SOCFULL = 3
-    ACTIVE = 4
+def watt_factor(state: Any, phase: Phase = Phase.all) -> float:
+    # multiplier that turns a sensor reading into watts; a current needs a voltage, and that follows from the phase
+    unit = state.attributes.get("unit_of_measurement") if state is not None else None
+    if unit in ("kW", "kilowatt", "kilowatts"):
+        return 1000.0
+    if unit == "A":
+        return 400.0 * sqrt(3) if phase == Phase.all else 230.0
+    return 1.0
 
-
-class ManagerMode(Enum):
-    OFF = 0
-    MANUAL = 1
-    MATCHING = 2
-    MATCHING_DISCHARGE = 3
-    MATCHING_CHARGE = 4
-    STORE_SOLAR = 5
-
-
-class ManagerState(Enum):
-    IDLE = 0
-    CHARGE = 1
-    DISCHARGE = 2
-    OFF = 3
-
-
-class SmartMode:
-    SOCFULL = 1
-    SOCEMPTY = 2
-    ZENSDK = 2
-    CONNECTED = 10
-
-    TIMEFAST = 2.2  # Fast update interval after significant change
-    TIMEZERO = 4  # Normal update interval
-
-    # Standard deviation thresholds for detecting significant changes
-    P1_STDDEV_FACTOR = 3.5  # Multiplier for P1 meter stddev calculation
-    P1_STDDEV_MIN = 15  # Minimum stddev value for P1 changes (watts)
-    P1_MIN_UPDATE = timedelta(milliseconds=400)
-    SETPOINT_STDDEV_FACTOR = 5.0  # Multiplier for power average stddev calculation
-    SETPOINT_STDDEV_MIN = 50  # Minimum stddev value for power average (watts)
-
-    HEMSOFF_TIMEOUT = 60  # Seconds before HEMS state is set to OFF if no updates are received
-
-    POWER_START = 50  # Minimum Power (W) for starting a device
-    POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating

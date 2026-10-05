@@ -1,0 +1,29 @@
+{
+  "local-0813-cook.json": {
+    "soc": 50.0,
+    "total_wh": 72,
+    "median": 11,
+    "p90": 158,
+    "within100": 83.7
+  },
+  "local-0813.json": {
+    "total_wh": 731,
+    "median": 37,
+    "p90": 397,
+    "within100": 65.7
+  },
+  "local-0814-night.json": {
+    "soc": 50.0,
+    "total_wh": 23,
+    "median": 5,
+    "p90": 16,
+    "within100": 98.5
+  },
+  "local-0815-night.json": {
+    "soc": 50.0,
+    "total_wh": 14,
+    "median": 4,
+    "p90": 11,
+    "within100": 99.3
+  }
+}

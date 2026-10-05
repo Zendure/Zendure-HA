@@ -1,0 +1,606 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Zendure",
+        "description": "The fleet settings and the connections. Devices are found through the cloud, your local broker, mDNS and Bluetooth, and appear as devices of this integration.",
+        "sections": {
+          "distribution": {
+            "name": "Fleet",
+            "data": {
+              "max_kw": "Grid connection",
+              "max_output": "Maximum delivery to the house",
+              "p1_device": "P1 meter",
+              "mqtt_log": "Log MQTT traffic"
+            },
+            "data_description": {
+              "max_kw": "Capacity of your grid connection, all phases together.",
+              "max_output": "Cap on what all batteries together deliver to the house, in W. 0 = no cap. Germany: 800.",
+              "p1_device": "The device whose power entities report your grid import and export.",
+              "mqtt_log": "Write every MQTT message to zendure_ha_mqtt.jsonl in the config directory."
+            }
+          },
+          "cloud": {
+            "name": "Zendure cloud",
+            "data": {
+              "apptoken": "Home Assistant token",
+              "cloud_url": "Cloud MQTT host"
+            },
+            "data_description": {
+              "apptoken": "From the Zendure app: Settings, Developer.",
+              "cloud_url": "Filled in automatically from the token."
+            }
+          },
+          "local_broker": {
+            "name": "Local MQTT broker",
+            "data": {
+              "mqtt_host": "Host",
+              "mqtt_port": "Port",
+              "mqtt_user": "User",
+              "mqtt_psw": "Password"
+            }
+          },
+          "wifi": {
+            "name": "Wi-Fi",
+            "data": {
+              "wifi_ssid": "SSID",
+              "wifi_psw": "Password"
+            }
+          }
+        }
+      },
+      "reconfigure": {
+        "title": "Zendure",
+        "description": "The fleet settings and the connections.",
+        "sections": {
+          "distribution": {
+            "name": "Fleet",
+            "data": {
+              "max_kw": "Grid connection",
+              "max_output": "Maximum delivery to the house",
+              "p1_device": "P1 meter",
+              "mqtt_log": "Log MQTT traffic"
+            },
+            "data_description": {
+              "max_kw": "Capacity of your grid connection, all phases together.",
+              "max_output": "Cap on what all batteries together deliver to the house, in W. 0 = no cap. Germany: 800.",
+              "p1_device": "The device whose power entities report your grid import and export.",
+              "mqtt_log": "Write every MQTT message to zendure_ha_mqtt.jsonl in the config directory."
+            }
+          },
+          "cloud": {
+            "name": "Zendure cloud",
+            "data": {
+              "apptoken": "Home Assistant token",
+              "cloud_url": "Cloud MQTT host"
+            },
+            "data_description": {
+              "apptoken": "From the Zendure app: Settings, Developer.",
+              "cloud_url": "Filled in automatically from the token."
+            }
+          },
+          "local_broker": {
+            "name": "Local MQTT broker",
+            "data": {
+              "mqtt_host": "Host",
+              "mqtt_port": "Port",
+              "mqtt_user": "User",
+              "mqtt_psw": "Password"
+            }
+          },
+          "wifi": {
+            "name": "Wi-Fi",
+            "data": {
+              "wifi_ssid": "SSID",
+              "wifi_psw": "Password"
+            }
+          }
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Zendure is already configured",
+      "single_instance_allowed": "Zendure is already configured",
+      "reconfigure_successful": "Settings saved",
+      "not_supported": "Not a Zendure device"
+    }
+  },
+  "config_subentries": {
+    "distribution": {
+      "entry_type": "Fleet control",
+      "initiate_flow": {
+        "user": "Add fleet control"
+      },
+      "step": {
+        "user": {
+          "title": "Add fleet control"
+        }
+      }
+    },
+    "zendure": {
+      "entry_type": "Zendure device",
+      "initiate_flow": {
+        "user": "Add Zendure device",
+        "reconfigure": "Reconfigure device"
+      },
+      "step": {
+        "user": {
+          "title": "Add Zendure device",
+          "description": "Devices are normally found automatically. Add one by hand only when it never shows up.",
+          "data": {
+            "prodkey": "Product key",
+            "device_id": "Device key",
+            "sn": "Serial number",
+            "ip": "IP address",
+            "blemac": "Bluetooth address"
+          },
+          "data_description": {
+            "prodkey": "The productKey the Zendure cloud reports for the device.",
+            "device_id": "The deviceKey the Zendure cloud reports for the device.",
+            "sn": "The serial number on the device label.",
+            "ip": "Fixed address for the local API; learned automatically when empty.",
+            "blemac": "Learned automatically from the Bluetooth advertisement when empty."
+          }
+        },
+        "reconfigure": {
+          "title": "{name}",
+          "description": "The name of a device never changes; its addresses can.",
+          "data": {
+            "ip": "IP address",
+            "blemac": "Bluetooth address"
+          },
+          "data_description": {
+            "ip": "Fixed address for the local API; learned automatically when empty.",
+            "blemac": "Learned automatically from the Bluetooth advertisement when empty."
+          }
+        }
+      },
+      "error": {
+        "device_exists": "This device is already configured",
+        "unknown_prodkey": "Unknown product key"
+      },
+      "abort": {
+        "reconfigure_successful": "Settings saved"
+      }
+    },
+    "solar_panel": {
+      "entry_type": "Solar group",
+      "initiate_flow": {
+        "user": "Add solar group",
+        "reconfigure": "Reconfigure solar group"
+      },
+      "step": {
+        "user": {
+          "title": "Add solar group",
+          "description": "A group of panels on one inverter. The fleet reads its power live and can throttle it when export is not allowed.",
+          "data": {
+            "name": "Name",
+            "power_entity": "Power",
+            "derate_entity": "Throttle"
+          },
+          "data_description": {
+            "name": "The name of the group, as it appears in the panel.",
+            "power_entity": "The sensor the inverter reports its power on.",
+            "derate_entity": "The number entity that limits the inverter; leave empty when it cannot be throttled."
+          }
+        },
+        "reconfigure": {
+          "title": "{name}",
+          "description": "The name of a solar group never changes; its entities can.",
+          "data": {
+            "power_entity": "Power",
+            "derate_entity": "Throttle"
+          },
+          "data_description": {
+            "power_entity": "The sensor the inverter reports its power on.",
+            "derate_entity": "The number entity that limits the inverter; leave empty when it cannot be throttled."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Settings saved"
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "power_phase": {
+        "name": "Phase"
+      },
+      "mode": {
+        "name": "Operation mode",
+        "state": {
+          "off": "Off",
+          "manual": "Manual power",
+          "smart": "Smart matching",
+          "smart_discharging": "Smart discharge only",
+          "smart_charging": "Smart charge only",
+          "store_solar": "Store solar"
+        }
+      },
+      "auto_heat": {
+        "name": "Auto battery heating",
+        "state": {
+          "off": "Off",
+          "on": "On"
+        }
+      },
+      "fan_speed": {
+        "name": "Fan speed",
+        "state": {
+          "auto": "Auto",
+          "normal": "Normal",
+          "fast": "Fast"
+        }
+      },
+      "grid_off_mode": {
+        "name": "Off-grid mode",
+        "state": {
+          "normal": "Normal",
+          "eco": "Economic",
+          "off": "Off"
+        }
+      },
+      "grid_reverse": {
+        "name": "Energy export",
+        "state": {
+          "disabled": "Disabled",
+          "allow": "Allowed",
+          "forbidden": "Forbidden"
+        }
+      },
+      "pass_mode": {
+        "name": "Bypass mode",
+        "state": {
+          "auto": "Auto",
+          "on": "Always on",
+          "off": "Always off"
+        }
+      }
+    },
+    "number": {
+      "manual_power": {
+        "name": "Manual power"
+      },
+      "setpoint_correction": {
+        "name": "Setpoint correction"
+      },
+      "soc_min": {
+        "name": "Minimum SoC"
+      },
+      "soc_max": {
+        "name": "Maximum SoC"
+      },
+      "output_limit": {
+        "name": "Output limit"
+      },
+      "input_limit": {
+        "name": "Input limit"
+      }
+    },
+    "switch": {
+      "allow_export": {
+        "name": "Allow export"
+      },
+      "auto_recover": {
+        "name": "Bypass mode reset"
+      },
+      "buzzer_switch": {
+        "name": "Buzzer"
+      },
+      "fan_switch": {
+        "name": "Fan"
+      },
+      "fanmode": {
+        "name": "Smart fan"
+      },
+      "lamp_switch": {
+        "name": "LED"
+      }
+    },
+    "binary_sensor": {
+      "bypass": {
+        "name": "Bypass"
+      },
+      "heat_state": {
+        "name": "Battery heating"
+      },
+      "hems_state": {
+        "name": "HEMS active"
+      },
+      "ct_off": {
+        "name": "CT disconnected"
+      },
+      "local_state": {
+        "name": "Local connection"
+      },
+      "low_temperature": {
+        "name": "Low temperature"
+      },
+      "master_switch": {
+        "name": "Master switch"
+      },
+      "rest_state": {
+        "name": "Energy saving mode"
+      },
+      "reverse_state": {
+        "name": "Reverse flow"
+      },
+      "wifi_state": {
+        "name": "Wi-Fi"
+      }
+    },
+    "sensor": {
+      "soc": {
+        "name": "SoC"
+      },
+      "capacity_kwh": {
+        "name": "Capacity"
+      },
+      "available_kwh": {
+        "name": "Available energy"
+      },
+      "charge_power": {
+        "name": "Charge power"
+      },
+      "charge_power_aggr": {
+        "name": "Charged energy"
+      },
+      "discharge_power": {
+        "name": "Discharge power"
+      },
+      "discharge_power_aggr": {
+        "name": "Discharged energy"
+      },
+      "house_load": {
+        "name": "House load"
+      },
+      "house_load_aggr": {
+        "name": "House energy"
+      },
+      "house_solar": {
+        "name": "House solar"
+      },
+      "house_solar_aggr": {
+        "name": "Solar energy"
+      },
+      "grid_import": {
+        "name": "Grid import"
+      },
+      "grid_import_aggr": {
+        "name": "Grid import energy"
+      },
+      "grid_export": {
+        "name": "Grid export"
+      },
+      "grid_export_aggr": {
+        "name": "Grid export energy"
+      },
+      "soc_limit": {
+        "name": "SoC limit state"
+      },
+      "home_input": {
+        "name": "Home input power"
+      },
+      "home_input_aggr": {
+        "name": "Home input energy"
+      },
+      "home_output": {
+        "name": "Home output power"
+      },
+      "home_output_aggr": {
+        "name": "Home output energy"
+      },
+      "battery_input": {
+        "name": "Battery charge power"
+      },
+      "battery_input_aggr": {
+        "name": "Battery charged energy"
+      },
+      "battery_output": {
+        "name": "Battery discharge power"
+      },
+      "battery_output_aggr": {
+        "name": "Battery discharged energy"
+      },
+      "temp": {
+        "name": "Device temperature"
+      },
+      "remaining_time": {
+        "name": "Remaining time"
+      },
+      "power_max": {
+        "name": "Maximum inverter power"
+      },
+      "power_setpoint": {
+        "name": "Power setpoint"
+      },
+      "kwh": {
+        "name": "Battery capacity"
+      },
+      "rte": {
+        "name": "Round-trip efficiency"
+      },
+      "ac_firmware_version": {
+        "name": "AC firmware"
+      },
+      "ac_hardware_version": {
+        "name": "AC hardware"
+      },
+      "ac_output_power": {
+        "name": "AC output power"
+      },
+      "battery_electric": {
+        "name": "Battery electric power"
+      },
+      "bat_volt": {
+        "name": "Battery voltage"
+      },
+      "bms_firmware_version": {
+        "name": "BMS firmware"
+      },
+      "bms_hardware_version": {
+        "name": "BMS hardware"
+      },
+      "dc_firmware_version": {
+        "name": "DC firmware"
+      },
+      "dc_hardware_version": {
+        "name": "DC hardware"
+      },
+      "dc_output_power": {
+        "name": "DC output power"
+      },
+      "dsp_version": {
+        "name": "DSP firmware"
+      },
+      "energy_power": {
+        "name": "Energy power"
+      },
+      "grid_off_power": {
+        "name": "Off-grid power"
+      },
+      "grid_off_power_aggr": {
+        "name": "Off-grid energy"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "grid_power_aggr": {
+        "name": "Grid energy"
+      },
+      "inverse_max_power": {
+        "name": "Inverter limit"
+      },
+      "master_firmware_version": {
+        "name": "Master firmware"
+      },
+      "masterhaer_version": {
+        "name": "Hardware version"
+      },
+      "master_hardware_version": {
+        "name": "Master hardware"
+      },
+      "master_soft_version": {
+        "name": "Master software"
+      },
+      "mppt_firmware_version": {
+        "name": "MPPT firmware"
+      },
+      "offgrid": {
+        "name": "Off-grid output"
+      },
+      "offgrid_aggr": {
+        "name": "Off-grid output energy"
+      },
+      "rssi": {
+        "name": "Wi-Fi signal strength"
+      },
+      "soft_version": {
+        "name": "Firmware"
+      },
+      "soh": {
+        "name": "SoH"
+      },
+      "solar": {
+        "name": "Solar power"
+      },
+      "solar_aggr": {
+        "name": "Solar energy"
+      },
+      "solar_power1": {
+        "name": "PV1 solar power"
+      },
+      "solar_power2": {
+        "name": "PV2 solar power"
+      },
+      "solar_power3": {
+        "name": "PV3 solar power"
+      },
+      "solar_power4": {
+        "name": "PV4 solar power"
+      },
+      "solar_power5": {
+        "name": "PV5 solar power"
+      },
+      "solar_power6": {
+        "name": "PV6 solar power"
+      },
+      "total_battery_volt": {
+        "name": "Total battery voltage"
+      },
+      "volt_wakeup": {
+        "name": "Wake-up voltage"
+      },
+      "total_power": {
+        "name": "Total power"
+      },
+      "total_import": {
+        "name": "Total import"
+      },
+      "total_export": {
+        "name": "Total export"
+      },
+      "phase1_power": {
+        "name": "Phase 1 power"
+      },
+      "phase1_current": {
+        "name": "Phase 1 current"
+      },
+      "phase1_voltage": {
+        "name": "Phase 1 voltage"
+      },
+      "phase2_power": {
+        "name": "Phase 2 power"
+      },
+      "phase2_current": {
+        "name": "Phase 2 current"
+      },
+      "phase2_voltage": {
+        "name": "Phase 2 voltage"
+      },
+      "phase3_power": {
+        "name": "Phase 3 power"
+      },
+      "phase3_current": {
+        "name": "Phase 3 current"
+      },
+      "phase3_voltage": {
+        "name": "Phase 3 voltage"
+      },
+      "pack_state": {
+        "name": "Battery state"
+      },
+      "state": {
+        "name": "State"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "max_temp": {
+        "name": "Highest cell temperature"
+      },
+      "total_vol": {
+        "name": "Total voltage"
+      },
+      "batcur": {
+        "name": "Battery current"
+      },
+      "max_vol": {
+        "name": "Highest cell voltage"
+      },
+      "min_vol": {
+        "name": "Lowest cell voltage"
+      }
+    },
+    "button": {
+      "detect_phase": {
+        "name": "Detect phase"
+      },
+      "export_replay": {
+        "name": "Export replay data"
+      }
+    }
+  }
+}

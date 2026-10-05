@@ -1,193 +1,232 @@
-"""Migration helpers for Zendure integration."""
+"""Migration of a zendure_ha 1.x entry: settings into sections, devices into subentries, every entity onto its new name and key."""
+
+from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
+from types import MappingProxyType
+from typing import Any
 
 from homeassistant.components.persistent_notification import async_create
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import restore_state as rs
+from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN
-from .device import ZendureBattery
-from .entity import snakecase
+from .const import DOMAIN, PANEL_TITLE
+from .entity import device_by_identifier, snakecase, unique_name
+from .zendure.battery import battery_type
+from .zendure.driver import ZendureDriver
+from .zendure.solarflow import ZendureSolarFlow
 
 _LOGGER = logging.getLogger(__name__)
 
+# old translation_key -> new display key; None: the entity has no successor and is removed from the registry
+DEVICE_KEYS: dict[str, str | None] = {
+    "output_limit": "output_limit",
+    "input_limit": "input_limit",
+    "min_soc": "soc_min",
+    "soc_set": "soc_max",
+    "soc_status": None,
+    "soc_limit": "soc_limit",
+    "pass": "bypass",
+    "fuse_group": None,
+    "ac_mode": None,
+    "electric_level": "soc",
+    "grid_input_power": "home_input",
+    "solar_input_power": "solar",
+    "output_pack_power": "battery_input",
+    "pack_input_power": "battery_output",
+    "output_home_power": "home_output",
+    "bat_in_out": None,
+    "heat_state": "heat_state",
+    "hems_state": "hems_state",
+    "available_kwh": None,
+    "total_kwh": "kwh",
+    "connection_status": None,
+    "connection": None,
+    "ble_adapter": None,
+    "remaining_time": "remaining_time",
+    "next_calibration": None,
+    "aggr_charge": "battery_input_aggr",
+    "aggr_discharge": "battery_output_aggr",
+    "roundtrip_efficiency": "rte",
+    "aggr_grid_input_power": "home_input_aggr",
+    "aggr_output_home": "home_output_aggr",
+    "aggr_solar": "solar_aggr",
+    "aggr_grid_off_power": "grid_off_power_aggr",
+    "switch_count": None,
+    "mqtt_reset": None,
+    "hub_mode": None,
+    "ac_switch": None,
+    "dc_switch": None,
+    "hyper_tmp": "temp",
+    "inverse_max_power": "power_max",
+}
+DEVICE_KEYS |= {snakecase(vendor): name for vendor, (_, name, _) in ZendureSolarFlow.SENSORS.items() if snakecase(vendor) not in DEVICE_KEYS}
+BATTERY_KEYS: dict[str, str | None] = {"soc_level": "soc", "pack_state": "pack_state", "state": "state", "power": "power", "max_temp": "max_temp", "total_vol": "total_vol", "batcur": "batcur", "max_vol": "max_vol", "min_vol": "min_vol", "delta_voltage": None}
+MANAGER_KEYS: dict[str, str | None] = {"operation": "mode", "manual_power": "manual_power", "available_kwh": "available_kwh", "total_kwh": "capacity_kwh", "global_soc": "soc", "power": None, "operation_state": None}
+RESTORED = {"soc_min", "soc_max", "mode", "manual_power"}  # knobs whose last state moves into the Store, next to every kWh counter
+
 
 class Migration:
-    """Handles device/entity rename migrations."""
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self.entry = entry
+        self.devices = dr.async_get(hass)
+        self.entities = er.async_get(hass)
+        self.last_states = rs.async_get(hass).last_states
+        self.changes: list[tuple[str, str]] = []  # (old entity_id, new entity_id) for the dashboards and automations
+        self.store: dict[str, dict[str, Any]] = {}  # device_id -> {unique_id: value} for the v2 Store
 
-    repairs = {"i_o_t_state": "iotstate", "o_t_a_state": "otastate", "l_c_n_state": "lcnstate", "local_a_p_i_enable": "local_apienable", "is_error": ""}
+    def rename_entities(self, device: dr.DeviceEntry, name: str, device_id: str, keys: dict[str, str | None]) -> None:
+        # every entity of the device onto snakecase(f"{name}_{key}"); no successor means the entity goes
+        for e in er.async_entries_for_device(self.entities, device.id, include_disabled_entities=True):
+            if e.platform != DOMAIN:
+                continue
+            if (key := keys.get(e.translation_key or "")) is None:
+                self.entities.async_remove(e.entity_id)
+                continue
+            unique_id = snakecase(f"{name}_{key}")
+            entity_id = f"{e.domain}.{unique_id}"
+            if key in RESTORED or key.endswith("_aggr"):
+                if (stored := self.last_states.get(e.entity_id)) is not None and stored.state.state not in ("unknown", "unavailable", ""):
+                    value = stored.state.state
+                    self.store.setdefault(device_id, {})[unique_id] = value if key == "mode" else float(value)
+            if e.entity_id == entity_id and e.unique_id == unique_id:
+                continue
+            if (other := self.entities.async_get(entity_id)) is not None and other.entity_id != e.entity_id:
+                self.entities.async_remove(entity_id)
+            try:
+                self.entities.async_update_entity(e.entity_id, new_unique_id=unique_id, new_entity_id=entity_id)
+            except ValueError as err:
+                _LOGGER.warning("Migration: %s could not become %s: %s", e.entity_id, entity_id, err)
+                continue
+            if e.entity_id != entity_id:
+                self.changes.append((e.entity_id, entity_id))
 
-    @staticmethod
-    def check_device(hass: HomeAssistant, device_id: str, name: str, model: str, sn: str) -> None:
-        """Track cloud-side device renames via name_by_user for the next migration."""
-        device_registry = dr.async_get(hass)
+    def migrate_devices(self) -> list[ConfigSubentry]:
+        subentries: list[ConfigSubentry] = []
+        taken: set[str] = set()
+        registered = dr.async_entries_for_config_entry(self.devices, self.entry.entry_id)
+        for device in registered:
+            if device.via_device_id is not None or not device.model_id or not any(i[0] == DOMAIN for i in device.identifiers):
+                continue
+            sn = device.serial_number or ""
+            ids = [i[1] for i in device.identifiers if i[0] == DOMAIN and i[1] and i[1] != sn]
+            device_id = device.hw_version if device.hw_version in ids else (ids[0] if ids else "")
+            if not device_id or not sn or (family := ZendureDriver.device_family({"product": device.model})) is None:
+                _LOGGER.warning("Migration: %s (%s) has no serial or an unknown product %s, left as it is", device.name, device_id, device.model)
+                continue
+            name = unique_name(family, sn, taken)
+            taken.add(name)
+            blemac = next((c[1] for c in device.connections if c[0] == dr.CONNECTION_BLUETOOTH), "")
+            batteries: dict[str, str] = {}
+            for pack in registered:
+                if pack.via_device_id != device.id or not pack.serial_number:
+                    continue
+                model, _ = battery_type(pack.serial_number)
+                pack_name = unique_name(model, pack.serial_number, taken)
+                taken.add(pack_name)
+                batteries[pack.serial_number] = pack_name
+                self.devices.async_update_device(pack.id, name=pack_name, name_by_user=None, new_identifiers={(DOMAIN, f"{model}_{pack.serial_number[-8:]}")}, serial_number=None, hw_version=None)
+                self.rename_entities(pack, pack_name, f"{model}_{pack.serial_number[-8:]}", BATTERY_KEYS)
+            self.devices.async_update_device(device.id, name=name, name_by_user=None, new_identifiers={(DOMAIN, sn)}, serial_number=None, hw_version=None)
+            self.rename_entities(device, name, sn, DEVICE_KEYS)
+            data = {"product": device.model, "sn": sn, "device_id": device_id, "prodkey": device.model_id, "ip": "", "blemac": blemac, "batteries": batteries}
+            subentries.append(ConfigSubentry(data=MappingProxyType(data), subentry_type=ZendureDriver.id, title=name, unique_id=f"{ZendureDriver.id}_{sn}"))
+            _LOGGER.info("Migration: %s -> %s (%s)", device.name, name, sn)
 
-        fallback = f"{model.replace(' ', '').replace('SolarFlow', 'Sf')} {sn[-3:] if sn is not None else ''}".strip()
-        unique = "".join(name.split())
-        identifier = device_id or name
-        if not identifier:
-            return
+        if (manager := device_by_identifier(self.hass, "Zendure Manager")) is not None:
+            self.devices.async_update_device(manager.id, name=PANEL_TITLE, name_by_user=None, new_identifiers={(DOMAIN, PANEL_TITLE)}, serial_number=None, hw_version=None)
+            self.rename_entities(manager, PANEL_TITLE, PANEL_TITLE, MANAGER_KEYS)
+        return subentries
 
-        existing = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
-        if existing is None:
-            for ident in [name, name.lower(), unique, fallback, fallback.lower()]:
-                existing = device_registry.async_get_device(identifiers={(DOMAIN, ident)})
-                if existing is not None:
-                    break
+    def settings(self) -> dict[str, Any]:
+        old = self.entry.data
+        p1 = self.entities.async_get(str(old.get("p1meter", ""))) if old.get("p1meter") else None
+        local = bool(old.get("mqttlocal"))
+        return {
+            "distribution": {"max_kw": 17.0, "mqtt_log": bool(old.get("mqttlog", False)), "p1_device": (p1.device_id if p1 else None) or ""},
+            "zendure": {"apptoken": str(old.get("token", "")), "mqtt_host": str(old.get("mqttserver", "")) if local else "", "mqtt_port": int(old.get("mqttport", 1883) or 1883), "mqtt_user": str(old.get("mqttuser", "")) if local else "", "mqtt_psw": str(old.get("mqttpsw", "")) if local else "", "wifi_ssid": str(old.get("wifissid", "")), "wifi_psw": str(old.get("wifipsw", ""))},
+            "zeroconf": {},
+        }
 
-        if not existing:
-            return
-
-        if name != existing.name and existing.name_by_user is None:
-            _LOGGER.info("Device '%s' renamed to '%s' in cloud, storing for next migration", existing.name, name)
-            device_registry.async_update_device(existing.id, name_by_user=name)
-
-    @staticmethod
-    def _update_files(hass: HomeAssistant, changes: list[tuple[str, str]]) -> bool:
-        """Replace old entity IDs with new ones in storage and config files."""
-        file_modified = False
-
-        def update_file(path: Path) -> None:
-            nonlocal file_modified
+    def rewrite_files(self) -> bool:
+        # the old entity ids in dashboards, automations and the energy dashboard; runs in the executor
+        modified = False
+        config_dir = Path(self.hass.config.config_dir)
+        storage = config_dir / ".storage"
+        paths = [p for p in storage.iterdir() if any(p.name.startswith(f) for f in ("core.automation", "lovelace", "energy"))] if storage.is_dir() else []
+        paths += [p for p in config_dir.rglob("*") if p.is_file() and p.suffix in (".yaml", ".json") and not any(part.startswith(".") for part in p.relative_to(config_dir).parts)]
+        for path in paths:
             try:
                 content = path.read_text(encoding="utf-8")
-                updated = content
-                for old_id, new_id in changes:
-                    updated = updated.replace(old_id, new_id)
+                updated = self.replace(content)
                 if updated != content:
                     path.write_text(updated, encoding="utf-8")
-                    file_modified = True
-            except Exception as e:
-                _LOGGER.error("Error migrating file %s: %s", path, e)
+                    modified = True
+            except Exception as err:
+                _LOGGER.error("Migration: could not rewrite %s: %s", path, err)
+        return modified
 
-        storage_dir = Path(hass.config.path(".storage"))
-        for path in storage_dir.iterdir():
-            if any(path.name.startswith(f) for f in ["core.automation", "lovelace", "energy"]):
-                update_file(path)
-
-        config_path = Path(hass.config.config_dir)
-        for path in config_path.rglob("*"):
-            if path.is_dir():
-                continue
-            if any(part.startswith(".") for part in path.relative_to(config_path).parts):
-                continue
-            if path.suffix in (".yaml", ".json"):
-                update_file(path)
-
-        return file_modified
-
-    @staticmethod
-    async def async_migrate(hass: HomeAssistant, entryid: str) -> None:
-        """One-time migration run via async_migrate_entry: fix device identifiers and entity IDs."""
-        device_registry = dr.async_get(hass)
-        entity_registry = er.async_get(hass)
-        data = rs.async_get(hass)
-        changes: list[tuple[str, str]] = []
-
-        devices = dr.async_entries_for_config_entry(device_registry, entryid)
-        for device in devices:
-            if not any(ident[0] == DOMAIN for ident in device.identifiers):
-                continue
-
-            try:
-                if device.serial_number:
-                    new_identifiers = set(device.identifiers) | {(DOMAIN, device.serial_number)}
-                    if new_identifiers != set(device.identifiers):
-                        device_registry.async_update_device(device.id, new_identifiers=new_identifiers)
-
-                # Get the best possible name for the device: prefer name_by_user, then name, then try to infer from entities
-                entities = er.async_entries_for_device(entity_registry, device.id, True)
-                if not (name := device.name_by_user or device.name) or "_" in name:
-                    continue
-
-                if device.via_device_id:
-                    # is a battery device, change name to the new format
-                    name, _, _ = ZendureBattery.get_battery_type(device.serial_number)
-                if name != device.name:
-                    _LOGGER.info("Promoting device name '%s' -> '%s'", device.name, name)
-                    device_registry.async_update_device(device.id, name=name, name_by_user=None)
-
-                for entity in entities:
-                    try:
-                        # rename only entities which belong to the zendure_ha domain
-                        if entity.platform == DOMAIN:
-                            if entity.translation_key is None:
-                                entity_registry.async_remove(entity.entity_id)
-                                _LOGGER.debug("Removed orphan entity %s", entity.entity_id)
-                                continue
-
-                            uniqueid = snakecase(v) if (v := Migration.repairs.get(entity.translation_key)) is not None else snakecase(entity.translation_key)
-                            if uniqueid == "":
-                                entity_registry.async_remove(entity.entity_id)
-                                continue
-
-                            if uniqueid.startswith("aggr") and uniqueid.endswith("total"):
-                                uniqueid = uniqueid.replace("_total", "")
-                            unique_id = snakecase(f"{name.lower()}_{uniqueid}")
-                            entityid = f"{entity.domain}.{unique_id}"
-
-                            if entity.entity_id != entityid or entity.unique_id != unique_id or entity.translation_key != uniqueid:
-                                if entity.entity_id != entityid:
-                                    entity_registry.async_remove(entityid)
-                                if (rstate := data.last_states.pop(entity.entity_id, None)) is not None:
-                                    data.last_states[entityid] = rstate
-                                entity_registry.async_update_entity(
-                                    entity.entity_id,
-                                    new_unique_id=unique_id,
-                                    new_entity_id=entityid,
-                                    translation_key=uniqueid,
-                                )
-                                _LOGGER.debug("Migrated entity %s -> %s", entity.entity_id, entityid)
-                                changes.append((entity.entity_id, entityid))
-                    except Exception as e:
-                        _LOGGER.error("Failed to migrate entity %s: %s", entity.entity_id, e)
-            except Exception as e:
-                _LOGGER.error("Failed to migrate entity %s: %s", entity.entity_id, e)
-
-        # update template config entries
-        modified = 0
-        for entry in hass.config_entries.async_entries():
-            new_data = dict(entry.data or {})
-            new_options = dict(entry.options or {})
-            if len(new_data) == 0 and len(new_options) == 0:
-                continue
-
-            def change_id(data: dict, oid: str, nid: str) -> bool:
-                changed = False
-                for key, value in data.items():
-                    if isinstance(value, dict):
-                        changed |= change_id(value, oid, nid)
-                    elif isinstance(value, list):
-                        for i, item in enumerate(value):
-                            if isinstance(item, str) and oid in item:
-                                value[i] = item.replace(oid, nid)
-                                changed = True
-                    elif isinstance(value, str) and oid in value:
-                        data[key] = value.replace(oid, nid)
-                        changed = True
-                return changed
-
+    def rewrite_entries(self) -> None:
+        # template helpers and other integrations that hold one of our entity ids in their data or options
+        def change(data: Any) -> bool:
             changed = False
-            for oid, nid in changes:
-                changed |= change_id(new_data, oid, nid)
-                changed |= change_id(new_options, oid, nid)
+            if isinstance(data, dict):
+                for key, value in data.items():
+                    if isinstance(value, (dict, list)):
+                        changed |= change(value)
+                    elif isinstance(value, str) and (new := self.replace(value)) != value:
+                        data[key] = new
+                        changed = True
+            elif isinstance(data, list):
+                for i, item in enumerate(data):
+                    if isinstance(item, (dict, list)):
+                        changed |= change(item)
+                    elif isinstance(item, str) and (new := self.replace(item)) != item:
+                        data[i] = new
+                        changed = True
+            return changed
 
-            if changed:
-                hass.config_entries.async_update_entry(entry, data=new_data, options=new_options)
-                hass.async_create_task(hass.config_entries.async_reload(entry.entry_id))
-                modified += 1
-        _LOGGER.info("Modified %d template entities", modified)
+        for other in self.hass.config_entries.async_entries():
+            if other.entry_id == self.entry.entry_id:
+                continue
+            data, options = dict(other.data or {}), dict(other.options or {})
+            if change(data) | change(options):
+                self.hass.config_entries.async_update_entry(other, data=data, options=options)
+                self.hass.async_create_task(self.hass.config_entries.async_reload(other.entry_id))
 
-        if changes and await hass.async_add_executor_job(Migration._update_files, hass, changes):
-            await rs.RestoreStateData.async_save_persistent_states(hass)
-            async_create(
-                hass,
-                f"Zendure migration updated {len(changes)} entities. Please restart Home Assistant to ensure all automations and dashboards use the new entity IDs.",
-                title="Zendure Migration",
-                notification_id="zendure_migration",
-            )
-        _LOGGER.info("Zendure async_migrate complete: %d entity changes", len(changes))
+    def replace(self, text: str) -> str:
+        for old_id, new_id in self.changes:
+            text = re.sub(rf"(?<!\w){re.escape(old_id)}(?!\w)", new_id, text)
+        return text
+
+
+async def async_migrate(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    m = Migration(hass, entry)
+    settings = m.settings()
+    subentries = m.migrate_devices()
+
+    # the kWh counters and the knobs continue from their last state, in the Store the v2 devices restore from
+    store = Store(hass, 1, f"{DOMAIN}.devices", atomic_writes=True)
+    payload = await store.async_load() or {}
+    for device_id, values in m.store.items():
+        payload.setdefault("devices", {}).setdefault(device_id, {}).update(values)
+    await store.async_save(payload)
+    await Store(hass, 1, f"{DOMAIN}.storage").async_remove()  # the 1.x device list cache
+
+    hass.config_entries.async_update_entry(entry, data=settings, title=PANEL_TITLE, unique_id=PANEL_TITLE, version=2, minor_version=1)
+    subentries.insert(0, ConfigSubentry(data=MappingProxyType({}), subentry_type="distribution", title="Distribution", unique_id="distribution"))  # the fleet control gets its own card
+    for sub in subentries:
+        hass.config_entries.async_add_subentry(entry, sub)
+
+    if m.changes:
+        m.rewrite_entries()
+        if await hass.async_add_executor_job(m.rewrite_files):
+            async_create(hass, f"Zendure v2 renamed {len(m.changes)} entities. Restart Home Assistant so every dashboard and automation uses the new entity ids.", title="Zendure migration", notification_id="zendure_migration")
+    _LOGGER.info("Zendure migration to v2 complete: %d devices, %d entity changes", len(subentries), len(m.changes))

@@ -1,84 +1,37 @@
-"""Initialize the Zendure component."""
+from __future__ import annotations
 
+import importlib
 import logging
 
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
-
-from .api import Api
-from .const import CONF_MQTTLOG, CONF_P1METER, CONF_SIM
-from .device import ZendureDevice
-from .entity import EntityDevice
-from .manager import ZendureConfigEntry, ZendureManager
-from .migration import Migration
-
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+PLATFORMS = ["sensor", "number", "binary_sensor", "select", "switch", "button", "time"]
 
 
-async def async_migrate_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
-    """Migrate config entry to new version."""
-    if entry.version == 1 and entry.minor_version < 8:
-        _LOGGER.info("Migrating Zendure config entry from version %s.%s", entry.version, entry.minor_version)
-        await Migration.async_migrate(hass, entry.entry_id)
-    hass.config_entries.async_update_entry(entry, version=1, minor_version=8)
+async def async_migrate_entry(hass, entry) -> bool:
+    # version 1 is the zendure_ha 1.x entry: its settings, devices and entity ids move to the v2 shape
+    if entry.version == 1:
+        from .migration import async_migrate
+
+        await async_migrate(hass, entry)
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
-    """Set up Zendure as config entry."""
+async def async_setup_entry(hass, entry) -> bool:
+    # Import in the executor, not on the loop: paho-mqtt/bleak do blocking I/O at import time.
+    module = await hass.async_add_import_executor_job(importlib.import_module, ".coordinator", __package__)
+
+    # Init the platforms  must be wired before Coordinator.__init__ registers Distribution's entities.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await EntityDevice.async_load_translations(hass)
-    manager = ZendureManager(hass, entry)
-    await manager.loadDevices()
-    entry.runtime_data = manager
-    await manager.async_config_entry_first_refresh()
-    entry.async_on_unload(entry.add_update_listener(update_listener))
+    coordinator = module.Coordinator(hass, entry)
+    await coordinator.async_setup()
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     return True
 
 
-async def update_listener(_hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
-    """Handle options update."""
-    _LOGGER.debug("Updating Zendure config entry: %s", entry.entry_id)
-    Api.mqttLogging = entry.data.get(CONF_MQTTLOG, False)
-    ZendureManager.simulation = entry.data.get(CONF_SIM, False)
-    entry.runtime_data.update_p1meter(entry.data.get(CONF_P1METER, "sensor.power_actual"))
-
-
-async def async_unload_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> bool:
-    """Unload a config entry."""
-    _LOGGER.debug("Unloading Zendure config entry: %s", entry.entry_id)
-    result = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if result:
-        manager = entry.runtime_data
-        if Api.mqttCloud.is_connected():
-            Api.mqttCloud.disconnect()
-        if Api.mqttLocal.is_connected():
-            Api.mqttLocal.disconnect()
-        for c in Api.devices.values():
-            if c.zendure is not None and c.zendure.is_connected():
-                c.zendure.disconnect()
-            c.zendure = None
-        manager.update_p1meter(None)
-        manager.fuseGroups.clear()
-        manager.devices.clear()
-    return result
-
-
-async def async_remove_config_entry_device(_hass: HomeAssistant, entry: ZendureConfigEntry, device_entry: dr.DeviceEntry) -> bool:
-    """Remove a device from a config entry."""
-    manager = entry.runtime_data
-
-    # check for device to remove
-    for d in manager.devices:
-        if d.name == device_entry.name:
-            manager.devices.remove(d)
-            return True
-
-        if isinstance(d, ZendureDevice) and (bat := next((b for b in d.batteries.values() if b.name == device_entry.name), None)) is not None:
-            d.batteries.pop(bat.deviceId)
-            return True
-
-    return True
+async def async_unload_entry(hass, entry) -> bool:
+    coordinator = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+    if coordinator is not None:
+        await coordinator.unload()
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

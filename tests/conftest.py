@@ -2,58 +2,44 @@
 
 from __future__ import annotations
 
-from typing import Any
+import sys
 
 import pytest
+import pytest_socket
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.zendure_ha.const import DOMAIN
 
 pytest_plugins = "pytest_homeassistant_custom_component"
+
+if sys.platform == "win32":
+    # asyncio on Windows builds its self-pipe from an AF_INET socketpair; pytest_socket only lets AF_UNIX through
+    pytest_socket._is_unix_socket = lambda family: True
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
+    return
 
 
 @pytest.fixture(autouse=True)
 def _stub_add_entities_callback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Entity classes queue themselves via a class-level `.add` callback normally
-    supplied by async_add_entities during platform setup (see e.g. number.py's
-    async_setup_entry). Tests construct devices directly without a platform, so
-    stub `.add` out on every entity class that uses the pattern.
-    """
-    from custom_components.zendure_ha.binary_sensor import ZendureBinarySensor
-    from custom_components.zendure_ha.button import ZendureButton
-    from custom_components.zendure_ha.number import ZendureNumber
-    from custom_components.zendure_ha.select import ZendureSelect
-    from custom_components.zendure_ha.sensor import ZendureSensor
-    from custom_components.zendure_ha.switch import ZendureSwitch
+    # the platforms hand every entity class its async_add_entities; tests build devices without a platform
+    from custom_components.zendure_ha.binary_sensor import HaBinarySensor
+    from custom_components.zendure_ha.button import HaButton
+    from custom_components.zendure_ha.number import HaNumber
+    from custom_components.zendure_ha.select import HaSelect
+    from custom_components.zendure_ha.sensor import HaSensor
+    from custom_components.zendure_ha.switch import HaSwitch
+    from custom_components.zendure_ha.time import HaTime
 
-    def _noop(_entities: list[Any]) -> None:
-        return
-
-    for cls in (ZendureBinarySensor, ZendureButton, ZendureNumber, ZendureSelect, ZendureSensor, ZendureSwitch):
-        monkeypatch.setattr(cls, "add", staticmethod(_noop), raising=False)
+    for cls in (HaBinarySensor, HaButton, HaNumber, HaSelect, HaSensor, HaSwitch, HaTime):
+        monkeypatch.setattr(cls, "add", staticmethod(lambda *args, **kwargs: None), raising=False)
 
 
 @pytest.fixture
-def device_definition() -> dict[str, str]:
-    """A minimal device 'definition' dict as passed by the coordinator/config entry."""
-    return {
-        "productKey": "testProdKey",
-        "snNumber": "JO4ATEST1",
-        "productModel": "SolarFlow 2400 AC",
-        "ip": "",
-    }
-
-
-@pytest.fixture
-async def zensdk_device(hass, device_definition):  # noqa: ANN001
-    """A ZendureZenSdk device instance (e.g. SolarFlow 2400 AC) wired up for direct testing.
-
-    Must be an async fixture: the constructor creates an aiohttp session via
-    async_get_clientsession, which needs a running event loop. A plain sync
-    fixture runs outside the loop pytest-asyncio set up for the `hass` fixture.
-    """
-    from custom_components.zendure_ha.device import ZendureZenSdk
-
-    device = ZendureZenSdk(hass, "device-1", "SolarFlow 2400 AC", "SolarFlow 2400 AC", device_definition)
-    # connection defaults to "cloud" (value 0), so doCommand() takes the
-    # mqttPublish path (recorded below) rather than an HTTP POST.
-    device.mqtt_commands = []
-    device.mqttPublish = lambda topic, command, mqtt=None: device.mqtt_commands.append(command)  # noqa: ARG005
-    return device
+def entry(hass) -> MockConfigEntry:  # noqa: ANN001
+    # a v2 entry without devices; tests add subentries as they need them
+    entry = MockConfigEntry(domain=DOMAIN, title="Zendure", unique_id="Zendure", version=2, data={"distribution": {"max_kw": 17.0, "mqtt_log": False}, "zendure": {}})
+    entry.add_to_hass(hass)
+    return entry
