@@ -12,12 +12,14 @@
               "max_kw": "Przyłącze sieciowe",
               "max_output": "Maksymalne zasilanie domu",
               "p1_device": "Licznik P1",
+              "p1_entity": "Czujnik P1",
               "mqtt_log": "Rejestruj ruch MQTT"
             },
             "data_description": {
               "max_kw": "Moc przyłącza sieciowego, wszystkie fazy łącznie.",
               "max_output": "Górny limit tego, co wszystkie baterie łącznie dostarczają do domu, w W. 0 = brak limitu. Niemcy: 800.",
               "p1_device": "Urządzenie, którego encje mocy raportują pobór i oddawanie energii do sieci.",
+              "p1_entity": "Opcjonalnie. Jeden czujnik z mocą netto sieci, pobór dodatni. Jeśli jest ustawiony, to on daje odczyt P1; urządzenie licznika P1 dostarcza wtedy tylko fazy.",
               "mqtt_log": "Zapisuj każdą wiadomość MQTT do zendure_ha_mqtt.jsonl w katalogu konfiguracji."
             }
           },
@@ -60,12 +62,14 @@
               "max_kw": "Przyłącze sieciowe",
               "max_output": "Maksymalne zasilanie domu",
               "p1_device": "Licznik P1",
+              "p1_entity": "Czujnik P1",
               "mqtt_log": "Rejestruj ruch MQTT"
             },
             "data_description": {
               "max_kw": "Moc przyłącza sieciowego, wszystkie fazy łącznie.",
               "max_output": "Górny limit tego, co wszystkie baterie łącznie dostarczają do domu, w W. 0 = brak limitu. Niemcy: 800.",
               "p1_device": "Urządzenie, którego encje mocy raportują pobór i oddawanie energii do sieci.",
+              "p1_entity": "Opcjonalnie. Jeden czujnik z mocą netto sieci, pobór dodatni. Jeśli jest ustawiony, to on daje odczyt P1; urządzenie licznika P1 dostarcza wtedy tylko fazy.",
               "mqtt_log": "Zapisuj każdą wiadomość MQTT do zendure_ha_mqtt.jsonl w katalogu konfiguracji."
             }
           },

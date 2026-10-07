@@ -76,6 +76,7 @@ class Distribution(EntityDevice):
             dr.async_get(hass).async_update_device(dev.id, remove_config_entry_id=entry_id, remove_config_subentry_id=None)
         EntityDevice.__init__(self, hass, PANEL_TITLE, subentry_id=subentry_id)
         self.p1_device: str = ""
+        self.p1_entity: str = ""  # an explicit net grid entity (import positive): when set it is the P1 total, the device only adds the phases
         self.on_save: Callable | None = None  # set by the coordinator: persists the store
         self.p1_entities: list[tuple[str, int, float]] = []  # set by the coordinator: the P1 total entities as (entity_id, sign, factor)
         self.solar = 0  # W the solar panels make now, set by the coordinator
@@ -242,7 +243,7 @@ class Distribution(EntityDevice):
             persistent_notification.async_create(self.hass, "No devices online, not possible to start the operation", PANEL_TITLE, PANEL_TITLE)
             return
 
-        if mode != DistributionMode.OFF and not self.p1_device:
+        if mode != DistributionMode.OFF and not (self.p1_device or self.p1_entity):
             _LOGGER.warning("No P1 meter configured, the distribution never runs without it")
             persistent_notification.async_create(self.hass, "No P1 meter configured, the distribution never runs without it", PANEL_TITLE, PANEL_TITLE)
             return

@@ -12,12 +12,14 @@
               "max_kw": "Raccordement au réseau",
               "max_output": "Fourniture maximale à la maison",
               "p1_device": "Compteur P1",
+              "p1_entity": "Capteur P1",
               "mqtt_log": "Journaliser le trafic MQTT"
             },
             "data_description": {
               "max_kw": "Capacité de votre raccordement au réseau, toutes phases réunies.",
               "max_output": "Plafond de ce que toutes les batteries fournissent ensemble à la maison, en W. 0 = pas de plafond. Allemagne : 800.",
               "p1_device": "L'appareil dont les entités de puissance indiquent votre soutirage et votre injection réseau.",
+              "p1_entity": "Facultatif. Un capteur avec votre puissance réseau nette, soutirage positif. S'il est défini, il fournit la mesure P1 ; l'appareil compteur P1 ne fournit alors que les phases.",
               "mqtt_log": "Écrire chaque message MQTT dans zendure_ha_mqtt.jsonl du dossier de configuration."
             }
           },
@@ -60,12 +62,14 @@
               "max_kw": "Raccordement au réseau",
               "max_output": "Fourniture maximale à la maison",
               "p1_device": "Compteur P1",
+              "p1_entity": "Capteur P1",
               "mqtt_log": "Journaliser le trafic MQTT"
             },
             "data_description": {
               "max_kw": "Capacité de votre raccordement au réseau, toutes phases réunies.",
               "max_output": "Plafond de ce que toutes les batteries fournissent ensemble à la maison, en W. 0 = pas de plafond. Allemagne : 800.",
               "p1_device": "L'appareil dont les entités de puissance indiquent votre soutirage et votre injection réseau.",
+              "p1_entity": "Facultatif. Un capteur avec votre puissance réseau nette, soutirage positif. S'il est défini, il fournit la mesure P1 ; l'appareil compteur P1 ne fournit alors que les phases.",
               "mqtt_log": "Écrire chaque message MQTT dans zendure_ha_mqtt.jsonl du dossier de configuration."
             }
           },

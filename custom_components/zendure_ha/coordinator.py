@@ -59,8 +59,8 @@ class Coordinator:
 
         # periodic dump: without it the kWh counters only reach the Store when a user happens to move a knob
         self._unsubs.append(async_track_time_interval(self.hass, self._store_save, timedelta(minutes=15)))
-        if self.distribution.p1_device:  # every power entity on the P1 device feeds total/L1/L2/L3 by name
-            self._track_p1(self.distribution.p1_device)
+        if self.distribution.p1_device or self.distribution.p1_entity:  # the P1 entity, or every power entity on the P1 device by name, feeds total/L1/L2/L3
+            self._track_p1(self.distribution.p1_device, self.distribution.p1_entity)
         self._track_solar()
 
     def apply_settings(self) -> None:
@@ -98,8 +98,8 @@ class Coordinator:
         if {k: dict(v) for k, v in entry.data.items() if isinstance(v, dict)} != self._settings:
             self.apply_settings()
             await self.zendure.connect()
-            if self.distribution.p1_device:
-                self._track_p1(self.distribution.p1_device)
+            if self.distribution.p1_device or self.distribution.p1_entity:
+                self._track_p1(self.distribution.p1_device, self.distribution.p1_entity)
             self._track_solar()
 
     def discovered(self, data: dict[str, Any]) -> None:
@@ -183,12 +183,13 @@ class Coordinator:
         for eid in {power_entity for power_entity, _ in self.distribution.solar_panels if power_entity}:
             self.track(eid, lambda w, e=eid: solar_sum(e, w))
 
-    def _track_p1(self, device_id: str) -> None:
+    def _track_p1(self, device_id: str, entity_id: str = "") -> None:
         # All power entities on the chosen P1 device: name -> slot + sign, unit -> factor; a net total wins over the consumed/produced pair.
         # Registry entries often carry neither device_class nor unit because the integration sets them at runtime, so read both from the state.
+        # An explicit P1 entity replaces the device's totals: the name rules cannot tell a template, a filtered or a non-English meter entity apart.
         entities = []
         states = getattr(self.hass, "states", None)  # absent offline (tests/tools), then the registry is all there is
-        for e in er.async_entries_for_device(er.async_get(self.hass), device_id):
+        for e in er.async_entries_for_device(er.async_get(self.hass), device_id) if device_id else []:
             attrs = getattr(states.get(e.entity_id) if states else None, "attributes", None) or {}
             unit = attrs.get("unit_of_measurement") or e.unit_of_measurement
             if (attrs.get("device_class") or e.original_device_class or e.device_class) == "power" or unit in ("W", "kW", "kilowatt", "kilowatts"):
@@ -217,4 +218,9 @@ class Coordinator:
                 continue
             sign = -1 if "produc" in eid else 1
             self.distribution.p1_entities.append((eid, sign, factor))
+        if entity_id:  # the unit as for the device entities: the state first, the registry while the state is not there yet
+            reg = er.async_get(self.hass).async_get(entity_id)
+            unit = (getattr(states.get(entity_id) if states else None, "attributes", None) or {}).get("unit_of_measurement") or (reg.unit_of_measurement if reg else None)
+            self.distribution.p1_entities = [(entity_id, 1, 1000 if unit in ("kW", "kilowatt", "kilowatts") else 1)]
+        for eid, sign, factor in self.distribution.p1_entities:
             self.track(eid, lambda w, s=sign: self.hass.async_create_task(self.distribution._process_p1(s * int(w), now=time.time())), factor)

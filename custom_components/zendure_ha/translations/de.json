@@ -12,12 +12,14 @@
               "max_kw": "Netzanschluss",
               "max_output": "Maximale Einspeisung ins Haus",
               "p1_device": "P1-Zähler",
+              "p1_entity": "P1-Sensor",
               "mqtt_log": "MQTT-Verkehr protokollieren"
             },
             "data_description": {
               "max_kw": "Kapazität deines Netzanschlusses, alle Phasen zusammen.",
               "max_output": "Obergrenze für das, was alle Batterien zusammen ins Haus einspeisen, in W. 0 = keine Grenze. Deutschland: 800.",
               "p1_device": "Das Gerät, dessen Leistungsentitäten deinen Netzbezug und deine Einspeisung melden.",
+              "p1_entity": "Optional. Ein Sensor mit deiner Netto-Netzleistung, Bezug positiv. Ist er gesetzt, ist er der P1-Wert; das P1-Zähler-Gerät liefert dann nur noch die Phasen.",
               "mqtt_log": "Jede MQTT-Nachricht in zendure_ha_mqtt.jsonl im Konfigurationsverzeichnis schreiben."
             }
           },
@@ -60,12 +62,14 @@
               "max_kw": "Netzanschluss",
               "max_output": "Maximale Einspeisung ins Haus",
               "p1_device": "P1-Zähler",
+              "p1_entity": "P1-Sensor",
               "mqtt_log": "MQTT-Verkehr protokollieren"
             },
             "data_description": {
               "max_kw": "Kapazität deines Netzanschlusses, alle Phasen zusammen.",
               "max_output": "Obergrenze für das, was alle Batterien zusammen ins Haus einspeisen, in W. 0 = keine Grenze. Deutschland: 800.",
               "p1_device": "Das Gerät, dessen Leistungsentitäten deinen Netzbezug und deine Einspeisung melden.",
+              "p1_entity": "Optional. Ein Sensor mit deiner Netto-Netzleistung, Bezug positiv. Ist er gesetzt, ist er der P1-Wert; das P1-Zähler-Gerät liefert dann nur noch die Phasen.",
               "mqtt_log": "Jede MQTT-Nachricht in zendure_ha_mqtt.jsonl im Konfigurationsverzeichnis schreiben."
             }
           },

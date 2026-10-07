@@ -148,9 +148,11 @@ class Migration:
     def settings(self) -> dict[str, Any]:
         old = self.entry.data
         p1 = self.entities.async_get(str(old.get("p1meter", ""))) if old.get("p1meter") else None
+        # 1.x steered on this one entity: it stays the P1 total and its device adds the phases; one of our own is renamed here, so its device does it
+        p1_entity = "" if p1 is not None and p1.platform == DOMAIN else str(old.get("p1meter") or "")
         local = bool(old.get("mqttlocal"))
         return {
-            "distribution": {"max_kw": 17.0, "mqtt_log": bool(old.get("mqttlog", False)), "p1_device": (p1.device_id if p1 else None) or ""},
+            "distribution": {"max_kw": 17.0, "mqtt_log": bool(old.get("mqttlog", False)), "p1_device": (p1.device_id if p1 else None) or "", "p1_entity": p1_entity},
             "zendure": {"apptoken": str(old.get("token", "")), "mqtt_host": str(old.get("mqttserver", "")) if local else "", "mqtt_port": int(old.get("mqttport", 1883) or 1883), "mqtt_user": str(old.get("mqttuser", "")) if local else "", "mqtt_psw": str(old.get("mqttpsw", "")) if local else "", "wifi_ssid": str(old.get("wifissid", "")), "wifi_psw": str(old.get("wifipsw", ""))},
             "zeroconf": {},
         }

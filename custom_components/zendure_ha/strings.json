@@ -12,12 +12,14 @@
               "max_kw": "Grid connection",
               "max_output": "Maximum delivery to the house",
               "p1_device": "P1 meter",
+              "p1_entity": "P1 sensor",
               "mqtt_log": "Log MQTT traffic"
             },
             "data_description": {
               "max_kw": "Capacity of your grid connection, all phases together.",
               "max_output": "Cap on what all batteries together deliver to the house, in W. 0 = no cap. Germany: 800.",
               "p1_device": "The device whose power entities report your grid import and export.",
+              "p1_entity": "Optional. One sensor with your net grid power, import positive. When set it is the P1 reading; the P1 meter device then only supplies the phases.",
               "mqtt_log": "Write every MQTT message to zendure_ha_mqtt.jsonl in the config directory."
             }
           },
@@ -60,12 +62,14 @@
               "max_kw": "Grid connection",
               "max_output": "Maximum delivery to the house",
               "p1_device": "P1 meter",
+              "p1_entity": "P1 sensor",
               "mqtt_log": "Log MQTT traffic"
             },
             "data_description": {
               "max_kw": "Capacity of your grid connection, all phases together.",
               "max_output": "Cap on what all batteries together deliver to the house, in W. 0 = no cap. Germany: 800.",
               "p1_device": "The device whose power entities report your grid import and export.",
+              "p1_entity": "Optional. One sensor with your net grid power, import positive. When set it is the P1 reading; the P1 meter device then only supplies the phases.",
               "mqtt_log": "Write every MQTT message to zendure_ha_mqtt.jsonl in the config directory."
             }
           },

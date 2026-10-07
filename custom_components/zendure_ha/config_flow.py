@@ -18,6 +18,7 @@ DISTRIBUTION = vol.Schema({
     vol.Required("max_kw"): selector({"number": {"min": 0, "step": 0.1, "unit_of_measurement": "kW"}}),
     vol.Optional("max_output"): vol.All(selector({"number": {"min": 0, "step": 100, "unit_of_measurement": "W"}}), vol.Coerce(int)),
     vol.Optional("p1_device"): selector({"device": {}}),
+    vol.Optional("p1_entity"): selector({"entity": {"domain": "sensor"}}),
     vol.Required("mqtt_log"): selector({"boolean": {}}),
 })
 CLOUD = vol.Schema({vol.Optional("apptoken"): selector({"text": {"type": "password"}}), vol.Optional("cloud_url"): selector({"text": {}})})

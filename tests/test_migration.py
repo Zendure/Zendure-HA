@@ -48,7 +48,7 @@ async def test_migration(hass) -> None:  # noqa: ANN001
     await hass.async_block_till_done()
 
     assert entry.version == 2 and entry.title == "Zendure"
-    assert entry.data == {"distribution": {"max_kw": 17.0, "mqtt_log": True, "p1_device": p1.id}, "zendure": {"apptoken": "dG9rZW4=", "mqtt_host": "10.0.0.5", "mqtt_port": 1883, "mqtt_user": "zen", "mqtt_psw": "secret", "wifi_ssid": "home", "wifi_psw": "wifi"}, "zeroconf": {}}
+    assert entry.data == {"distribution": {"max_kw": 17.0, "mqtt_log": True, "p1_device": p1.id, "p1_entity": "sensor.p1_power"}, "zendure": {"apptoken": "dG9rZW4=", "mqtt_host": "10.0.0.5", "mqtt_port": 1883, "mqtt_user": "zen", "mqtt_psw": "secret", "wifi_ssid": "home", "wifi_psw": "wifi"}, "zeroconf": {}}
 
     assert [s.title for s in entry.subentries.values() if s.subentry_type == "distribution"] == ["Distribution"]
     subs = [s for s in entry.subentries.values() if s.subentry_type == "zendure"]

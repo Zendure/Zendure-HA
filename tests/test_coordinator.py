@@ -2,6 +2,7 @@
 
 import pytest
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.zendure_ha.const import DOMAIN
@@ -115,6 +116,63 @@ async def test_changed_settings_reconnect_the_driver(hass, monkeypatch) -> None:
     hass.config_entries.async_update_entry(entry, data={**entry.data, "zendure": {"mqtt_host": "10.0.0.9"}})
     await hass.async_block_till_done()
     assert connects == ["10.0.0.9"] and coord.zendure.mqtt_host == "10.0.0.9"
+    await coord.unload()
+
+
+def p1_meter(hass) -> str:  # noqa: ANN001
+    # an SMA-like meter: supplied/absorbed totals that the name rules both read as net totals, and one phase entity
+    meter = MockConfigEntry(domain="sma")
+    meter.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(config_entry_id=meter.entry_id, identifiers={("sma", "meter")}, name="SMA")
+    for key in ("metering_power_supplied", "metering_power_absorbed", "metering_active_power_draw_l1"):
+        er.async_get(hass).async_get_or_create("sensor", "sma", key, suggested_object_id=f"sma_{key}", device_id=device.id)
+        hass.states.async_set(f"sensor.sma_{key}", "0", {"unit_of_measurement": "W", "device_class": "power"})
+    return device.id
+
+
+def record_p1(coord: Coordinator, monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    calls: list[int] = []
+
+    async def process(p1: int, now: float) -> None:  # noqa: ARG001
+        calls.append(p1)
+
+    monkeypatch.setattr(coord.distribution, "_process_p1", process)
+    return calls
+
+
+async def test_p1_entity_replaces_the_device_totals(hass, monkeypatch) -> None:  # noqa: ANN001
+    device_id = p1_meter(hass)
+    hass.states.async_set("sensor.p1_masked", "0", {"unit_of_measurement": "W", "device_class": "power"})
+    coord, _ = await setup(hass, data={"distribution": {"max_kw": 17.0, "mqtt_log": False, "p1_device": device_id, "p1_entity": "sensor.p1_masked"}, "zendure": {}})
+    assert coord.distribution.p1_entities == [("sensor.p1_masked", 1, 1)], "the explicit entity is the only total"
+    assert [e for e, _ in coord.distribution.phase_entities[1]] == ["sensor.sma_metering_active_power_draw_l1"], "the device still supplies the phases"
+
+    calls = record_p1(coord, monkeypatch)
+    hass.states.async_set("sensor.p1_masked", "-350", {"unit_of_measurement": "W", "device_class": "power"})
+    hass.states.async_set("sensor.sma_metering_power_supplied", "999", {"unit_of_measurement": "W", "device_class": "power"})
+    await hass.async_block_till_done()
+    assert calls == [-350], "only the P1 entity drives the regulator"
+    await coord.unload()
+
+
+async def test_p1_entity_without_a_device(hass, monkeypatch) -> None:  # noqa: ANN001
+    # a template sensor belongs to no device; in kW it is scaled like a device entity
+    hass.states.async_set("sensor.grid_net", "0", {"unit_of_measurement": "kW", "device_class": "power"})
+    coord, _ = await setup(hass, data={"distribution": {"max_kw": 17.0, "mqtt_log": False, "p1_entity": "sensor.grid_net"}, "zendure": {}})
+    assert coord.distribution.p1_entities == [("sensor.grid_net", 1, 1000)]
+
+    calls = record_p1(coord, monkeypatch)
+    hass.states.async_set("sensor.grid_net", "1.5", {"unit_of_measurement": "kW", "device_class": "power"})
+    await hass.async_block_till_done()
+    assert calls == [1500]
+    await coord.unload()
+
+
+async def test_without_p1_entity_the_name_rules_stay(hass) -> None:  # noqa: ANN001
+    # unchanged behaviour, and the reason for the entity: supplied and absorbed both land as net totals with a positive sign
+    device_id = p1_meter(hass)
+    coord, _ = await setup(hass, data={"distribution": {"max_kw": 17.0, "mqtt_log": False, "p1_device": device_id}, "zendure": {}})
+    assert sorted(coord.distribution.p1_entities) == [("sensor.sma_metering_power_absorbed", 1, 1), ("sensor.sma_metering_power_supplied", 1, 1)]
     await coord.unload()
 
 

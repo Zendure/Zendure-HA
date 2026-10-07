@@ -12,12 +12,14 @@
               "max_kw": "Netaansluiting",
               "max_output": "Maximale levering aan het huis",
               "p1_device": "P1-meter",
+              "p1_entity": "P1-sensor",
               "mqtt_log": "MQTT-verkeer loggen"
             },
             "data_description": {
               "max_kw": "Capaciteit van je netaansluiting, alle fasen samen.",
               "max_output": "Plafond op wat alle batterijen samen aan het huis leveren, in W. 0 = geen plafond. Duitsland: 800.",
               "p1_device": "Het apparaat waarvan de vermogensentiteiten je netafname en -teruglevering melden.",
+              "p1_entity": "Optioneel. Eén sensor met je netto netvermogen, afname positief. Als die is ingesteld, is dat de P1-meting; het P1-meterapparaat levert dan alleen nog de fases.",
               "mqtt_log": "Schrijf elk MQTT-bericht naar zendure_ha_mqtt.jsonl in de configuratiemap."
             }
           },
@@ -60,12 +62,14 @@
               "max_kw": "Netaansluiting",
               "max_output": "Maximale levering aan het huis",
               "p1_device": "P1-meter",
+              "p1_entity": "P1-sensor",
               "mqtt_log": "MQTT-verkeer loggen"
             },
             "data_description": {
               "max_kw": "Capaciteit van je netaansluiting, alle fasen samen.",
               "max_output": "Plafond op wat alle batterijen samen aan het huis leveren, in W. 0 = geen plafond. Duitsland: 800.",
               "p1_device": "Het apparaat waarvan de vermogensentiteiten je netafname en -teruglevering melden.",
+              "p1_entity": "Optioneel. Eén sensor met je netto netvermogen, afname positief. Als die is ingesteld, is dat de P1-meting; het P1-meterapparaat levert dan alleen nog de fases.",
               "mqtt_log": "Schrijf elk MQTT-bericht naar zendure_ha_mqtt.jsonl in de configuratiemap."
             }
           },
