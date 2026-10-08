@@ -9,18 +9,27 @@ from datetime import timedelta
 from types import MappingProxyType
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import Event, HomeAssistant, callback as ha_callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, Phase, watt_factor
+from .const import DOMAIN, PANEL_TITLE, Phase, watt_factor
 from .distribution import Distribution
 from .entity import EntityDevice, unique_name
 from .zendure.driver import ZendureDriver
 
 _LOGGER = logging.getLogger(__name__)
+
+# per integration how its grid total is read: ("enum", power fragment, direction fragment, the state that means export),
+# or a list of (name fragment, sign) summed as one signed net; absent means the default produced/consumed name rules
+P1_PROFILES: dict[str, Any] = {
+    "solaredge": ("enum", "grid_power", "grid_flow_direction", "export"),
+    "enphase_envoy": [("net_consumption", 1)],
+    "sma": [("metering_power_absorbed", 1), ("metering_power_supplied", -1)],
+}
 
 
 class Coordinator:
@@ -187,8 +196,10 @@ class Coordinator:
         # All power entities on the chosen P1 device: name -> slot + sign, unit -> factor; a net total wins over the consumed/produced pair.
         # Registry entries often carry neither device_class nor unit because the integration sets them at runtime, so read both from the state.
         entities = []
+        platform = ""
         states = getattr(self.hass, "states", None)  # absent offline (tests/tools), then the registry is all there is
         for e in er.async_entries_for_device(er.async_get(self.hass), device_id):
+            platform = e.platform
             attrs = getattr(states.get(e.entity_id) if states else None, "attributes", None) or {}
             unit = attrs.get("unit_of_measurement") or e.unit_of_measurement
             if (attrs.get("device_class") or e.original_device_class or e.device_class) == "power" or unit in ("W", "kW", "kilowatt", "kilowatts"):
@@ -210,11 +221,30 @@ class Coordinator:
             else:
                 totals.append((eid, factor))
 
-        has_net = any("produc" not in eid and "consum" not in eid for eid, _ in totals)
         self.distribution.p1_entities = []
-        for eid, factor in totals:
-            if has_net and ("produc" in eid or "consum" in eid):
-                continue
-            sign = -1 if "produc" in eid else 1
-            self.distribution.p1_entities.append((eid, sign, factor))
-            self.track(eid, lambda w, s=sign: self.hass.async_create_task(self.distribution._process_p1(s * int(w), now=time.time())), factor)
+        profile = P1_PROFILES.get(platform)
+        if profile and profile[0] == "enum":
+            # routine 2, SolarEdge: an unsigned magnitude, the sign comes live from a separate direction enum
+            _, power_frag, dir_frag, export = profile
+            direction = next((e.entity_id for e in er.async_entries_for_device(er.async_get(self.hass), device_id) if dir_frag in e.entity_id), "")
+            for eid, factor in totals:
+                if power_frag in eid and direction:
+                    self.distribution.p1_entities.append((eid, 1, factor))
+                    self.track(eid, lambda w, d=direction: self.hass.async_create_task(self.distribution._process_p1(-int(w) if (s := self.hass.states.get(d)) and s.state == export else int(w), now=time.time())), factor)
+        else:
+            # routine 1: entities summed as one signed net; the profile names the signs, else produced/consumed in the name does, a net wins over the pair
+            has_net = any("produc" not in e and "consum" not in e for e, _ in totals)
+            for eid, factor in totals:
+                if profile:
+                    sign = next((s for frag, s in profile if frag in eid), 0)
+                elif has_net and ("produc" in eid or "consum" in eid):
+                    sign = 0
+                else:
+                    sign = -1 if "produc" in eid else 1
+                if sign:
+                    self.distribution.p1_entities.append((eid, sign, factor))
+                    self.track(eid, lambda w, s=sign: self.hass.async_create_task(self.distribution._process_p1(s * int(w), now=time.time())), factor)
+
+        # the regulator never runs without a total: name the meter that gave none
+        if not self.distribution.p1_entities:
+            persistent_notification.async_create(self.hass, f"P1 meter '{platform}' delivered no usable grid total", PANEL_TITLE, f"{DOMAIN}_p1")
