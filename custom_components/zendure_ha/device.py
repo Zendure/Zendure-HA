@@ -56,7 +56,7 @@ class ZendureBattery(EntityDevice):
                     model = "AB1000"
                     kWh = 0.96
             case "B":
-                # packType 70 is the SF4000 Mix AC+'s internal 8 kWh pack, which shares
+                # packType 70 is the SF4000 Mix AC+/Mix Pro internal 8 kWh pack, which shares
                 # its serial prefix with the unrelated 0.96 kWh AB1000S.
                 if pack_type == 70:
                     model = "I8000"

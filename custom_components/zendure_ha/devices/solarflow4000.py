@@ -24,3 +24,18 @@ class SolarFlow4000AC_Plus(ZendureZenSdk):
     def pwr_offgrid(self) -> int:
         """Get the offgrid power."""
         return self.offGrid.asInt
+
+
+class SolarFlow4000MixPro(ZendureZenSdk):
+    def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any) -> None:
+        """Initialise SolarFlow4000MixPro."""
+        super().__init__(hass, deviceId, prodName, definition["productModel"], definition)
+        self.setLimits(-4000, 4000)
+        self.maxSolar = -8000
+        self.offGrid = ZendureSensor(self, "gridOffPower", None, "W", "power", "measurement")
+        self.aggrOffGrid = ZendureRestoreSensor(self, "aggrGridOffPower", None, "kWh", "energy", "total", 2)
+
+    @property
+    def pwr_offgrid(self) -> int:
+        """Get the offgrid power."""
+        return self.offGrid.asInt
