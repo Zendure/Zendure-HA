@@ -213,9 +213,11 @@ class Coordinator:
             contrib[phase][eid] = watts
             self.distribution.power[phase] = sum(contrib[phase].values())
 
+        # Huawei signs the grid the other way: positive is export, so its phases are negated
+        flip = -1 if platform == "huawei_solar" else 1
         for eid, factor in entities:
-            if phase := next((n for n in (1, 2, 3) if f"phase_{n}" in eid or f"phase{n}" in eid or f"_l{n}" in eid), 0):
-                sign = -1 if "produc" in eid else 1
+            if phase := next((n for n, a in ((1, "a"), (2, "b"), (3, "c")) if f"phase_{n}" in eid or f"phase{n}" in eid or f"_l{n}" in eid or f"phase_{a}" in eid), 0):
+                sign = flip * (-1 if "produc" in eid else 1)
                 self.track(eid, lambda w, p=phase, s=sign, e=eid: phase_sum(p, e, s * w), factor)
                 self.distribution.phase_entities[phase].append((eid, sign * factor))  # the phase detection reads them back from the recorder
             else:
@@ -241,7 +243,7 @@ class Coordinator:
                     sign = 0
                 else:
                     sign = -1 if "produc" in eid else 1
-                if sign:
+                if sign := sign * flip:
                     self.distribution.p1_entities.append((eid, sign, factor))
                     self.track(eid, lambda w, s=sign: self.hass.async_create_task(self.distribution._process_p1(s * int(w), now=time.time())), factor)
 
