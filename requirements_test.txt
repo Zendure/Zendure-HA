@@ -10,5 +10,5 @@ pytest-homeassistant-custom-component==0.13.370
 # normally installs each component's manifest.json requirements dynamically
 # at runtime), so pin them explicitly for static test collection.
 aiousbwatcher==1.1.2
-serialx==1.8.2
+serialx==1.11.0
 aioesphomeapi==46.6.0
