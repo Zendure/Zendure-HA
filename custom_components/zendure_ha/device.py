@@ -764,9 +764,14 @@ class ZendureZenSdk(ZendureDevice):
 
         if self.online and self.connection.value == 0:
             await super().entityWrite(entity, value)
+            self.mqttPublish(self.topic_read, {"properties": ["getAll"]}, self.mqtt)
         else:
             _LOGGER.info("Writing property %s %s => %s", self.name, entity.propertyName, value)
-            await self.httpPost("properties/write", {"properties": {entity.propertyName: value}})
+            if await self.httpPost("properties/write", {"properties": {entity.propertyName: value}}):
+                # read back immediately instead of waiting for the next 60 s refresh
+                await asyncio.sleep(1)
+                if json := await self.httpGet("properties/report"):
+                    await self.mqttProperties(json)
 
     async def dataRefresh(self, update_count: int) -> None:
         if (update_count == 0 and not self.online) or self.connection.value == SmartMode.ZENSDK:
