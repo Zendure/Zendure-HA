@@ -3,6 +3,6 @@ homeassistant>=2026.4.3
 pip>=26.2.1
 ruff==0.16.1
 aiohttp
-bleak-retry-connector>=4.6.3
+bleak-retry-connector>=4.7.1
 voluptuous
 paho.mqtt==2.1.0
