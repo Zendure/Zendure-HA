@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.redact import async_redact_data
 from homeassistant.helpers.storage import Store
 from paho.mqtt import client as mqtt_client
 from paho.mqtt import enums as mqtt_enums
@@ -30,6 +31,7 @@ from .const import (
     CONF_WIFIPSW,
     CONF_WIFISSID,
     DOMAIN,
+    LOG_REDACT_KEYS,
 )
 from .device import ZendureDevice
 from .devices.ace1500 import ACE1500
@@ -208,16 +210,16 @@ class Api:
 
         if data.get("code") != 200 or not data.get("success", False):
             msg = str(data.get("msg", "")) or f"code {data.get('code')}"
-            _LOGGER.error("Zendure API rejected the request: %s", data)
+            _LOGGER.error("Zendure API rejected the request: %s", async_redact_data(data, LOG_REDACT_KEYS))
             raise ApiError("api_rejected", msg)
         if (result := data.get("data")) is None:
-            _LOGGER.error("Zendure API returned no data: %s", data)
+            _LOGGER.error("Zendure API returned no data: %s", async_redact_data(data, LOG_REDACT_KEYS))
             raise ApiError("api_rejected", "no data returned")
         if len(result.get("deviceList", [])) == 0:
-            _LOGGER.error("Zendure API does not reply any devices: %s", data)
+            _LOGGER.error("Zendure API does not reply any devices: %s", async_redact_data(data, LOG_REDACT_KEYS))
             raise ApiError("no_devices")
         if len(result.get("mqtt", {})) == 0:
-            _LOGGER.error("Zendure API does not reply any mqtt info: %s", data)
+            _LOGGER.error("Zendure API does not reply any mqtt info: %s", async_redact_data(data, LOG_REDACT_KEYS))
             raise ApiError("no_mqtt")
         return dict(result)
 
@@ -276,7 +278,7 @@ class Api:
                     return
 
                 if self.mqttLogging:
-                    _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
+                    _LOGGER.info("Topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), async_redact_data(payload, LOG_REDACT_KEYS))
 
                 if device.mqttMessage(topics[3], payload) and device.mqtt != client:
                     device.mqtt = client
@@ -312,7 +314,7 @@ class Api:
                     return
 
                 if self.mqttLogging:
-                    _LOGGER.info("Local topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), payload)
+                    _LOGGER.info("Local topic: %s => %s", msg.topic.replace(device.deviceId, device.name).replace(device.snNumber, "snxxx"), async_redact_data(payload, LOG_REDACT_KEYS))
 
                 if device.mqttMessage(topics[3], payload):
                     if device.mqtt != client:

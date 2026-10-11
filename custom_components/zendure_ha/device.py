@@ -23,12 +23,13 @@ from homeassistant.components import bluetooth, persistent_notification
 from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.redact import async_redact_data
 from homeassistant.util import dt as dt_util
 from paho.mqtt import client as mqtt_client
 
 from .binary_sensor import ZendureBinarySensor
 from .button import ZendureButton
-from .const import DeviceState, SmartMode
+from .const import LOG_REDACT_KEYS, DeviceState, SmartMode
 from .entity import EntityDevice, EntityZendure
 from .number import ZendureNumber
 from .select import ZendureRestoreSelect, ZendureSelect
@@ -389,7 +390,7 @@ class ZendureDevice(EntityDevice):
                     # self.mqttProperties(payload)
 
                 case "register/replay":
-                    _LOGGER.info("Register replay for %s => %s", self.name, payload)
+                    _LOGGER.info("Register replay for %s => %s", self.name, async_redact_data(payload, LOG_REDACT_KEYS))
                     if self.mqtt is not None:
                         self.mqtt.publish(f"iot/{self.prodkey}/{self.deviceId}/register/replay", None, 1, True)
 
@@ -629,7 +630,7 @@ class ZendureDevice(EntityDevice):
             payload = json.dumps(command, default=lambda o: o.__dict__)
             b = bytearray()
             b.extend(map(ord, payload))
-            _LOGGER.info("BLE command: %s => %s", self.name, payload)
+            _LOGGER.info("BLE command: %s => %s", self.name, json.dumps(async_redact_data(command, LOG_REDACT_KEYS), default=lambda o: o.__dict__))
             await client.write_gatt_char(SF_COMMAND_CHAR, b, response=False)
         except Exception as err:
             _LOGGER.warning("BLE error: %s", err)
@@ -726,7 +727,7 @@ class ZendureLegacy(ZendureDevice):
 
     def mqttMessage(self, topic: str, payload: Any) -> bool:
         if topic == "register/replay":
-            _LOGGER.info("Register replay for %s => %s", self.name, payload)
+            _LOGGER.info("Register replay for %s => %s", self.name, async_redact_data(payload, LOG_REDACT_KEYS))
             return True
 
         return super().mqttMessage(topic, payload)
