@@ -15,7 +15,7 @@
   "issue_tracker": "https://github.com/zendure/zendure-ha/issues",
   "requirements": [
     "bleak-retry-connector>=3.9.0",
-    "paho-mqtt==2.1.0"
+    "paho-mqtt>=2.1.0"
   ],
   "single_config_entry": true,
   "version": "1.0.0"
