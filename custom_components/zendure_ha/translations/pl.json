@@ -103,6 +103,9 @@
       "manual_power": {
         "name": "Moc ustawiana ręcznie"
       },
+      "p1_bias": {
+        "name": "Przesunięcie P1"
+      },
       "min_soc": {
         "name": "Minimalne SoC"
       },

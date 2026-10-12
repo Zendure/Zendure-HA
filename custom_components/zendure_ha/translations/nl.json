@@ -93,6 +93,9 @@
       "manual_power": {
         "name": "Handmatig vermogen"
       },
+      "p1_bias": {
+        "name": "P1-offset"
+      },
       "min_soc": {
         "name": "SOC Minimaal"
       },
