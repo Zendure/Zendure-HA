@@ -59,6 +59,9 @@ class SmartMode:
 
     TIMEFAST = 2.2  # Fast update interval after significant change
     TIMEZERO = 4  # Normal update interval
+    CHARGE_HOLDOFF = 60  # Max charge hold-off (s) per flip episode
+    CHARGE_HOLDOFF_SHORT = 2  # Hold-off (s) if last release is older
+    CHARGE_HOLDOFF_RESET = 300  # Age (s) after which a flip is a new episode
 
     # Standard deviation thresholds for detecting significant changes
     P1_STDDEV_FACTOR = 3.5  # Multiplier for P1 meter stddev calculation

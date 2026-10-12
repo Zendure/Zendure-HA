@@ -74,6 +74,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.charge_optimal = 0
         self.charge_time = datetime.max
         self.charge_last = datetime.min
+        self.charge_hold_start = datetime.max
         self.charge_weight = 0
 
         self.discharge: list[ZendureDevice] = []
@@ -530,13 +531,26 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             # avoid gridOff device to use power from the grid
             await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
 
-        # prevent hysteria
+        # prevent hysteria: hold off charging after a discharge->charge flip.
+        # The hold-off is re-armed after every discharge, but it is bounded by
+        # the first arming of the episode, so a grid point that keeps flipping
+        # faster than CHARGE_HOLDOFF cannot lock charging out indefinitely.
+        if self.charge_time == datetime.max:
+            if self.charge_hold_start == datetime.max:
+                self.charge_hold_start = time
+            since_last = (time - self.charge_last).total_seconds()
+            recent = since_last <= SmartMode.CHARGE_HOLDOFF_RESET
+            delay = SmartMode.CHARGE_HOLDOFF if recent else SmartMode.CHARGE_HOLDOFF_SHORT
+            holdoff = timedelta(seconds=SmartMode.CHARGE_HOLDOFF)
+            bound = self.charge_hold_start + holdoff
+            self.charge_time = min(time + timedelta(seconds=delay), bound)
+            self.charge_last = self.charge_time
+            self.pwr_low = 0
         if self.charge_time > time:
-            if self.charge_time == datetime.max:
-                self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
-                self.charge_last = self.charge_time
-                self.pwr_low = 0
             setpoint = 0
+        else:
+            # hold-off expired, the episode ends with the first released charge
+            self.charge_hold_start = datetime.max
         self.operationstate.update_value(ManagerState.CHARGE.value if setpoint < 0 else ManagerState.IDLE.value)
 
         # distribute charging devices
