@@ -35,6 +35,11 @@ class DeviceState(Enum):
     ACTIVE = 4
 
 
+# States in which a device has no dispatchable discharge capacity: SOCFULL cannot supply from its
+# battery, SOCEMPTY is pinned at minSoc. Both only pass their own solar through.
+BLOCKING_DEVICE_STATES = (DeviceState.SOCFULL, DeviceState.SOCEMPTY)
+
+
 class ManagerMode(Enum):
     OFF = 0
     MANUAL = 1
