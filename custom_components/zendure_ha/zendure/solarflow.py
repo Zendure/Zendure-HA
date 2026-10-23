@@ -382,7 +382,7 @@ class ZendureHyper(ZendureSolarFlow):
         if not self._hems_active:
             self.mqtt_publish("properties/write", {"properties": {"hemsState": 1}})
             self._hems_active = True
-        arguments = {"outputPower": 0, "chargePower": -watts, "freq": 0, "mode": 9, "chargeMode": 3} if watts < 0 else {"outputPower": watts, "chargePower": 0, "freq": 0, "minSoc": 100, "mode": 9}
+        arguments = {"outputPower": 0, "chargePower": -watts, "freq": 0, "mode": 9, "chargeMode": 3} if watts < 0 else {"outputPower": watts, "chargePower": 0, "freq": 0, "minSoc": int(self.soc_min * 10), "mode": 9}
         self.mqtt_publish("function/invoke", {"function": "hemsEP", "arguments": arguments})
 
     def mqtt_power_off(self) -> None:
