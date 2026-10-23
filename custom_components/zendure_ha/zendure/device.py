@@ -126,13 +126,13 @@ class ZendureDevice:
             await self._ble_command({"properties": ["getAll"], "method": "read"})  # kicks off the continuous reporting
             return True
         except Exception:
-            _LOGGER.warning("BLE connect failed for %s", self.device_id, exc_info=True)
+            _LOGGER.debug("BLE connect failed for %s", self.device_id, exc_info=True)
             self._ble_client = None
             return False
 
     async def _ble_command(self, command: dict, method: str | None = None) -> bool:
         if not self._ble_client or not self._ble_client.is_connected:
-            _LOGGER.warning("BLE command not connected for %s", self.device_id)
+            _LOGGER.debug("BLE command not connected for %s", self.device_id)
             return False
         try:
             self._msg_id += 1
@@ -146,7 +146,7 @@ class ZendureDevice:
             await self._ble_client.write_gatt_char(COMMAND_CHAR, json.dumps(command).encode(), response=False)
             return True
         except Exception:
-            _LOGGER.warning("BLE command failed for %s", self.device_id)
+            _LOGGER.debug("BLE command failed for %s", self.device_id)
             return False
 
     def _ble_on_notify(self, sender, data: bytearray) -> None:
