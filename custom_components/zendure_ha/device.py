@@ -89,7 +89,6 @@ class DistributionDevice(EntityDevice):
         self.state = DeviceState.CREATED
         self.state_since = 0.0
         self.on_invalidate: Callable | None = None
-        self.on_detect_phase: Callable | None = None  # set by the driver: the distribution measures which phase this device sits on
         self.soc = 0.0
         self.soc_min = 10.0
         self.soc_max = 90.0
@@ -103,14 +102,10 @@ class DistributionDevice(EntityDevice):
 
         # power settings
         self.power_profile = profiles
-        self.power_phase = Phase.all  # restored from the device's own Store, not from the config
+        self.power_phase: Phase | None = None  # None: not known yet; restored from the device's own Store, not from the config
         self.power_setpoint = 0  # what the device is going to do under our control
         self.power_actual = 0  # measured charge/discharge value now; zeroed while OFFLINE
         self.power_since = 0.0  # last update of the power_setpoint
-
-    async def detect_phase(self, _entity: Any = None) -> None:
-        if self.on_detect_phase is not None:
-            await self.on_detect_phase(self)
 
     async def update_phase(self, _entity: Any = None, _option: Any = None) -> None:
         # a changed phase regroups the fleet, so the order has to be rebuilt

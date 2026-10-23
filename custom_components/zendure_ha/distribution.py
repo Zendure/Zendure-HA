@@ -21,7 +21,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.util import dt as dt_util
 
 from .button import HaButton
-from .const import DOMAIN, PANEL_TITLE, Phase, watt_factor
+from .const import DOMAIN, PANEL_TITLE, Phase, PhaseModi, watt_factor
 from .device import DeviceState, DistributionDevice
 from .entity import EntityDevice, snakecase
 from .number import HaNumber
@@ -35,8 +35,13 @@ _LOGGER = logging.getLogger(__name__)
 RANGE_MIN = 50  # minimal watts
 WEAR_DAYS = 7
 WEAR_BIAS = 0.6  # wear weight in the order score
-PHASE_TEST_W = 800  # the step the detect button asks of a device
-PHASE_SETTLE_S = 20  # from standstill a device needs 6 to 15 s before its power flows, plus the ramp
+PHASE_DAYS = 10  # how far back the detection reads the recorder; raw states live about this long
+PHASE_JUMP_W = 50  # an entity update that moves this much is a jump, everything smaller stays in the database
+PHASE_STEP_W = 150  # a device event this big is worth matching
+PHASE_MERGE_S = 15.0  # device jumps this close together are one event: the ramp of one command
+PHASE_BEFORE_S, PHASE_AFTER_S, PHASE_MARGIN_S = 2.0, 10.0, 5.0  # the window around an event, and how long before it the rest must already be quiet
+PHASE_MIN_EVENTS, PHASE_SURE_EVENTS = 5, 10  # clean events needed for a verdict, and for applying it
+PHASE_SURE, PHASE_OTHER = 0.9, 0.3  # the ratio a device must show on its own phase, and the most the other two may show
 PHASE_MARGIN_W = 230  # 1 A at 230 V: a phase at its limit is landed this far under it
 REPLAY_HOURS = 24  # the window the export button pulls from the recorder
 
@@ -77,7 +82,7 @@ class Distribution(EntityDevice):
         EntityDevice.__init__(self, hass, PANEL_TITLE, subentry_id=subentry_id)
         self.p1_device: str = ""
         self.on_save: Callable | None = None  # set by the coordinator: persists the store
-        self.p1_entities: list[tuple[str, int, float]] = []  # set by the coordinator: the P1 total entities as (entity_id, sign, factor)
+        self.p1_entities: list[list[tuple[str, float]]] = [[], [], [], []]  # set by the coordinator: its p1_entities, indexed on Phase, as (entity_id, signed watt factor)
         self.solar = 0  # W the solar panels make now, set by the coordinator
         self.solar_panels: list[tuple[str, str]] = []  # set by the coordinator: per solar panel its power entity and derate entity
         self.allow_export = True  # entity value: off means the panels are throttled so the meter does not export
@@ -101,8 +106,6 @@ class Distribution(EntityDevice):
         self.setpoint_avg = 0.0
         # indexed by Phase: 0 the three-phase devices, 1 to 3 the phases
         self.power: list[float] = [0, 0, 0, 0]  # what the meter shows per phase
-        self.phase_entities: list[list[tuple[str, float]]] = [[], [], [], []]  # set by the coordinator: per phase its meter entities with their sign
-        self.phase_devices: list[list[DistributionDevice]] = [[], [], [], []]  # per phase its steerable devices, index 0 the three-phase ones; rebuilt with the order
         self.sp: list[int] = [0, 0, 0, 0]  # per phase the sum of the setpoints of its devices, index 0 the three-phase ones
         self.available: list[int] = [0, 0, 0, 0]  # per phase what its devices can still deliver, 0 for an empty one
         self.phase_limited = [False, False, False, False]  # per phase whether the phase guard holds it out of the regular distribution
@@ -131,10 +134,11 @@ class Distribution(EntityDevice):
 
         # the last day of P1 and fleet telemetry as a replay file, for tests/replay/replay.py
         HaButton(self, "export_replay", press=self.export_replay)
+        HaButton(self, "detect_phases", press=self.detect_phases)  # every device's phase from its power jumps in the recorder
 
     async def export_replay(self, _entity: Any = None, hours: float = REPLAY_HOURS) -> str | None:
         """Pull the P1 total and every device's power, solar and soc from the recorder into www/, in the replay JSON shape."""
-        if not self.p1_entities:
+        if not self.p1_entities[Phase.all]:
             persistent_notification.async_create(self.hass, "No P1 meter configured, nothing to export", PANEL_TITLE, f"{DOMAIN}_replay")
             return None
         end = dt_util.utcnow()
@@ -163,7 +167,7 @@ class Distribution(EntityDevice):
             return out
 
         # the P1 readings are the master clock; a consumed/produced pair is summed with its signs
-        p1_series = [(await series(eid), sign * factor) for eid, sign, factor in self.p1_entities]
+        p1_series = [(await series(eid), factor) for eid, factor in self.p1_entities[Phase.all]]
         timeline = sorted({t for points, _ in p1_series for t, _ in points if t >= start.timestamp()})
         if not timeline:
             persistent_notification.async_create(self.hass, f"No P1 readings in the last {hours:.0f} h, nothing to export", PANEL_TITLE, f"{DOMAIN}_replay")
@@ -211,7 +215,7 @@ class Distribution(EntityDevice):
                 "start": start.isoformat(),
                 "end": end.isoformat(),
                 "samples": len(timeline),
-                "p1_entity": ",".join(e for e, _, _ in self.p1_entities),
+                "p1_entity": ",".join(e for e, _ in self.p1_entities[Phase.all]),
                 "pv_entity": ",".join(power_entity for power_entity, _ in self.solar_panels if power_entity),
             },
             "devices": meta,
@@ -260,13 +264,15 @@ class Distribution(EntityDevice):
         self.capacity = sum(0 if d.state <= DeviceState.OFFLINE else d.kwh * (d.soc_max - d.soc_min) / 100 for d in self.devices)
         self.entities["capacity_kwh"].update_value(self.capacity)
 
-    async def _process_p1(self, p1: int, now: float) -> None:
+    async def _process_p1(self, p1: int, power: list[float], now: float) -> None:
         now = now or time.time()
+        self.power = power  # what the meter shows per phase, slot 0 is the three-phase slot and stays 0
 
-        # refresh the 7-day wear/RTE figures once a day
+        # once a day: the 7-day wear/RTE figures, and every device's phase from its jumps in the recorder
         if now >= self.wear_date:
             self.wear_date = now + 86400
             self.hass.async_create_task(self.update_wear())
+            self.hass.async_create_task(self.detect_phases())
         power_actual = self.update_telemetry(p1)
 
         # rebuild the order every 10 minutes, and right away when a device joins or drops out
@@ -298,8 +304,8 @@ class Distribution(EntityDevice):
             # output is AC after the inverter), and the off-grid socket as house load
             power_actual += d.power_actual - (min(d.power_actual, d.solar) if d.bypass else 0) + max(0, d.grid_off_power)
             kwh += d.kwh * (d.soc - d.soc_min) / 100
-            self.sp[d.power_phase] += d.power_setpoint
-            self.available[d.power_phase] += d.power_profile[False].available_power(d)
+            self.sp[d.power_phase or Phase.all] += d.power_setpoint  # Phase.all is 0, so a device without a known phase lands on the three-phase slot as well
+            self.available[d.power_phase or Phase.all] += d.power_profile[False].available_power(d)
 
         # live display sensors from current telemetry (every P1 tick, regardless of mode)
         entities = self.entities
@@ -376,7 +382,7 @@ class Distribution(EntityDevice):
         # the three-phase devices: limited while they help, released with the last limited phase
         if sp_all != self.sp[Phase.all]:
             self.phase_limited[Phase.all] = True
-            self.distribute_power(min(0, sp_all), self.phase_devices[Phase.all])
+            self.distribute_power(min(0, sp_all), self.profile[charging].phases[Phase.all])
             setpoint -= min(0, sp_all)
         elif self.phase_limited[Phase.all]:
             self.phase_limited[Phase.all] = True in self.phase_limited[1:]
@@ -452,7 +458,6 @@ class Distribution(EntityDevice):
 
     def update_order(self) -> None:
         """Every 10 minutes: rank the devices per direction; frozen in between."""
-        self.phase_devices = [[d for d in self.devices if d.power_phase == phase and d.state > DeviceState.EXTERNAL] for phase in (0, 1, 2, 3)]
         wear_mean = sum(d.wear for d in self.devices) / len(self.devices) if self.devices else 0.0
         demand = max(RANGE_MIN, self.setpoint_avg)
         for charging in (False, True):
@@ -482,34 +487,109 @@ class Distribution(EntityDevice):
                 order.remove(head_now)
                 order.insert(0, head_now)
             self.profile[charging].order = order
-            self.profile[charging].phases = [[d for d in order if d.power_phase == phase] for phase in (0, 1, 2, 3)]
+            self.profile[charging].phases = [[d for d in order if (d.power_phase or Phase.all) == phase] for phase in (0, 1, 2, 3)]
         for d in self.devices:
             if d.power_setpoint and d.kwh and d not in self.profile[self.charging].order:
                 d.power(0)
 
-    async def detect_phase(self, device: DistributionDevice) -> None:
-        """Button on a device: the fleet stops, this device steps, and the phase meter that follows it is its own."""
-        mode = int(self.mode)
-        for d in self.devices:
-            d.power_off()
-        self.entities["mode"].update_value(DistributionMode.OFF.value)
-        await asyncio.sleep(PHASE_SETTLE_S)
+    def read_jumps(self, entity_ids: list[str]) -> dict[str, list[tuple[float, float]]]:
+        # per entity the moments it jumped more than PHASE_JUMP_W against its previous value, as (time, delta); runs on the recorder's thread
+        from homeassistant.components.recorder.db_schema import States, StatesMeta
+        from homeassistant.components.recorder.util import session_scope
+        from sqlalchemy import Float, cast, func, select
 
-        # charging raises its own phase; a device without a battery can only deliver, which lowers it
-        sign = 1 if device.kwh else -1
-        before = list(self.power)
-        device.power(-sign * PHASE_TEST_W)
-        await asyncio.sleep(PHASE_SETTLE_S)
-        rise = [sign * (self.power[n] - before[n]) for n in (0, 1, 2, 3)]
-        device.power(0)
+        value = cast(States.state, Float)
+        previous = func.lag(value).over(partition_by=States.metadata_id, order_by=States.last_updated_ts)
+        rows = (
+            select(StatesMeta.entity_id, States.last_updated_ts, value.label("v"), previous.label("prev"))
+            .join(StatesMeta, StatesMeta.metadata_id == States.metadata_id)
+            .where(StatesMeta.entity_id.in_(entity_ids), States.last_updated_ts > time.time() - PHASE_DAYS * 86400, States.state.not_in(("unknown", "unavailable")))
+            .subquery()
+        )
+        query = select(rows.c.entity_id, rows.c.last_updated_ts, rows.c.v - rows.c.prev).where(func.abs(rows.c.v - rows.c.prev) > PHASE_JUMP_W).order_by(rows.c.last_updated_ts)
+        jumps: dict[str, list[tuple[float, float]]] = {eid: [] for eid in entity_ids}
+        with session_scope(hass=self.hass, read_only=True) as session:
+            for eid, ts, delta in session.execute(query):
+                jumps[eid].append((ts, delta))
+        return jumps
 
-        # the winner carries most of the step and stands apart from the other two, otherwise the phase stays as it was
-        if (best := max(rise[1:])) >= PHASE_TEST_W / 2 and best - sorted(rise[1:])[1] >= PHASE_TEST_W / 4:
-            device.entities["power_phase"].update_value(Phase(rise.index(best)))
-        persistent_notification.async_create(self.hass, f"{device.name}: {[int(v) for v in rise[1:]]} W -> {device.power_phase.name}", PANEL_TITLE, PANEL_TITLE)
-        self.entities["mode"].update_value(mode)
+    async def detect_phases(self, _entity: Any = None) -> None:
+        """Button on the distribution, and once a day: every device's phase from its power jumps in the recorder; the matching runs on the recorder's thread, the result is applied here."""
+        devices = [d for d in self.devices if d.entities.get("home_output") and d.entities.get("home_input")]
+        verdicts, last = await get_instance(self.hass).async_add_executor_job(self.match_phases, devices)
+
+        # a sure phase with enough events is applied, set or changed; the rest is advice, all in one notification
+        lines = []
+        for d in devices:
+            n, ratio = last[d]
+            shown = f"{n} events, L1 {ratio[1]:.2f} L2 {ratio[2]:.2f} L3 {ratio[3]:.2f}"
+            if (phase := verdicts.get(d)) is None:
+                lines.append(f"{d.name}: no phase ({shown}), set {PhaseModi[d.power_phase]}")
+            elif n < PHASE_SURE_EVENTS:
+                lines.append(f"{d.name}: looks like {phase.name} ({shown}), set {PhaseModi[d.power_phase]}, check")
+            elif d.power_phase == phase:
+                lines.append(f"{d.name}: {phase.name} confirmed ({shown})")
+            else:
+                lines.append(f"{d.name}: {phase.name} ({shown}), changed from {PhaseModi[d.power_phase]}")
+                d.entities["power_phase"].update_value(phase)
+        persistent_notification.async_create(self.hass, "\n".join(lines), f"{PANEL_TITLE} phases", f"{DOMAIN}_phases")
         if self.on_save is not None:
             await self.on_save()
+
+
+    def match_phases(self, devices: list[DistributionDevice]) -> tuple[dict[DistributionDevice, Phase], dict[DistributionDevice, tuple[int, list[float]]]]:
+        # every device's power jumps matched to the phase that jumps with them, in rounds: a device with a known phase is subtracted, every device found joins the known. Runs on the recorder's thread.
+        roof = [eid for eid, _ in self.solar_panels if eid]
+        meter = [eid for phase in (Phase.l1, Phase.l2, Phase.l3) for eid, _ in self.p1_entities[phase]]
+        ids = meter + roof + [d.entities[key].entity_id for d in devices for key in ("home_output", "home_input")]
+        jumps = self.read_jumps(ids)
+        roof_jumps = sorted(j for eid in roof for j in jumps[eid])
+
+        # per device its jumps as one signed series (output up is +, input up is -), merged into events along the ramp of one command
+        moves, events = {}, {}
+        for d in devices:
+            moves[d] = sorted([(t, v) for t, v in jumps[d.entities["home_output"].entity_id]] + [(t, -v) for t, v in jumps[d.entities["home_input"].entity_id]])
+            events[d] = []
+            for t, v in moves[d]:
+                if events[d] and t - events[d][-1][1] <= PHASE_MERGE_S:
+                    events[d][-1][1], events[d][-1][2] = t, events[d][-1][2] + v
+                else:
+                    events[d].append([t, t, v])
+
+        # rounds: a device with a set phase is known from the start and is still judged itself; an unknown device with a sure ratio joins the known
+        known = {d: d.power_phase for d in devices if d.power_phase is not None}
+        verdicts: dict[DistributionDevice, Phase] = {}
+        last: dict[DistributionDevice, tuple[int, list[float]]] = {}
+        while True:
+            new = {}
+            for d in devices:
+                if d in verdicts:
+                    continue
+                # a clean event: neither the roof nor an unknown device moved in its window; a known device that moved gives its jump back to its own phase
+                blockers = [roof_jumps] + [moves[o] for o in devices if o is not d and o not in known]
+                others = [(moves[o], phase) for o, phase in known.items() if o is not d]
+                clean = []
+                for t0, t1, dv in events[d]:
+                    lo, hi = t0 - PHASE_BEFORE_S, t1 + PHASE_AFTER_S
+                    if abs(dv) < PHASE_STEP_W or any(lo - PHASE_MARGIN_S <= t <= hi for rows in blockers for t, _ in rows):
+                        continue
+                    dp = [0.0] + [sum(factor * v for eid, factor in self.p1_entities[phase] for t, v in jumps[eid] if lo <= t <= hi) for phase in (Phase.l1, Phase.l2, Phase.l3)]
+                    for rows, phase in others:
+                        dp[phase] += sum(v for t, v in rows if lo - PHASE_MARGIN_S <= t <= hi)
+                    clean.append((dv, dp))
+                # the phase that follows the device one to one: a ratio near -1 there and near 0 on the other two
+                total = sum(dv * dv for dv, _ in clean) or 1.0  # no clean events: ratios of 0, no verdict
+                ratio = [sum(dv * dp[n] for dv, dp in clean) / total for n in range(4)]
+                last[d] = (len(clean), ratio)
+                best, second = sorted((Phase.l1, Phase.l2, Phase.l3), key=lambda p: ratio[p])[:2]
+                if len(clean) >= PHASE_MIN_EVENTS and ratio[best] <= -PHASE_SURE and ratio[second] >= -PHASE_OTHER:
+                    new[d] = best
+            if not new:
+                break
+            verdicts.update(new)
+            known.update({d: phase for d, phase in new.items() if d not in known})
+
+        return verdicts, last
 
     async def update_wear(self) -> None:
         """Daily: 7-day pack throughput per device -> wear (cycles/week) + RTE sensor."""

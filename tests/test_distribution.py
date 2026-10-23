@@ -34,7 +34,7 @@ def make_distribution(hass, entry, devices: list[FakeDevice], mode: Distribution
 async def tick(dist: Distribution, demand: int, now: float) -> None:
     # one live tick: P1 shows what the fleet does not yet cover, then every device follows its setpoint perfectly
     p1 = demand - sum(d.power_actual for d in dist.devices)
-    await dist._process_p1(int(p1), now)
+    await dist._process_p1(int(p1), dist.power, now)
     for d in dist.devices:
         d.power_actual = d.power_setpoint
 
@@ -76,7 +76,7 @@ async def test_display_sensors_follow_the_meter(hass, entry) -> None:  # noqa: A
     dist.capacity = 8.0
     d1.power_actual = 300
     dist.solar = 200  # the solar groups, summed by the coordinator; a device's own DC solar only feeds its bypass
-    await dist._process_p1(400, 1000.0)
+    await dist._process_p1(400, dist.power, 1000.0)
     e = dist.entities
     assert (e["grid_import"].state, e["grid_export"].state, e["discharge_power"].state, e["charge_power"].state) == (400, 0, 300, 0)
     assert e["house_load"].state == 900  # import + solar + delivery
@@ -135,7 +135,7 @@ async def test_export_replay_writes_the_replay_file(hass, entry, monkeypatch, tm
     d1 = ReportingDevice(hass, "d1", 60.0, 800, 1.92)
     d1.name = "SF800_88"
     dist = make_distribution(hass, entry, [d1], DistributionMode.OFF)
-    dist.p1_entities = [("sensor.p1_consumed", 1, 1), ("sensor.p1_produced", -1, 1000)]
+    dist.p1_entities = [[("sensor.p1_consumed", 1), ("sensor.p1_produced", -1000)], [], [], []]  # the total slot: consumed and produced with their signed factors
 
     base = datetime(2026, 9, 13, 10, 0, tzinfo=timezone.utc)
     stamp = lambda s: base.replace(second=s)  # noqa: E731
@@ -179,7 +179,7 @@ async def _hold(hass, entry, devices: list[FakeDevice], house: dict[int, float],
         now += 1.0
         for phase in (1, 2, 3):
             dist.power[phase] = house[phase] - sum(d.power_actual for d in devices if d.power_phase == Phase(phase))
-        await dist._process_p1(int(sum(dist.power)), now)
+        await dist._process_p1(int(sum(dist.power)), dist.power, now)
         for d in devices:
             d.power_actual = d.power_setpoint
     return dist, {phase: house[phase] - sum(d.power_actual for d in devices if d.power_phase == Phase(phase)) for phase in (1, 2, 3)}
@@ -232,57 +232,76 @@ async def test_the_guard_leaves_the_plan_alone_inside_the_limit(hass, entry) -> 
     assert 480 <= d1.power_setpoint <= 500, "the phase stays under its limit, so the plan decides"
 
 
-async def test_phase_detection_follows_the_meter_that_moves_with_the_device(hass, entry, monkeypatch) -> None:  # noqa: ANN001
-    # the button steps the device; the phase meter that carries the whole step is its own
+class PhaseDevice(FakeDevice):
+    # a device with the entities the detection reads: its phase select and its home in/output
+    def entity_create(self) -> None:
+        from custom_components.zendure_ha.const import PhaseModi
+        from custom_components.zendure_ha.select import HaSelect
+        from custom_components.zendure_ha.sensor import HaSensor
+
+        HaSelect(self, "power_phase", PhaseModi)
+        HaSensor(self, "home_output", uom="W")
+        HaSensor(self, "home_input", uom="W")
+        for key in ("home_output", "home_input"):
+            self.entities[key].entity_id = f"sensor.{self.device_id}_{key}"
+
+
+def phase_fleet(hass, entry, monkeypatch, jumps: dict[str, list[tuple[float, float]]]) -> tuple[Distribution, PhaseDevice, PhaseDevice]:  # noqa: ANN001
+    # two devices on a three-phase meter; the recorder is replaced by the given jumps, the matching runs inline
     import custom_components.zendure_ha.distribution as distribution_module
-    from custom_components.zendure_ha.const import PhaseModi
-    from custom_components.zendure_ha.select import HaSelect
 
-    class PhaseDevice(FakeDevice):
-        def entity_create(self) -> None:
-            HaSelect(self, "power_phase", PhaseModi)
+    d1, d2 = PhaseDevice(hass, "d1", 60.0), PhaseDevice(hass, "d2", 60.0)
+    dist = make_distribution(hass, entry, [d1, d2], DistributionMode.MANUAL)
+    dist.p1_entities = [[], [("sensor.l1", 1.0)], [("sensor.l2", 1.0)], [("sensor.l3", 1.0)]]
+    dist.solar_panels = []
 
-    d1 = PhaseDevice(hass, "d1", 60.0)
-    dist = make_distribution(hass, entry, [d1], DistributionMode.MANUAL)
-    dist.power = [0.0, 1000.0, 2000.0, 3000.0]
+    class Recorder:
+        async def async_add_executor_job(self, fn, *args):
+            return fn(*args)
 
-    async def follow(_seconds: float) -> None:
-        # charging lands on L2 alone; the other two phases stay where they are
-        dist.power[2] = 2000.0 - d1.power_setpoint
+    monkeypatch.setattr(distribution_module, "get_instance", lambda hass: Recorder())
+    monkeypatch.setattr(dist, "read_jumps", lambda ids: {eid: sorted(jumps.get(eid, [])) for eid in ids})
+    return dist, d1, d2
 
-    monkeypatch.setattr(distribution_module.asyncio, "sleep", follow)
-    await dist.detect_phase(d1)
+
+async def test_phase_detection_matches_jumps_and_clears_the_second_device_in_the_next_round(hass, entry, monkeypatch) -> None:  # noqa: ANN001
+    # d1 steps alone twelve times and L2 follows one to one; d2 only ever steps together with d1, so it is
+    # blocked in the first round and read in the second, with d1's jump given back to L2
+    jumps: dict[str, list[tuple[float, float]]] = {"sensor.d1_home_output": [], "sensor.d2_home_output": [], "sensor.l2": [], "sensor.l3": []}
+    for k in range(1, 13):
+        t = 1000.0 * k
+        jumps["sensor.d1_home_output"].append((t, 500.0))
+        jumps["sensor.l2"].append((t + 1, -500.0))
+        t = 1000.0 * k + 500
+        jumps["sensor.d1_home_output"].append((t, 400.0))
+        jumps["sensor.d2_home_output"].append((t, 600.0))
+        jumps["sensor.l2"].append((t + 1, -400.0))
+        jumps["sensor.l3"].append((t + 1, -600.0))
+    dist, d1, d2 = phase_fleet(hass, entry, monkeypatch, jumps)
+    await dist.detect_phases()
     assert d1.power_phase is Phase.l2
+    assert d2.power_phase is Phase.l3
 
 
-async def test_phase_detection_leaves_a_device_it_cannot_place(hass, entry, monkeypatch) -> None:  # noqa: ANN001
-    # the step spreads over all three phases, so no meter carries it and the device keeps the phase it had
-    import custom_components.zendure_ha.distribution as distribution_module
-    from custom_components.zendure_ha.const import PhaseModi
-    from custom_components.zendure_ha.select import HaSelect
+async def test_phase_detection_leaves_a_device_whose_step_spreads_over_the_phases(hass, entry, monkeypatch) -> None:  # noqa: ANN001
+    # a three-phase device lowers every phase by a third: no phase stands out, so nothing is set
+    jumps: dict[str, list[tuple[float, float]]] = {"sensor.d1_home_output": [], "sensor.l1": [], "sensor.l2": [], "sensor.l3": []}
+    for k in range(1, 13):
+        t = 1000.0 * k
+        jumps["sensor.d1_home_output"].append((t, 900.0))
+        for phase in ("sensor.l1", "sensor.l2", "sensor.l3"):
+            jumps[phase].append((t + 1, -300.0))
+    dist, d1, _ = phase_fleet(hass, entry, monkeypatch, jumps)
+    await dist.detect_phases()
+    assert d1.power_phase is None
 
-    class PhaseDevice(FakeDevice):
-        def entity_create(self) -> None:
-            HaSelect(self, "power_phase", PhaseModi)
-
-    d1 = PhaseDevice(hass, "d1", 60.0)
-    dist = make_distribution(hass, entry, [d1], DistributionMode.MANUAL)
-    dist.power = [0.0, 1000.0, 2000.0, 3000.0]
-
-    async def spread(_seconds: float) -> None:
-        for n in (1, 2, 3):
-            dist.power[n] = 1000.0 * n - d1.power_setpoint / 3
-
-    monkeypatch.setattr(distribution_module.asyncio, "sleep", spread)
-    await dist.detect_phase(d1)
-    assert d1.power_phase is Phase.all
 
 async def test_bypass_solar_is_house_baseline_but_the_battery_part_is_not(hass, entry) -> None:  # noqa: ANN001
     # the device delivers 900 W of which 400 W is solar passing straight through; only the 500 W from the battery is the fleet's
     d1 = FakeDevice(hass, "d1", 60.0)
     d1.bypass, d1.solar, d1.power_actual = True, 400, 900
     dist = make_distribution(hass, entry, [d1], DistributionMode.OFF)
-    await dist._process_p1(0, 1000.0)
+    await dist._process_p1(0, dist.power, 1000.0)
     assert dist.entities["discharge_power"].state == 500
 
 
@@ -291,7 +310,7 @@ async def test_offgrid_load_is_added_back_to_the_fleet_contribution(hass, entry)
     d1 = FakeDevice(hass, "d1", 60.0)
     d1.power_actual, d1.grid_off_power = -150, 150
     dist = make_distribution(hass, entry, [d1], DistributionMode.OFF)
-    await dist._process_p1(150, 1000.0)
+    await dist._process_p1(150, dist.power, 1000.0)
     assert dist.entities["charge_power"].state == 0, "the socket is a house load, not the fleet charging"
 
 
@@ -299,5 +318,5 @@ async def test_negative_offgrid_is_an_inverter_feeding_the_socket(hass, entry) -
     d1 = FakeDevice(hass, "d1", 60.0)
     d1.power_actual, d1.grid_off_power = 0, -200
     dist = make_distribution(hass, entry, [d1], DistributionMode.OFF)
-    await dist._process_p1(500, 1000.0)
+    await dist._process_p1(500, dist.power, 1000.0)
     assert dist.entities["charge_power"].state == 0, "a negative reading is solar coming in, never a load to cover"

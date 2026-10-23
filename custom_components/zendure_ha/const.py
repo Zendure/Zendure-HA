@@ -18,7 +18,7 @@ class Phase(IntEnum):
         return self.name.upper()
 
 
-PhaseModi = {p: p.name for p in Phase}  # the select options; the key is the Phase itself, the label its name
+PhaseModi = {None: "unknown", Phase.all: "all", Phase.l1: "l1", Phase.l2: "l2", Phase.l3: "l3"}  # the select options: the key is the semantic value, the label its name
 
 
 def watt_factor(state: Any, phase: Phase = Phase.all) -> float:

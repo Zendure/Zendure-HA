@@ -15,7 +15,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ..binary_sensor import HaBinarySensor
-from ..button import HaButton
 from ..const import PhaseModi
 from ..device import HOLD_S, REPORT_WAIT_S, DeviceState, DistributionDevice, ProfileCharge, ProfileDischarge
 from ..entity import HaEntity
@@ -147,7 +146,6 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         HaSensor(self, "power_max", "inverseMaxPower", uom="W", device_class="power", state_class="measurement")
         self.setpoint = HaSensor(self, "power_setpoint", uom="W", device_class="power", state_class="measurement")
         HaSelect(self, "power_phase", PhaseModi, on_changed=self.update_phase, restore=True)
-        HaButton(self, "detect_phase", press=self.detect_phase)
 
         HaBinarySensor(self, "bypass", "pass")
         HaBinarySensor(self, "heat_state", "heatState")

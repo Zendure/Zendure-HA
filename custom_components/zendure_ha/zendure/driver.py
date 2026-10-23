@@ -213,7 +213,6 @@ class ZendureDriver:
         if isinstance(device, DistributionDevice):
             self.distribution.devices.append(device)
             device.on_invalidate = self.distribution.on_invalidate
-            device.on_detect_phase = self.distribution.detect_phase
         self.devices[device.sn] = device
         self._all_devices.append(device)
         return device

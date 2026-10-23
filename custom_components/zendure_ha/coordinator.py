@@ -30,6 +30,12 @@ P1_PROFILES: dict[str, Any] = {
     "enphase_envoy": [("net_consumption", 1)],
     "sma": [("metering_power_absorbed", 1), ("metering_power_supplied", -1)],
 }
+PHASE_FRAGS = ((), ("phase_1", "phase1", "_l1", "phase_a"), ("phase_2", "phase2", "_l2", "phase_b"), ("phase_3", "phase3", "_l3", "phase_c"))  # indexed on Phase: the name fragments that put a P1 entity on that phase
+
+
+def phase_of(eid: str) -> Phase:
+    # the phase a P1 entity name points at; Phase.all is a grid total
+    return next((p for p in (Phase.l1, Phase.l2, Phase.l3) if any(f in eid for f in PHASE_FRAGS[p])), Phase.all)
 
 
 class Coordinator:
@@ -53,6 +59,8 @@ class Coordinator:
         self.zendure.on_discovered = self.discovered
         self.zendure.on_zeroconf = self.zeroconf
         self._unsubs: list = []  # registrations for the life of the coordinator: the store timer and the P1 meter
+        self.p1_entities: list[list[tuple[str, float]]] = [[], [], [], []]  # indexed on Phase: the meter entities of the total (0) and each phase, one net or a consumed/produced pair, as (entity_id, signed watt factor)
+        self.p1_direction = ("", "")  # the direction enum entity and its export state, for a meter that reports the total as a magnitude (SolarEdge)
         self._settings: dict[str, Any] = {}  # the entry data as last applied, to tell a settings change from a subentry change
         self.zeroconf_ip: dict[str, str] = dict(entry.data.get("zeroconf", {}))  # serial -> ip from mDNS for devices that are not built yet
 
@@ -193,60 +201,62 @@ class Coordinator:
             self.track(eid, lambda w, e=eid: solar_sum(e, w))
 
     def _track_p1(self, device_id: str) -> None:
-        # All power entities on the chosen P1 device: name -> slot + sign, unit -> factor; a net total wins over the consumed/produced pair.
-        # Registry entries often carry neither device_class nor unit because the integration sets them at runtime, so read both from the state.
-        entities = []
-        platform = ""
+        # every power entity on the P1 device goes on its phase (0 = the grid total) with a signed watt factor; only the total entities trigger
+        entries = er.async_entries_for_device(er.async_get(self.hass), device_id)
         states = getattr(self.hass, "states", None)  # absent offline (tests/tools), then the registry is all there is
-        for e in er.async_entries_for_device(er.async_get(self.hass), device_id):
-            platform = e.platform
+        entities = []
+        for e in entries:
             attrs = getattr(states.get(e.entity_id) if states else None, "attributes", None) or {}
-            unit = attrs.get("unit_of_measurement") or e.unit_of_measurement
+            unit = attrs.get("unit_of_measurement") or e.unit_of_measurement  # the integration sets both at runtime, so the state comes first
             if (attrs.get("device_class") or e.original_device_class or e.device_class) == "power" or unit in ("W", "kW", "kilowatt", "kilowatts"):
                 entities.append((e.entity_id, 1000 if unit in ("kW", "kilowatt", "kilowatts") else 1))
-        totals = []
-        contrib: list[dict[str, float]] = [{}, {}, {}, {}]  # per Phase the last reading of every entity on it; index 0 unused
-        self.distribution.phase_entities = [[], [], [], []]
+        platform = entries[0].platform if entries else ""
+        flip = -1 if platform == "huawei_solar" else 1  # Huawei signs the grid the other way: positive is export
 
-        def phase_sum(phase: int, eid: str, watts: float) -> None:
-            # a phase carries a consumed and a produced entity; the fleet needs their sum, not the last one
-            contrib[phase][eid] = watts
-            self.distribution.power[phase] = sum(contrib[phase].values())
-
-        # Huawei signs the grid the other way: positive is export, so its phases are negated
-        flip = -1 if platform == "huawei_solar" else 1
-        for eid, factor in entities:
-            if phase := next((n for n, a in ((1, "a"), (2, "b"), (3, "c")) if f"phase_{n}" in eid or f"phase{n}" in eid or f"_l{n}" in eid or f"phase_{a}" in eid), 0):
-                sign = flip * (-1 if "produc" in eid else 1)
-                self.track(eid, lambda w, p=phase, s=sign, e=eid: phase_sum(p, e, s * w), factor)
-                self.distribution.phase_entities[phase].append((eid, sign * factor))  # the phase detection reads them back from the recorder
-            else:
-                totals.append((eid, factor))
-
-        self.distribution.p1_entities = []
+        # the sign of a total: the profile names it, else produced/consumed in the name does, and a net wins over the pair
+        totals = [eid for eid, _ in entities if phase_of(eid) == Phase.all]
+        has_net = any("produc" not in eid and "consum" not in eid for eid in totals)
         profile = P1_PROFILES.get(platform)
         if profile and profile[0] == "enum":
-            # routine 2, SolarEdge: an unsigned magnitude, the sign comes live from a separate direction enum
-            _, power_frag, dir_frag, export = profile
-            direction = next((e.entity_id for e in er.async_entries_for_device(er.async_get(self.hass), device_id) if dir_frag in e.entity_id), "")
-            for eid, factor in totals:
-                if power_frag in eid and direction:
-                    self.distribution.p1_entities.append((eid, 1, factor))
-                    self.track(eid, lambda w, d=direction: self.hass.async_create_task(self.distribution._process_p1(-int(w) if (s := self.hass.states.get(d)) and s.state == export else int(w), now=time.time())), factor)
-        else:
-            # routine 1: entities summed as one signed net; the profile names the signs, else produced/consumed in the name does, a net wins over the pair
-            has_net = any("produc" not in e and "consum" not in e for e, _ in totals)
-            for eid, factor in totals:
-                if profile:
-                    sign = next((s for frag, s in profile if frag in eid), 0)
-                elif has_net and ("produc" in eid or "consum" in eid):
-                    sign = 0
-                else:
-                    sign = -1 if "produc" in eid else 1
-                if sign := sign * flip:
-                    self.distribution.p1_entities.append((eid, sign, factor))
-                    self.track(eid, lambda w, s=sign: self.hass.async_create_task(self.distribution._process_p1(s * int(w), now=time.time())), factor)
+            # SolarEdge: an unsigned magnitude, its sign comes live from a separate direction enum; without that enum the magnitude is useless
+            self.p1_direction = (next((e.entity_id for e in entries if profile[2] in e.entity_id), ""), profile[3])
+            profile = [(profile[1], 1 if self.p1_direction[0] else 0)]
+
+        # every entity on its phase with its signed factor; a phase entity is consumed unless its name says produced
+        self.p1_entities = [[], [], [], []]
+        for eid, factor in entities:
+            phase = phase_of(eid)
+            if phase != Phase.all:
+                sign = -1 if "produc" in eid else 1
+            elif profile:
+                sign = next((s for frag, s in profile if frag in eid), 0)
+            elif "produc" in eid:
+                sign = 0 if has_net else -1
+            else:
+                sign = 0 if has_net and "consum" in eid else 1
+            if sign:
+                self.p1_entities[phase].append((eid, sign * flip * factor))
+        self.distribution.p1_entities = self.p1_entities  # export_replay reads the total entities from it
+
+        # only the total entities trigger; the phases are read along with them
+        for eid, _ in self.p1_entities[Phase.all]:
+            self.track(eid, self._p1_changed)
 
         # the regulator never runs without a total: name the meter that gave none
-        if not self.distribution.p1_entities:
+        if not self.p1_entities[Phase.all]:
             persistent_notification.async_create(self.hass, f"P1 meter '{platform}' delivered no usable grid total", PANEL_TITLE, f"{DOMAIN}_p1")
+
+    def _p1_changed(self, _: float) -> None:
+        # a grid total entity reported: read the meter, each value its one net entity or consumed and produced added through their signed factors, and hand total and phases to the regulator
+        power = [0.0] * 4
+        for phase in Phase:
+            for eid, factor in self.p1_entities[phase]:
+                if (state := self.hass.states.get(eid)) and state.state not in ("unknown", "unavailable"):
+                    power[phase] += float(state.state) * factor
+        # the total leaves slot 0, which stays 0 for the distribution; a meter that reports a magnitude (SolarEdge) gets its sign from the direction enum
+        p1 = power[Phase.all]
+        power[Phase.all] = 0.0
+        direction, export = self.p1_direction
+        if direction and (state := self.hass.states.get(direction)) and state.state == export:
+            p1 = -p1
+        self.hass.async_create_task(self.distribution._process_p1(int(p1), power, now=time.time()))

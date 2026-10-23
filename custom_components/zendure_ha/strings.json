@@ -595,8 +595,8 @@
       }
     },
     "button": {
-      "detect_phase": {
-        "name": "Detect phase"
+      "detect_phases": {
+        "name": "Detect phases"
       },
       "export_replay": {
         "name": "Export replay data"

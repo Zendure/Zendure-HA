@@ -86,7 +86,7 @@ async def replay(hass, entry_id: str, data: dict, mode: int) -> dict:  # noqa: A
             device.solar = data["solar"][key][i]
             device.bypass = not device.kwh  # no pack: the panels always run straight through
 
-        await dist._process_p1(int(grid), now)
+        await dist._process_p1(int(grid), dist.power, now)
 
         # a real device answers after its measured dead time and then slews; LAG_ENABLED False is the old optimistic bound
         for device, key in zip(dist.devices, keys):

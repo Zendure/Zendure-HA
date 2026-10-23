@@ -595,8 +595,8 @@
       }
     },
     "button": {
-      "detect_phase": {
-        "name": "Phase ermitteln"
+      "detect_phases": {
+        "name": "Phasen ermitteln"
       },
       "export_replay": {
         "name": "Replay-Daten exportieren"
