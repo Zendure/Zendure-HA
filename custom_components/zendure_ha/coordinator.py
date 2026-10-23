@@ -24,11 +24,11 @@ from .zendure.driver import ZendureDriver
 _LOGGER = logging.getLogger(__name__)
 
 # per integration how its grid total is read: ("enum", power fragment, direction fragment, the state that means export),
-# or a list of (name fragment, sign) summed as one signed net; absent means the default produced/consumed name rules
+# or a list of (name fragment, sign) for the total and the phases; absent means the default produced/consumed name rules
 P1_PROFILES: dict[str, Any] = {
     "solaredge": ("enum", "grid_power", "grid_flow_direction", "export"),
     "enphase_envoy": [("net_consumption", 1)],
-    "sma": [("metering_power_absorbed", 1), ("metering_power_supplied", -1)],
+    "sma": [("metering_power_absorbed", 1), ("metering_power_supplied", -1), ("feed", -1), ("draw", 1)],
 }
 PHASE_FRAGS = ((), ("phase_1", "phase1", "_l1", "phase_a"), ("phase_2", "phase2", "_l2", "phase_b"), ("phase_3", "phase3", "_l3", "phase_c"))  # indexed on Phase: the name fragments that put a P1 entity on that phase
 
@@ -225,14 +225,16 @@ class Coordinator:
             self.p1_direction = (next((e.entity_id for e in entries if profile[2] in e.entity_id), ""), profile[3])
             profile = [(profile[1], 1 if self.p1_direction[0] else 0)]
 
-        # every entity on its phase with its signed factor; a phase entity is consumed unless its name says produced
+        # every entity on its phase with its signed factor: the profile signs what it names, else a phase entity is consumed unless its name says produced
         self.p1_entities = [[], [], [], []]
         for eid, factor in entities:
             phase = phase_of(eid)
-            if phase != Phase.all:
+            if profile and (match := next((s for frag, s in profile if frag in eid), 0)):
+                sign = match
+            elif phase != Phase.all:
                 sign = -1 if "produc" in eid else 1
             elif profile:
-                sign = next((s for frag, s in profile if frag in eid), 0)
+                sign = 0
             elif "produc" in eid:
                 sign = 0 if has_net else -1
             else:
