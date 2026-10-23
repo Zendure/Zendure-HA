@@ -13,8 +13,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock, call
 
-from custom_components.zendure_ha.const import DeviceState, ManagerState
+import pytest
+
+from custom_components.zendure_ha.const import DeviceState, ManagerMode, ManagerState
 from custom_components.zendure_ha.manager import ZendureManager
 
 
@@ -73,6 +76,17 @@ def _make_manager_harness() -> ZendureManager:
     return manager
 
 
+def _make_recent_flip_harness(now: datetime) -> tuple[ZendureManager, _FakeDevice]:
+    """One half-full charging device; the last hold-off window ended 30s ago."""
+    manager = _make_manager_harness()
+    device = _FakeDevice(pwr_max=-2400, electric_level=50)
+    manager.charge = [device]
+    manager.charge_limit = -2400
+    manager.charge_weight = device.pwr_max * (100 - device.electricLevel.asInt)
+    manager.charge_last = now - timedelta(seconds=30)
+    return manager, device
+
+
 async def test_power_discharge_single_device_gets_full_setpoint() -> None:
     manager = _make_manager_harness()
     device = _FakeDevice(pwr_max=2400, electric_level=50)
@@ -108,3 +122,103 @@ async def test_power_charge_first_call_primes_hysteria_and_forces_zero_setpoint(
     assert manager.charge_time == now + timedelta(seconds=2)
     assert manager.pwr_low == 0
     assert manager.operationstate.values == [ManagerState.IDLE.value]
+
+
+async def test_power_charge_recent_flip_holds_off_for_60s() -> None:
+    """A flip less than 300s after the previous hold-off window ended arms the long
+    (60s) hold-off and clamps the setpoint to 0: no charge command reaches the device.
+    """
+    now = datetime(2026, 7, 24, 12, 0, 0)
+    manager, device = _make_recent_flip_harness(now)
+
+    await manager.power_charge(-2400, now)
+
+    assert manager.charge_time == now + timedelta(seconds=60)
+    assert device.charge_calls == [0]
+    assert manager.operationstate.values == [ManagerState.IDLE.value]
+
+
+async def test_power_charge_without_debounce_skips_hold_off() -> None:
+    """With debounce=False, the same state that arms the 60s hold-off above dispatches
+    the requested power right away and records the flip as already elapsed.
+    """
+    now = datetime(2026, 7, 24, 12, 0, 0)
+    manager, device = _make_recent_flip_harness(now)
+
+    await manager.power_charge(-2400, now, debounce=False)
+
+    assert manager.charge_time == now
+    assert device.charge_calls == [-2400]
+    assert manager.operationstate.values == [ManagerState.CHARGE.value]
+
+
+async def test_power_charge_without_debounce_clears_pending_hold_off() -> None:
+    """A non-debounced charge (e.g. switching to MANUAL) during a pending hold-off
+    charges right away, and a later debounced charge (back to MATCHING) does not
+    inherit the old hold-off window.
+    """
+    now = datetime(2026, 7, 24, 12, 0, 0)
+    manager, device = _make_recent_flip_harness(now)
+    weight = manager.charge_weight
+
+    for seconds, debounce in ((0, True), (5, False), (20, True)):
+        manager.charge_weight = weight  # powerChanged recomputes it every cycle
+        time = now + timedelta(seconds=seconds)
+        await manager.power_charge(-2400, time, debounce=debounce)
+
+    assert device.charge_calls == [0, -2400, -2400]
+
+
+_NOW = datetime(2026, 7, 24, 12, 0, 0)
+
+
+@pytest.mark.parametrize(
+    ("operation", "p1", "produced", "manual", "charge_calls", "discharge_calls"),
+    [
+        (ManagerMode.MATCHING, -500, 0, 0, [call(-500, _NOW)], []),
+        (ManagerMode.MATCHING_CHARGE, -500, 0, 0, [call(-500, _NOW)], []),
+        (ManagerMode.MATCHING_CHARGE, 500, 300, 0, [], [call(300)]),
+        (ManagerMode.MATCHING_CHARGE, 500, 0, 0, [call(0, _NOW)], []),
+        (ManagerMode.STORE_SOLAR, 500, 300, 0, [call(0, _NOW, debounce=False)], []),
+        (ManagerMode.STORE_SOLAR, -500, 0, 0, [call(-500, _NOW, debounce=False)], []),
+        (ManagerMode.MANUAL, 500, 0, -800, [call(-800, _NOW, debounce=False)], []),
+        (ManagerMode.MANUAL, -500, 0, 800, [], [call(800)]),
+    ],
+    ids=[
+        "matching-charge",
+        "matching_charge-charge",
+        "matching_charge-discharges-produced",
+        "matching_charge-idle",
+        "store_solar-never-discharges",
+        "store_solar-charge",
+        "manual-charge",
+        "manual-discharge",
+    ],
+)
+async def test_power_changed_debounces_only_matching_modes(
+    operation: ManagerMode,
+    p1: int,
+    produced: int,
+    manual: int,
+    charge_calls: list[Any],
+    discharge_calls: list[Any],
+) -> None:
+    """powerChanged keeps the charge hold-off for the MATCHING modes, which can flip on
+    their own, and disables it for MANUAL and STORE_SOLAR, whose direction is fixed.
+    """
+    manager = _make_manager_harness()
+    manager.devices = []
+    manager.power = _RecordingSensor()
+    manager.availableKwh = _RecordingSensor()
+    manager.globalSoc = _RecordingSensor()
+    manager.discharge_bypass = 0
+    manager.produced = produced
+    manager.operation = operation
+    manager.manualpower = SimpleNamespace(asNumber=manual)
+    manager.power_charge = AsyncMock()
+    manager.power_discharge = AsyncMock()
+
+    await manager.powerChanged(p1, False, _NOW)
+
+    assert manager.power_charge.await_args_list == charge_calls
+    assert manager.power_discharge.await_args_list == discharge_calls

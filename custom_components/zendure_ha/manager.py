@@ -500,26 +500,30 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 # Discharge to cover demand and always pass through available solar; never charge
                 await self.power_discharge(max(self.produced, setpoint))
 
-            case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
-                # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
+            case ManagerMode.MATCHING_CHARGE:
+                # Allow discharge of produced power, otherwise only charge
                 # d.pwr_produced is negative, but self.produced is positive
-                if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
+                if setpoint > 0 and self.produced > SmartMode.POWER_START:
                     await self.power_discharge(min(self.produced, setpoint))
                 else:
                     await self.power_charge(min(0, setpoint), time)
 
+            case ManagerMode.STORE_SOLAR:
+                # Only charge; it never discharges, so there is no flip to debounce
+                await self.power_charge(min(0, setpoint), time, debounce=False)
+
             case ManagerMode.MANUAL:
-                # Manual power into or from home
+                # Manual power into or from home; the user fixes the direction, nothing to debounce
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
                     await self.power_discharge(setpoint)
                 else:
-                    await self.power_charge(setpoint, time)
+                    await self.power_charge(setpoint, time, debounce=False)
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)
 
-    async def power_charge(self, setpoint: int, time: datetime) -> None:
-        """Charge devices."""
+    async def power_charge(self, setpoint: int, time: datetime, debounce: bool = True) -> None:
+        """Charge devices. With debounce, hold off charging for a while after a discharge->charge flip."""
         _LOGGER.info("Charge => setpoint %sW", setpoint)
 
         # stop discharging devices
@@ -531,7 +535,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             await d.power_discharge(0 if d.pwr_offgrid == 0 else -10)
 
         # prevent hysteria
-        if self.charge_time > time:
+        if not debounce:
+            # the caller fixes the direction: charge now and leave no hold-off pending
+            if self.charge_time == datetime.max:
+                self.pwr_low = 0
+            self.charge_time = min(self.charge_time, time)
+        elif self.charge_time > time:
             if self.charge_time == datetime.max:
                 self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
                 self.charge_last = self.charge_time
