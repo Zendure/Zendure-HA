@@ -157,6 +157,9 @@ class Coordinator:
         for unsub in self._unsubs:
             unsub()
         self._unsubs = []
+        # stop the fleet and hand HEMS back, so no device keeps running on our last setpoint once we are gone
+        for d in self.distribution.devices:
+            d.power_off()
         for d in self.devices:
             d.unload()
         await self.zendure.unload()
