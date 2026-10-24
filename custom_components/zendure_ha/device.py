@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import socket
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -808,9 +809,32 @@ class ZendureZenSdk(ZendureDevice):
         else:
             self.mqttPublish(self.topic_write, command, self.mqtt)
 
+    async def async_resolve_ip(self) -> str:
+        """Resolve mDNS hostname to IP to bypass aiohttp URL validation."""
+        if self.definition.get("ip", "") != "":
+            return self.definition["ip"]
+
+        # Construct the hostname
+        base_model = self.definition['productModel'].replace(' ', '')
+        hostname = f"zendure-{base_model}-{self.snNumber}.local"
+
+        # Standardize Zendure's illegal '+' to Avahi's octal escape format
+        resolve_name = hostname.replace("+", "\\043")
+
+        try:
+            loop = asyncio.get_running_loop()
+            # Resolve to IPv4 address asynchronously
+            info = await loop.getaddrinfo(resolve_name, 80, family=socket.AF_INET)
+            return info[0][4][0]
+        except Exception as e:
+            _LOGGER.debug("mDNS resolution failed for %s: %s", resolve_name, e)
+            # Fallback to the original hostname string
+            return self.ipAddress
+
     async def httpGet(self, url: str, key: str | None = None) -> dict[str, Any]:
         try:
-            url = f"http://{self.ipAddress}/{url}"
+            host = await self.async_resolve_ip()
+            url = f"http://{host}/{url}"
             response = await self.session.get(url, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
             payload = json.loads(await response.text())
             self.lastseen = datetime.now()
@@ -825,7 +849,8 @@ class ZendureZenSdk(ZendureDevice):
             self.httpid += 1
             command["id"] = self.httpid
             command["sn"] = self.snNumber
-            url = f"http://{self.ipAddress}/{url}"
+            host = await self.async_resolve_ip()
+            url = f"http://{host}/{url}"
             await self.session.post(url, json=command, headers=CONST_HEADER, timeout=CONST_TIMEOUT)
         except Exception as e:
             _LOGGER.error("%s for %s during httpPost%s", type(e).__name__, self.name, f": {e}" if str(e) else "!")
