@@ -163,14 +163,15 @@ class ZendureDevice(EntityDevice):
             0: "unused",
             1: "owncircuit",
             2: "group600_1200",
-            3: "group800",
-            4: "group800_2400",
-            5: "group1200",
-            6: "group2000",
-            7: "group2400",
-            8: "group3600",
-            9: "group4000",
-            10: "group5000",
+            3: "group600_2400",
+            4: "group800",
+            5: "group800_2400",
+            6: "group1200",
+            7: "group2000",
+            8: "group2400",
+            9: "group3600",
+            10: "group4000",
+            11: "group5000",
         }
         self.fuseGroup = ZendureRestoreSelect(self, "fuseGroup", fuseGroups, None)
         self.acMode = ZendureSelect(self, "acMode", {1: "input", 2: "output"}, self.entityWrite, 1)

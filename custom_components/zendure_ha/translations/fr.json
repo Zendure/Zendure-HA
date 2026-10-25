@@ -376,6 +376,7 @@
           "unused": "Aucun (appareil NON-utilisé en couplage intelligent)",
           "owncircuit": "L'appareil a son propre circuit ou phase, max. 3600 W",
           "group600_1200": "groupe de fusible max. 600 W / 1200 W charge",
+          "group600_2400": "groupe de fusible max. 600 W / 2400 W charge",
           "group800": "groupe de fusible max. 800 W / 1200 W charge",
           "group800_2400": "groupe de fusible max. 800 W / 2400 W charge",
           "group1200": "groupe de fusible max. 1200 W",

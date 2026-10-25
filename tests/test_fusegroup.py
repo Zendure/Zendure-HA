@@ -7,6 +7,8 @@ back and that ZendureManager.power_discharge never exceeds them.
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.zendure_ha.const import ManagerMode
 from custom_components.zendure_ha.manager import ZendureManager
 
@@ -24,22 +26,24 @@ async def _select_fusegroup(manager: ZendureManager, device, option: str) -> Non
     await manager.update_fusegroups()
 
 
-async def test_group600_1200_is_a_selectable_option(zensdk_device) -> None:  # noqa: ANN001
-    assert "group600_1200" in zensdk_device.fuseGroup.options
+@pytest.mark.parametrize("option", ["group600_1200", "group600_2400"])
+async def test_group600_is_a_selectable_option(zensdk_device, option: str) -> None:  # noqa: ANN001
+    assert option in zensdk_device.fuseGroup.options
 
 
-async def test_group600_1200_limits_device_to_600_out_1200_in(zensdk_device) -> None:  # noqa: ANN001
+@pytest.mark.parametrize(("option", "charge"), [("group600_1200", -1200), ("group600_2400", -2400)])
+async def test_group600_limits_device_to_600_out(zensdk_device, option: str, charge: int) -> None:  # noqa: ANN001
     # a device that can do 2400w each way on its own
     zensdk_device.setLimits(-2400, 2400)
     manager = _make_manager_harness([zensdk_device])
 
-    await _select_fusegroup(manager, zensdk_device, "group600_1200")
+    await _select_fusegroup(manager, zensdk_device, option)
 
     fg = zensdk_device.fuseGrp
-    assert (fg.maxpower, fg.minpower) == (600, -1200)
+    assert (fg.maxpower, fg.minpower) == (600, charge)
     assert fg.discharge_limit(zensdk_device) == 600
     fg.initPower = True
-    assert fg.charge_limit(zensdk_device) == -1200
+    assert fg.charge_limit(zensdk_device) == charge
 
 
 async def test_group600_1200_caps_discharge_dispatch_at_600(zensdk_device) -> None:  # noqa: ANN001

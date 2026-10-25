@@ -185,6 +185,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                         fg = FuseGroup(device.name, 3600, -3600)
                     case "group600_1200":
                         fg = FuseGroup(device.name, 600, -1200)
+                    case "group600_2400":
+                        fg = FuseGroup(device.name, 600, -2400)
                     case "group800":
                         fg = FuseGroup(device.name, 800, -1200)
                     case "group800_2400":
@@ -223,14 +225,15 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     0: "unused",
                     1: "owncircuit",
                     2: "group600_1200",
-                    3: "group800",
-                    4: "group800_2400",
-                    5: "group1200",
-                    6: "group2000",
-                    7: "group2400",
-                    8: "group3600",
-                    9: "group4000",
-                    10: "group5000",
+                    3: "group600_2400",
+                    4: "group800",
+                    5: "group800_2400",
+                    6: "group1200",
+                    7: "group2000",
+                    8: "group2400",
+                    9: "group3600",
+                    10: "group4000",
+                    11: "group5000",
                 }
                 for deviceId, fg in fuseGroups.items():
                     if deviceId != device.deviceId:
