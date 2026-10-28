@@ -57,10 +57,32 @@ async def test_paired_ace_stays_dispatchable(ace) -> None:  # noqa: ANN001
 
 
 async def test_device_with_no_packs_still_goes_offline(ace) -> None:  # noqa: ANN001
-    """The original guard still holds for a device that reports nothing at all."""
+    """The original guard still holds for a device that reports nothing at all.
+
+    Standalone only: a paired ACE has no capacity of its own on purpose (the Hub owns it).
+    """
+    ace.hubMode.update_value(1)
     ace.batteries = {}
     ace.kWh = 0.0
     _wake(ace)
 
     assert await ace.power_get() is False
     assert ace.state == DeviceState.OFFLINE
+
+
+async def test_pair_aces_links_the_hub_with_the_same_packs(hass, ace) -> None:  # noqa: ANN001
+    from custom_components.zendure_ha.devices.ace1500 import pair_aces
+    from custom_components.zendure_ha.devices.hub2000 import Hub2000
+
+    hub = Hub2000(hass, "hub-2000", "Hub 2000", {"productKey": "testProdKey", "snNumber": "HUBTEST1", "productModel": "HUB 2000", "ip": ""})
+    other = Hub2000(hass, "hub-2000b", "Hub 2000 b", {"productKey": "testProdKey", "snNumber": "HUBTEST2", "productModel": "HUB 2000", "ip": ""})
+    hub.batteries = {"PACK1": object()}
+    other.batteries = {"PACK2": object()}
+    ace.batteries = {"PACK1": object()}
+
+    pair_aces([other, ace, hub])
+    assert ace.pairedHub is hub
+
+    ace.batteries = {"PACK3": object()}
+    pair_aces([other, ace, hub])
+    assert ace.pairedHub is None

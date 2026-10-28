@@ -1,0 +1,8 @@
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,notes,role,role2,xfail
+1,MANUAL,-500,300,not full,0,300,0,0,not full,0,500,-500,,,,,,,,"paired HUB + ACE 1500, manual -500W: the ACE draws exactly 500W from the grid, the HUB only stores its own 300W solar",hub,feeder,
+2,MANUAL,-1900,300,not full,0,300,0,0,not full,0,900,-900,,,,,,,,"paired HUB + ACE 1500, manual -1900W: the ACE is capped at its 900W input limit, the HUB gets no grid power",hub,feeder,
+3,MANUAL,-300,0,not full,0,0,0,0,not full,0,300,-300,,,,,,,,"paired HUB + ACE 1500, manual -300W, no solar: the idle ACE (no charging telemetry) is still commanded and draws 300W",hub,feeder,
+4,MANUAL,-500,0,EMPTY,0,0,0,0,EMPTY,0,500,-500,,,,,,,,"paired HUB + ACE 1500, empty battery, manual -500W: an empty battery grid-charges through the ACE",hub,feeder,
+5,MANUAL,-500,300,FULL,0,0,300,0,FULL,0,0,0,,,,,,,,"paired HUB + ACE 1500, full battery, manual -500W: nothing is charged, the HUB bypasses its 300W solar to the home",hub,feeder,
+6,MANUAL,600,300,not full,300,0,600,0,not full,0,0,0,,,,,,,,"paired HUB + ACE 1500, manual +600W: the HUB covers it (300W solar + 300W battery), the ACE is not commanded",hub,feeder,
+7,MANUAL,1500,300,not full,900,0,1200,0,not full,0,0,0,,,,,,,,"paired HUB + ACE 1500, manual +1500W: the HUB runs at its 1200W limit, the ACE is never started as a second discharger (XFAIL: grid_feeders was removed, so the idle ACE is started and also delivers 480W)",hub,feeder,XFAIL

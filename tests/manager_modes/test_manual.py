@@ -12,7 +12,7 @@ from custom_components.zendure_ha.const import ManagerMode
 
 from .harness import Case, assert_matches_spec, drive_metered, load_cases_from_csv, make_params
 
-CASES = load_cases_from_csv("manual")
+CASES = load_cases_from_csv("manual") + load_cases_from_csv("manual_legacy_dev")
 
 
 @pytest.mark.parametrize("case", make_params(CASES))

@@ -6,6 +6,7 @@ from typing import Any
 from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 
+from custom_components.zendure_ha.const import AcMode
 from custom_components.zendure_ha.device import ZendureBattery, ZendureLegacy
 from custom_components.zendure_ha.number import ZendureRestoreNumber
 
@@ -23,6 +24,8 @@ class Hub1200(ZendureLegacy):
     async def charge(self, power: int) -> int:
         _LOGGER.debug("%s => AC Power charge not available, set power from %s to 0", self.name, power)
         # The HUB family does not have AC charging possibility (even with ACE 1500), so set it to idle
+        if self.ac_charge:
+            self.setAcMode(AcMode.INPUT)
 
         self.mqttInvoke(
             {
@@ -34,9 +37,14 @@ class Hub1200(ZendureLegacy):
 
     async def discharge(self, power: int) -> int:
         _LOGGER.debug("%s => Power discharge %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
+        if power > 0:
+            self.setAcMode(AcMode.OUTPUT)
+        # Program 8 even with value 0 keeps a paired ACE 1500 from charging from the grid.
+        # TODO: replace magic numbers with constants
+        program, model = (2, 8) if power > 0 else (0, 0)
         self.mqttInvoke(
             {
-                "arguments": [{"autoModelProgram": 2, "autoModelValue": power, "msgType": 1, "autoModel": 8}],
+                "arguments": [{"autoModelProgram": program, "autoModelValue": power, "msgType": 1, "autoModel": model}],
                 "function": "deviceAutomation",
             }
         )

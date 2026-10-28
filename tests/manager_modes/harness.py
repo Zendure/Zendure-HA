@@ -278,14 +278,20 @@ async def drive_metered(mode: ManagerMode, case: "Case", cycles: int = 60) -> li
 
     MANUAL ignores P1 (uses manualpower); every other mode balances the load.
     """
-    charge_limit = -1200 if mode == ManagerMode.MANUAL else 0
+    default_charge_limit = -1200 if mode == ManagerMode.MANUAL else 0
     devs = []
     for spec in case.devices:
         state, rep_level = SOC[spec.soc]
+        # a HUB cannot charge from the AC grid; the paired ACE 1500 feeds its battery (max 900 W)
+        charge_limit = {"hub": 0, "feeder": -900}.get(spec.role, default_charge_limit)
         dev = FakeDevice(state, spec.level if spec.level is not None else rep_level,
                          pv=spec.pv, charge_limit=charge_limit,
                          pwr_offgrid=spec.offgrid, exports_bypass=spec.exports,
                          min_output=spec.min_output, bypass=spec.bypass, name=f"dev{len(devs) + 1}")
+        if spec.role == "feeder":
+            dev.grid_feeder = True
+            dev.kWh = 0.0          # paired: the capacity belongs to the HUB
+            dev.discharge_limit = 800
         dev.seed_spec(spec.discharging, spec.charging, spec.device_to_grid)
         devs.append(dev)
     mgr = build_manager(mode, devs, case.fuse)
@@ -314,6 +320,7 @@ class DeviceSpec:
     exports: bool = True    # exports_bypass: gridReverse allows export
     min_output: int = 0     # minimum discharge floor, W (0 = none; HUB/AIO only)
     bypass: bool | None = None  # force hardware byPass flag (None = auto: SOCFULL + pv>0)
+    role: str = ""          # "" = AC-capable device, "hub" = no AC charge path, "feeder" = paired ACE 1500
 
 
 @dataclass
@@ -416,6 +423,7 @@ def load_cases_from_csv(mode_stem: str) -> list[Case]:
                 exports=_exports(row.get("exports")),
                 min_output=_watts(row.get("min_output_w")),
                 bypass=_bypass(row.get("bypass")),
+                role=(row.get("role") or "").strip(),
             )
             soc2 = (row.get("soc2") or "").strip()
             if soc2 == "":
@@ -437,6 +445,7 @@ def load_cases_from_csv(mode_stem: str) -> list[Case]:
                 exports=_exports(row.get("exports2")),
                 min_output=_watts(row.get("min_output2_w")),
                 bypass=_bypass(row.get("bypass2")),
+                role=(row.get("role2") or "").strip(),
             )
             socs1 = SOC_ALL if soc == "any" else (soc,)
             socs2 = SOC_ALL if soc2 == "any" else (soc2,)
