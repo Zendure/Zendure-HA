@@ -156,6 +156,18 @@
       "grid_input_power": {
         "name": "Grid Input Power"
       },
+      "total_power": {
+        "name": "Total Power"
+      },
+      "a_aprt_power": {
+        "name": "Power Phase 1"
+      },
+      "b_aprt_power": {
+        "name": "Power Phase 2"
+      },
+      "c_aprt_power": {
+        "name": "Power Phase 3"
+      },
       "grid_off_power": {
         "name": "Off-Grid Power"
       },
