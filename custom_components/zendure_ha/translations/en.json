@@ -192,8 +192,8 @@
         "name": "SoC Limit State",
         "state": {
           "0": "Normal",
-          "1": "Limiting",
-          "2": "Full"
+          "1": "Full",
+          "2": "Limiting"
         }
       },
       "hub_state": {
