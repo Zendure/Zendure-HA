@@ -414,6 +414,8 @@
         "state": {
           "unused": "Unused, device has No FuseGroup",
           "owncircuit": "Device has its own circuit or phase, max. 3600w",
+          "group600_1200": "FuseGroup max. 600w / 1200w charge",
+          "group600_2400": "FuseGroup max. 600w / 2400w charge",
           "group800": "FuseGroup max. 800w / 1200w charge",
           "group800_2400": "FuseGroup max. 800w / 2400w charge",
           "group1200": "FuseGroup max. 1200w",
