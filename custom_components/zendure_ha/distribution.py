@@ -53,6 +53,7 @@ class DistributionMode(Enum):
     SMART_DISCHARGING = 3
     SMART_CHARGING = 4
     STORE_SOLAR = 5
+    BYPASS_SOLAR = 6
 
 
 DistributionModi = {m.value: m.name.lower() for m in DistributionMode}  # the select options; the lowercase names are the translation keys
@@ -273,6 +274,24 @@ class Distribution(EntityDevice):
             self.wear_date = now + 86400
             self.hass.async_create_task(self.update_wear())
             self.hass.async_create_task(self.detect_phases())
+
+        mode = DistributionMode(int(self.mode))
+
+        if mode == DistributionMode.BYPASS_SOLAR:
+            for d in self.devices:
+                if d.state <= DeviceState.EXTERNAL:
+                    continue
+                d._solar_bypass_mode = True
+                if d.solar <= 0:
+                    d.power(0)
+                    continue
+                target = min(int(d.solar), abs(d.power_profile[False].power))
+                d.power(target)
+            return
+
+        for d in self.devices:
+            d._solar_bypass_mode = False
+
         power_actual = self.update_telemetry(p1)
 
         # rebuild the order every 10 minutes, and right away when a device joins or drops out
