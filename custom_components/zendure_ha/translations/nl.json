@@ -216,7 +216,8 @@
           "smart": "Slim afstemmen",
           "smart_discharging": "Alleen slim ontladen",
           "smart_charging": "Alleen slim laden",
-          "store_solar": "Zon opslaan"
+          "store_solar": "Zon opslaan", 
+          "bypass_solar": "Zon bypass"
         }
       },
       "auto_heat": {
