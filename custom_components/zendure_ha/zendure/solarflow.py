@@ -183,9 +183,17 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
     def power(self, watts: int) -> int:
         watts = max(self.power_profile[1].power, min(self.power_profile[0].power, watts))  # clamp to rated power, both directions
 
+        # BYPASS_SOLAR active, so don't ask for pass-through on top of outputPower
+        if getattr(self, "_solar_bypass_mode", False):
+            watts = max(0, min(self.power_profile[0].power, watts))
         # outputPower is an absolute target and the pass-through is already flowing, so ask for it on top or the command sits below it
-        if self.bypass and watts > 0:
+        elif self.bypass and watts > 0:
             watts = min(self.power_profile[0].power, watts + self.solar)
+
+        # only skip tiny movements in normal modes; in BYPASS_SOLAR never suppress them
+        if not getattr(self, "_solar_bypass_mode", False):
+            if abs(self.power_actual - watts) < 10 and abs(self.power_setpoint - watts) < 10:
+                return self.power_actual
 
         # the device is busy with its last command: over ZenSDK until the report echoes the limits (REPORT_WAIT_S at most), over the broker HOLD_S
         since = time.time() - self.power_since
@@ -195,9 +203,6 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         elif since < HOLD_S:
             return self.power_actual
 
-        # no new command while both the measured power and the last setpoint sit within 10 W of the new target
-        if abs(self.power_actual - watts) < 10 and abs(self.power_setpoint - watts) < 10:
-            return self.power_actual
         if self.power_setpoint != watts:
             self.power_since = time.time()
         self.setpoint.update_value(watts)  # publish the setpoint we are about to send, so the recorder holds the command side too
@@ -382,7 +387,7 @@ class ZendureHyper(ZendureSolarFlow):
         if not self._hems_active:
             self.mqtt_publish("properties/write", {"properties": {"hemsState": 1}})
             self._hems_active = True
-        arguments = {"outputPower": 0, "chargePower": -watts, "freq": 0, "mode": 9, "chargeMode": 3} if watts < 0 else {"outputPower": watts, "chargePower": 0, "freq": 0, "minSoc": int(self.soc_min * 10), "mode": 9}
+        arguments = {"outputPower": 0, "chargePower": -watts, "freq": 0, "mode": 9, "chargeMode": 3} if watts < 0 else {"outputPower": watts, "chargePower": 0, "freq": 0, "mode": 9}
         self.mqtt_publish("function/invoke", {"function": "hemsEP", "arguments": arguments})
 
     def mqtt_power_off(self) -> None:
