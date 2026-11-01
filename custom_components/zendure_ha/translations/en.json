@@ -216,7 +216,8 @@
           "smart": "Smart matching",
           "smart_discharging": "Smart discharge only",
           "smart_charging": "Smart charge only",
-          "store_solar": "Store solar"
+          "store_solar": "Store solar",
+          "bypass_solar": "Solar bypass"
         }
       },
       "auto_heat": {
