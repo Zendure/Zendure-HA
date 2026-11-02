@@ -510,6 +510,8 @@ class Distribution(EntityDevice):
                 # the device's own verdict overrules the percentage
                 if d.soc_limit == (1 if charging else 2):
                     continue
+                if d.low_voltage_discharge_protect:
+                    continue
                 if d.state <= DeviceState.EXTERNAL or not d.kwh or ((d.bypass or d.soc >= d.soc_max) if charging else (d.soc <= d.soc_min)):
                     continue
                 soc = int(d.soc / 10) * 10  # quantized: the ranking only moves on a real SoC difference
