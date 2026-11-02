@@ -195,6 +195,17 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         if self.low_voltage_protect and watts < 0:
             watts = max(watts, -max(200, abs(self.power_profile[1].power) // 4))
 
+        # hard stop for normal discharge: below 3.1 V, but allow solar bypass
+        if self.low_voltage_discharge_protect and watts > 0 and not getattr(self, "_solar_bypass_mode", False):
+            if self.power_actual > 0:
+                self.power_setpoint = 0
+                self.setpoint.update_value(0)
+                if self.connection in [ConnectionType.CLOUD, ConnectionType.LOCAL]:
+                    self.mqtt_power(0)
+                elif self.connection != ConnectionType.OFFLINE:
+                    self.device_queue.put_nowait((Command.POWER, _limits(0)))
+            return 0
+
         watts = max(self.power_profile[1].power, min(self.power_profile[0].power, watts))  # clamp to rated power, both directions
 
         # BYPASS_SOLAR active, so don't ask for pass-through on top of outputPower
@@ -261,7 +272,7 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
                     if bat and bp:
                         bat.update_properties(bp, now)
 
-        # Low-voltage protection with hysteresis: warn at 3.1 V, resume above 3.2 V only after a minimum charge time.
+        # Low-voltage protection
         cell_voltages: list[float] = []
         for bat in self.batteries.values():
             if (minvol := bat.entities.get("minVol")) and minvol.state is not None:
@@ -273,23 +284,32 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         if cell_voltages:
             self.low_voltage = min(cell_voltages)
             now_monotonic = time.monotonic()
+
+            # emergency charge protection
             if self.low_voltage <= self.low_voltage_warn:
                 if not self.low_voltage_protect:
                     self.low_voltage_protect = True
                     self.low_voltage_protect_since = now_monotonic
                 self._low_voltage_recovery_mode = True
             elif self.low_voltage >= self.low_voltage_resume and self.low_voltage_protect:
-                if (now_monotonic - self.low_voltage_protect_since) >= 20 * 60:
+                if (now_monotonic - self.low_voltage_protect_since) >= 15 * 60:
                     self.low_voltage_protect = False
                     self.low_voltage_protect_since = 0.0
                     self._low_voltage_recovery_mode = False
             else:
                 self._low_voltage_recovery_mode = False
+
+            # discharge block protection
+            if self.low_voltage <= self.low_voltage_discharge_warn:
+                self.low_voltage_discharge_protect = True
+            elif self.low_voltage >= self.low_voltage_discharge_resume:
+                self.low_voltage_discharge_protect = False
         else:
             self.low_voltage = 0.0
             self.low_voltage_protect = False
             self.low_voltage_protect_since = 0.0
             self._low_voltage_recovery_mode = False
+            self.low_voltage_discharge_protect = False
 
         # update the device entities
         for k, v in (payload.get("properties") or {}).items():
