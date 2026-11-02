@@ -53,6 +53,7 @@ class DistributionMode(Enum):
     SMART_DISCHARGING = 3
     SMART_CHARGING = 4
     STORE_SOLAR = 5
+    BYPASS_SOLAR = 6
 
 
 DistributionModi = {m.value: m.name.lower() for m in DistributionMode}  # the select options; the lowercase names are the translation keys
@@ -112,6 +113,7 @@ class Distribution(EntityDevice):
         self.pwr_low = 0.0  # discharging: how long the first running device has sat under 1.5 times its start level, in watt-ticks
         self.setpoint: int = 0
         self.capacity = 0.0
+        self.low_voltage_recovery_active = False
 
     def entity_create(self) -> None:
         HaSelect(self, "mode", DistributionModi, on_changed=self.update_mode, restore=True)
@@ -273,6 +275,24 @@ class Distribution(EntityDevice):
             self.wear_date = now + 86400
             self.hass.async_create_task(self.update_wear())
             self.hass.async_create_task(self.detect_phases())
+
+        mode = DistributionMode(int(self.mode))
+
+        if mode == DistributionMode.BYPASS_SOLAR:
+            for d in self.devices:
+                if d.state <= DeviceState.EXTERNAL:
+                    continue
+                d._solar_bypass_mode = True
+                if d.solar <= 0:
+                    d.power(0)
+                    continue
+                target = min(int(d.solar), abs(d.power_profile[False].power))
+                d.power(target)
+            return
+
+        for d in self.devices:
+            d._solar_bypass_mode = False
+
         power_actual = self.update_telemetry(p1)
 
         # rebuild the order every 10 minutes, and right away when a device joins or drops out
@@ -285,6 +305,17 @@ class Distribution(EntityDevice):
             return
         elapsed = min(3.0, now - self.p1_time) if self.p1_time else 1.0
         self.p1_time = now
+
+        protected = [d for d in self.devices if d.low_voltage_protect]
+        if protected:
+            self.low_voltage_recovery_active = True
+            recovery = -max(200, max(abs(d.power_profile[1].power) for d in protected) // 4)
+            self.setpoint = recovery
+            self.setpoint_avg += (abs(self.setpoint) - self.setpoint_avg) * elapsed / 900
+            self.update_power(True, self.setpoint, elapsed)
+            return
+
+        self.low_voltage_recovery_active = False
 
         # the demand is what the meter shows plus what the fleet delivers; the setpoint follows from mode, stabilizer and direction
         self.setpoint = self.update_setpoint(mode, p1 + power_actual + int(self.setpoint_correction), self.solar, now, elapsed)
@@ -321,6 +352,9 @@ class Distribution(EntityDevice):
 
     def update_setpoint(self, mode: DistributionMode, setpoint: int, solar: int, now: float, elapsed: float) -> int:
         """The fleet setpoint: manual is the knob, the other modes clamp and cap; idle and a pending reversal hold the fleet at 0."""
+        if self.low_voltage_recovery_active:
+            return -max(200, abs(min(d.power_profile[1].power for d in self.devices if d.low_voltage_protect)) // 4)
+
         if mode == DistributionMode.MANUAL:
             setpoint = int(self.manual_power)
         else:
@@ -400,6 +434,12 @@ class Distribution(EntityDevice):
 
     def distribute_power(self, setpoint: int, order: list[DistributionDevice]) -> None:
         """The setpoint over the devices that already run this way, weighted by rated power and the room in the pack; a standing one starts at RANGE_MIN when the running ones would pass twice their optimal band."""
+        if self.low_voltage_recovery_active:
+            for d in order:
+                if d.low_voltage_protect:
+                    d.power(-max(200, abs(d.power_profile[1].power) // 4))
+            return
+
         charging = setpoint < 0
         sign = -1 if charging else 1
         demand = abs(setpoint)
@@ -469,6 +509,8 @@ class Distribution(EntityDevice):
                     continue
                 # the device's own verdict overrules the percentage
                 if d.soc_limit == (1 if charging else 2):
+                    continue
+                if d.low_voltage_discharge_protect:
                     continue
                 if d.state <= DeviceState.EXTERNAL or not d.kwh or ((d.bypass or d.soc >= d.soc_max) if charging else (d.soc <= d.soc_min)):
                     continue

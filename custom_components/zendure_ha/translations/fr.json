@@ -216,7 +216,8 @@
           "smart": "Ajustement intelligent",
           "smart_discharging": "Décharge intelligente seule",
           "smart_charging": "Charge intelligente seule",
-          "store_solar": "Stocker le solaire"
+          "store_solar": "Stocker le solaire",
+          "bypass_solar": "Consommation directe le solaire"
         }
       },
       "auto_heat": {

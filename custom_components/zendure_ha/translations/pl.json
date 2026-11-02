@@ -216,7 +216,8 @@
           "smart": "Inteligentne dopasowanie",
           "smart_discharging": "Tylko inteligentne rozładowanie",
           "smart_charging": "Tylko inteligentne ładowanie",
-          "store_solar": "Magazynuj energię słoneczną"
+          "store_solar": "Magazynuj energię słoneczną",
+          "bypass_solar": "Obejście energię słoneczną"
         }
       },
       "auto_heat": {
