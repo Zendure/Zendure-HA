@@ -83,7 +83,7 @@ class ZendureBattery(EntityDevice):
                 model = "Unknown"
                 kWh = 0.0
 
-        name = f"{model} {sn[-5:]}".strip()
+        name = f"{model} {sn[-7:]}".strip()
         return name, model, kWh
 
     def __init__(self, hass: HomeAssistant, sn: str, parent: EntityDevice, pack_type: int | None = None) -> None:
