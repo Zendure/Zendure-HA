@@ -60,7 +60,13 @@ class EntityZendure(Entity):
             return
         self.device = device
         self.propertyName = uniqueid
-        self._attr_unique_id = snakecase(f"{self.device.name.lower()}_{uniqueid}")
+        # device.name alone is not guaranteed to be unique: two devices of the same
+        # model (e.g. two identical SolarFlow 2400 AC+ hosts on one account) share the
+        # same name, so their entities would collide on unique_id. Disambiguate with
+        # the device's serial number, falling back to deviceId and then name-only if
+        # both are empty.
+        device_key = device.sn or device.deviceId or device.name
+        self._attr_unique_id = snakecase(f"{self.device.name.lower()}_{device_key}_{uniqueid}")
         self.internal_integration_suggested_object_id = self._attr_unique_id
         self._attr_translation_key = snakecase(uniqueid)
         device.entities[uniqueid] = self
@@ -228,7 +234,15 @@ class EntityDevice:
         device_registry = dr.async_get(self.hass)
         if di := device_registry.async_get_device(identifiers={(DOMAIN, sn)}):
             self.attr_device_info["connections"] = di.connections
-            self.check_entities(di, snakecase(self.name.lower()))
+            # Same disambiguation as in EntityZendure.__init__: this migrates existing
+            # entity registry entries onto the new naming scheme. Without the serial
+            # number, two identically-named devices would both migrate their entities
+            # onto the same target entity_id/unique_id, so the second device's
+            # check_entities() (or a later restart of it) raises "Entity with this ID
+            # is already registered", the whole EntityDevice.__init__ for that device
+            # aborts, and it loses its entities for the rest of the session.
+            device_key = self.sn or self.deviceId or self.name
+            self.check_entities(di, snakecase(f"{self.name.lower()}_{device_key}"))
 
         if parent is not None:
             self.attr_device_info["via_device"] = (DOMAIN, parent)
