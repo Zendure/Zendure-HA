@@ -148,11 +148,13 @@
           "description": "De naam van een apparaat verandert nooit; zijn adressen wel.",
           "data": {
             "ip": "IP-adres",
-            "blemac": "Bluetooth-adres"
+            "blemac": "Bluetooth-adres",
+            "allow_control": "Aansturen toestaan"
           },
           "data_description": {
             "ip": "Vast adres voor de lokale API; wordt automatisch geleerd als het leeg is.",
-            "blemac": "Wordt automatisch uit de Bluetooth-advertentie geleerd als het leeg is."
+            "blemac": "Wordt automatisch uit de Bluetooth-advertentie geleerd als het leeg is.",
+            "allow_control": "Uit: het apparaat rapporteert alleen en blijft buiten de vloot."
           }
         }
       },

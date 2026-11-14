@@ -24,6 +24,9 @@ class FakeClient:
     def username_pw_set(self, user, psw) -> None:  # noqa: ANN001
         self.credentials = (user, psw)
 
+    def tls_set_context(self, context) -> None:  # noqa: ANN001
+        self.tls = context
+
     def connect_async(self, host, port) -> None:  # noqa: ANN001
         self.host = (host, port)
 
@@ -51,7 +54,7 @@ async def test_bridge_forwards_requests_in_and_reports_out_for_a_while(hass, ent
     FakeClient.instances.clear()
     monkeypatch.setattr(driver_module.mqtt, "Client", FakeClient)
     driver = ZendureDriver(hass, entry.entry_id, [], Distribution(hass, entry.entry_id))
-    driver.cloud_url, driver._cloud_port = "mq.zen-iot.com", 1883
+    driver.cloud_url = "mq.zen-iot.com"
     local = FakeClient(userdata=ConnectionType.LOCAL)
     driver._mqtt_clients[ConnectionType.LOCAL] = local
     device = driver.init_device(None, "Hyper2000_22", {"product": "Hyper 2000", "sn": "EOK1GDA3K22", "device_id": "dev1", "prodkey": "gDa3tb"})
@@ -60,7 +63,7 @@ async def test_bridge_forwards_requests_in_and_reports_out_for_a_while(hass, ent
     # the first local report opens the bridge client, logged in as the device; nothing is forwarded yet
     driver._on_mqtt_message(local, ConnectionType.LOCAL, report)
     bridge = driver._bridges["dev1"]
-    assert bridge.credentials == ("dev1", "F5AC3E289E317D46") and bridge.host == ("mq.zen-iot.com", 1883) and bridge.subscribed == ["iot/gDa3tb/dev1/#"]
+    assert bridge.credentials == ("dev1", "F5AC3E289E317D46") and bridge.host == ("mq.zen-iot.com", 8883) and bridge.tls is driver_module.CLOUD_TLS and bridge.subscribed == ["iot/gDa3tb/dev1/#"]
     assert bridge.published == [] and device.soc == 50
 
     # the app asks something: the request lands on the local broker and the window opens

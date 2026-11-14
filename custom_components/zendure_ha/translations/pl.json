@@ -148,11 +148,13 @@
           "description": "Nazwa urządzenia nigdy się nie zmienia; jego adresy mogą.",
           "data": {
             "ip": "Adres IP",
-            "blemac": "Adres Bluetooth"
+            "blemac": "Adres Bluetooth",
+            "allow_control": "Zezwól na sterowanie"
           },
           "data_description": {
             "ip": "Stały adres lokalnego API; ustalany automatycznie, gdy pusty.",
-            "blemac": "Ustalany automatycznie z rozgłoszenia Bluetooth, gdy pusty."
+            "blemac": "Ustalany automatycznie z rozgłoszenia Bluetooth, gdy pusty.",
+            "allow_control": "Wyłączone: urządzenie tylko raportuje i pozostaje poza flotą."
           }
         }
       },

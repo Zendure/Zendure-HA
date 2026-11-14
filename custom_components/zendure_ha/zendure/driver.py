@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import random
+import ssl
 import time
 from collections.abc import Callable
 from datetime import datetime
@@ -38,6 +39,32 @@ SF_HAKEY = "C*dafwArEOXK"
 USER_ID = 38555  # the cloud sends this account id in its replies (captured 2026-08-24); the device seems to expect it
 BRIDGE_S = 300  # a local device's reports flow to the cloud for this long after the app last asked it something
 
+# the Zendure brokers only offer EMQX's stock RootCA: the chain is checked against it, the name not, the server cert carries none
+CLOUD_PORT = 8883
+CLOUD_TLS = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+CLOUD_TLS.check_hostname = False
+CLOUD_TLS.load_verify_locations(cadata="""-----BEGIN CERTIFICATE-----
+MIIDUTCCAjmgAwIBAgIJAPPYCjTmxdt/MA0GCSqGSIb3DQEBCwUAMD8xCzAJBgNV
+BAYTAkNOMREwDwYDVQQIDAhoYW5nemhvdTEMMAoGA1UECgwDRU1RMQ8wDQYDVQQD
+DAZSb290Q0EwHhcNMjAwNTA4MDgwNjUyWhcNMzAwNTA2MDgwNjUyWjA/MQswCQYD
+VQQGEwJDTjERMA8GA1UECAwIaGFuZ3pob3UxDDAKBgNVBAoMA0VNUTEPMA0GA1UE
+AwwGUm9vdENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcgVLex1
+EZ9ON64EX8v+wcSjzOZpiEOsAOuSXOEN3wb8FKUxCdsGrsJYB7a5VM/Jot25Mod2
+juS3OBMg6r85k2TWjdxUoUs+HiUB/pP/ARaaW6VntpAEokpij/przWMPgJnBF3Ur
+MjtbLayH9hGmpQrI5c2vmHQ2reRZnSFbY+2b8SXZ+3lZZgz9+BaQYWdQWfaUWEHZ
+uDaNiViVO0OT8DRjCuiDp3yYDj3iLWbTA/gDL6Tf5XuHuEwcOQUrd+h0hyIphO8D
+tsrsHZ14j4AWYLk1CPA6pq1HIUvEl2rANx2lVUNv+nt64K/Mr3RnVQd9s8bK+TXQ
+KGHd2Lv/PALYuwIDAQABo1AwTjAdBgNVHQ4EFgQUGBmW+iDzxctWAWxmhgdlE8Pj
+EbQwHwYDVR0jBBgwFoAUGBmW+iDzxctWAWxmhgdlE8PjEbQwDAYDVR0TBAUwAwEB
+/zANBgkqhkiG9w0BAQsFAAOCAQEAGbhRUjpIred4cFAFJ7bbYD9hKu/yzWPWkMRa
+ErlCKHmuYsYk+5d16JQhJaFy6MGXfLgo3KV2itl0d+OWNH0U9ULXcglTxy6+njo5
+CFqdUBPwN1jxhzo9yteDMKF4+AHIxbvCAJa17qcwUKR5MKNvv09C6pvQDJLzid7y
+E2dkgSuggik3oa0427KvctFf8uhOV94RvEDyqvT5+pgNYZ2Yfga9pD/jjpoHEUlo
+88IGU8/wJCx3Ds2yc8+oBg/ynxG8f/HmCC1ET6EHHoe2jlo8FpU/SgGtghS1YL30
+IWxNsPrUP+XsZpBJy/mvOhE5QXo6Y35zDqqj8tI7AGmAWu22jg==
+-----END CERTIFICATE-----""")
+
+
 class Product(NamedTuple):
     cls: type
     family: str  # names the device (family_<serial tail>)
@@ -57,8 +84,8 @@ PRODUCTS: dict[str, Product] = {
     "solarflow800pro": Product(ZendureSolarFlow, "SF800", 800, -1000, -1200, ("r3mn8u",)),
     "solarflow800pro2": Product(ZendureSolarFlow, "SF800", 800, -1000, -1200, ("nvyeqm",)),
     "solarflow800plus": Product(ZendureSolarFlow, "SF800", 800, -800, 0, ("8n77v3",)),
-    "solarflow4000mixac+": Product(ZendureSolarFlow, "SF4000", 4000, -4000, -2400, ("gvvy0c",)),
-    "solarflow4000mixpro": Product(ZendureSolarFlow, "SF4000", 4000, -4000, -2400, ("k50hwq",)),
+    "solarflow4000mixac+": Product(ZendureSolarFlow, "SF4000", 3600, -3600, -2400, ("gvvy0c",)),
+    "solarflow4000mixpro": Product(ZendureSolarFlow, "SF4000", 3600, -3600, -2400, ("k50hwq",)),
     "solarflow3000mixac+": Product(ZendureSolarFlow, "SF3000", 3000, -3000, -2400, ("g0wyvd",)),
     "hyper2000": Product(ZendureHyper, "Hyper2000", 1200, -1200, -1600, ("gda3tb", "b3dxda", "ja72u0")),
     "solarflowpro": Product(ZendureHyper, "Hyper2000", 1200, -1200, -1600),  # what a Hyper 2000 calls itself on the broker
@@ -101,7 +128,6 @@ class ZendureDriver:
         self._ble_unsub: Any = None  # HA's bluetooth callback registration
         self._zc_browser: AsyncServiceBrowser | None = None  # HA's zeroconf instance browsing our service types
         self._ble_probed: set[str] = set()  # addresses asked over Bluetooth who they are; once per run
-        self._cloud_port = 1883
         self._bridges: dict[str, mqtt.Client] = {}  # per local device its own cloud client, logged in as the device
         self._bridge_until: dict[str, float] = {}  # per device the moment its report window closes
 
@@ -162,11 +188,9 @@ class ZendureDriver:
             # setup MQTT
             mqtt_cfg = result.get("mqtt", {})
             if mqtt_cfg and mqtt_cfg.get("url"):
-                url = mqtt_cfg["url"]
-                host, port = url.rsplit(":", 1) if ":" in url else (url, "1883")
-                self.cloud_url = host
-                self._cloud_port = int(port)
-                self._add_mqtt_client(ConnectionType.CLOUD, host, int(port), mqtt_cfg.get("username", ""), mqtt_cfg.get("password", ""), mqtt_cfg.get("clientId"))
+                # the API hands out the plain port; the same broker speaks TLS on CLOUD_PORT
+                self.cloud_url = mqtt_cfg["url"].split(":")[0]
+                self._add_mqtt_client(ConnectionType.CLOUD, self.cloud_url, CLOUD_PORT, mqtt_cfg.get("username", ""), mqtt_cfg.get("password", ""), mqtt_cfg.get("clientId"))
         except Exception as err:
             _LOGGER.warning("Cloud API failed for key %s... (%s)", self.apptoken[:10], err)
 
@@ -210,7 +234,8 @@ class ZendureDriver:
 
         powers = (row.pwr_max, row.pwr_min, row.pwr_solar) if issubclass(row.cls, DistributionDevice) else ()
         device = row.cls(self.hass, self, subentry_id, name, data, data["product"], *powers)
-        if isinstance(device, DistributionDevice):
+        # a power device joins the fleet unless the user took it out; it keeps reporting either way
+        if isinstance(device, DistributionDevice) and data.get("allow_control", True):
             self.distribution.devices.append(device)
             device.on_invalidate = self.distribution.on_invalidate
         self.devices[device.sn] = device
@@ -345,6 +370,9 @@ class ZendureDriver:
             client.on_disconnect = self._on_mqtt_disconnect
             client.on_message = self._on_mqtt_message
             client.username_pw_set(username, password)
+            # the cloud broker only over TLS
+            if conn == ConnectionType.CLOUD:
+                client.tls_set_context(CLOUD_TLS)
             client.connect_async(host, port)
             client.loop_start()
             self._mqtt_clients[conn] = client
@@ -373,7 +401,8 @@ class ZendureDriver:
             client.on_connect = lambda c, dev, *_: c.subscribe(f"iot/{dev.prodkey}/{dev.device_key}/#")
             client.on_message = self._on_bridge_message
             client.username_pw_set(d.device_key, hashlib.md5(d.device_key.encode()).hexdigest().upper()[8:24])
-            client.connect_async(self.cloud_url, self._cloud_port)
+            client.tls_set_context(CLOUD_TLS)
+            client.connect_async(self.cloud_url, CLOUD_PORT)
             client.loop_start()
             self._bridges[d.device_key] = client
         return client

@@ -19,9 +19,18 @@ class FakeMqtt:
 
 
 class FakeResponse:
-    def __init__(self, body: str, status: int = 200) -> None:
+    def __init__(self, body: str, status: int = 200, delay: float = 0.0) -> None:
         self._body = body
         self.status = status
+        self._delay = delay
+
+    # the session call is used as `async with`, the way aiohttp hands out a response
+    async def __aenter__(self):  # noqa: ANN204
+        await asyncio.sleep(self._delay)
+        return self
+
+    async def __aexit__(self, *exc) -> bool:  # noqa: ANN002
+        return False
 
     async def text(self) -> str:
         return self._body
@@ -32,13 +41,12 @@ class FakeSession:
         self.report = report
         self.posts: list[tuple[str, str]] = []
 
-    async def post(self, url: str, data=None, headers=None, timeout=None) -> FakeResponse:  # noqa: ANN001
+    def post(self, url: str, data=None, headers=None, timeout=None) -> FakeResponse:  # noqa: ANN001
         self.posts.append((url, data))
         return FakeResponse("{}")
 
-    async def get(self, url: str, headers=None, timeout=None) -> FakeResponse:  # noqa: ANN001
-        await asyncio.sleep(0.05)  # keep SENT observable between the post and the report
-        return FakeResponse(json.dumps(self.report))
+    def get(self, url: str, headers=None, timeout=None) -> FakeResponse:  # noqa: ANN001
+        return FakeResponse(json.dumps(self.report), delay=0.05)  # keep SENT observable between the post and the report
 
 
 def make_device(hass, model: str = "Solarflow 2400 AC", cls: type = ZendureSolarFlow, pwr_min: int = -2400) -> ZendureSolarFlow:  # noqa: ANN001
@@ -84,9 +92,14 @@ async def test_power_off_publishes_off_command(hass) -> None:  # noqa: ANN001
     d.power_off()
     topic, cmd = d.mqtt.published[0]
     assert topic == "iot/gDa3tb/simdev/properties/write" and cmd["properties"] == {"smartMode": 0, "acMode": 2, "outputLimit": 0, "inputLimit": 0}  # 0 W first
-    topic, cmd = d.mqtt.published[1]
-    assert topic == "iot/gDa3tb/simdev/properties/write" and cmd["properties"] == {"hemsState": 0}  # then the hems flag down
+    assert len(d.mqtt.published) == 1  # no hemsState write while the device does not report it up
     assert d.state == DeviceState.EXTERNAL
+
+    # a raised hems flag goes down on its own write after the 0 W
+    d.hems_state = True
+    d.power_off()
+    topic, cmd = d.mqtt.published[2]
+    assert topic == "iot/gDa3tb/simdev/properties/write" and cmd["properties"] == {"hemsState": 0}
     d.unload()
 
 
@@ -105,19 +118,23 @@ async def test_mqtt_envelope(hass) -> None:  # noqa: ANN001
     d.unload()
 
 
-async def test_hyper_publishes_hemsep(hass) -> None:  # noqa: ANN001
-    # the Hyper is steered over hemsEP: RAM on the device, no flash wear like deviceAutomation
+async def test_hyper_publishes_limits(hass) -> None:  # noqa: ANN001
+    # the Hyper takes the limits as a property write: RAM and backup registers, no flash wear like hemsEP or deviceAutomation
     d = make_device(hass, "Hyper 2000", ZendureHyper, pwr_min=-1200)
     d.connection = ConnectionType.LOCAL
     d.power(600)
     topic, cmd = d.mqtt.published[0]
-    assert topic == "iot/gDa3tb/simdev/properties/write" and cmd["properties"] == {"hemsState": 1}  # raised once
-    _, cmd = d.mqtt.published[1]
-    assert cmd["function"] == "hemsEP" and cmd["arguments"]["outputPower"] == 600
+    assert topic == "iot/gDa3tb/simdev/properties/write" and cmd["properties"] == _limits(600)["properties"]
+    assert not any(c.get("function") == "hemsEP" for _, c in d.mqtt.published)
+
+    # a raised hems flag is lowered once before the next limits
+    d.hems_state = True
     d.power_since = 0.0  # the hold after the last command has passed
     d.power(-400)
+    _, cmd = d.mqtt.published[1]
+    assert cmd["properties"] == {"hemsState": 0}
     _, cmd = d.mqtt.published[2]
-    assert cmd["function"] == "hemsEP" and cmd["arguments"]["chargePower"] == 400  # no second hemsState write
+    assert cmd["properties"] == _limits(-400)["properties"]
     d.unload()
 
 
@@ -199,8 +216,7 @@ async def test_legacy_publishes_device_automation(hass) -> None:  # noqa: ANN001
     d.power_off()
     _, cmd = d.mqtt.published[2]
     assert cmd["arguments"] == [{"autoModelProgram": 0, "autoModelValue": {"chargingType": 0, "chargingPower": 0, "freq": 0, "outPower": 0}, "msgType": 1, "autoModel": 0}]
-    _, cmd = d.mqtt.published[3]
-    assert cmd["properties"] == {"hemsState": 0}, "power off lowers the hems flag on every model"
+    assert len(d.mqtt.published) == 3, "power off leaves a hems flag alone that the device does not report up"
     assert not any(c.get("function") == "hemsEP" for _, c in d.mqtt.published), "a legacy model never takes a hemsEP command"
     d.unload()
 

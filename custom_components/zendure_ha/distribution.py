@@ -40,6 +40,7 @@ PHASE_JUMP_W = 50  # an entity update that moves this much is a jump, everything
 PHASE_STEP_W = 150  # a device event this big is worth matching
 PHASE_MERGE_S = 15.0  # device jumps this close together are one event: the ramp of one command
 PHASE_BEFORE_S, PHASE_AFTER_S, PHASE_MARGIN_S = 2.0, 10.0, 5.0  # the window around an event, and how long before it the rest must already be quiet
+PHASE_LAG_MAX_S = 60.0  # the most a meter's report may trail its step; a meter that reports rarer is not looked for further back
 PHASE_MIN_EVENTS, PHASE_SURE_EVENTS = 5, 10  # clean events needed for a verdict, and for applying it
 PHASE_SURE, PHASE_OTHER = 0.9, 0.3  # the ratio a device must show on its own phase, and the most the other two may show
 PHASE_MARGIN_W = 230  # 1 A at 230 V: a phase at its limit is landed this far under it
@@ -241,7 +242,7 @@ class Distribution(EntityDevice):
         mode = DistributionMode(entity.value)
         _LOGGER.info("Update operation: %s", mode)
 
-        if mode != DistributionMode.OFF and (len(self.devices) == 0 or all(d.state == DeviceState.OFFLINE for d in self.devices)):
+        if mode != DistributionMode.OFF and (len(self.devices) == 0 or all(d.state in (DeviceState.OFFLINE, DeviceState.NOGRID) for d in self.devices)):
             _LOGGER.warning("No devices online, not possible to start the operation")
             persistent_notification.async_create(self.hass, "No devices online, not possible to start the operation", PANEL_TITLE, PANEL_TITLE)
             return
@@ -300,9 +301,9 @@ class Distribution(EntityDevice):
         for d in self.devices:
             if d.state <= DeviceState.EXTERNAL:
                 continue  # not ours: it sits in the meter reading like any other load
-            # a bypassing device counts its pass-through as house baseline, never more than it delivers (solar is DC, the
-            # output is AC after the inverter), and the off-grid socket as house load
-            power_actual += d.power_actual - (min(d.power_actual, d.solar) if d.bypass else 0) + max(0, d.grid_off_power)
+            # a bypassing device counts what passes through (DC solar and what the off-grid socket feeds in) as house baseline, never more than it
+            # delivers (solar is DC, the output is AC after the inverter), and what the off-grid socket draws as house load
+            power_actual += d.power_actual - (min(d.power_actual, d.solar + max(0, -d.grid_off_power)) if d.bypass else 0) + max(0, d.grid_off_power)
             kwh += d.kwh * (d.soc - d.soc_min) / 100
             self.sp[d.power_phase or Phase.all] += d.power_setpoint  # Phase.all is 0, so a device without a known phase lands on the three-phase slot as well
             self.available[d.power_phase or Phase.all] += d.power_profile[False].available_power(d)
@@ -470,7 +471,7 @@ class Distribution(EntityDevice):
                 # the device's own verdict overrules the percentage
                 if d.soc_limit == (1 if charging else 2):
                     continue
-                if d.state <= DeviceState.EXTERNAL or not d.kwh or ((d.bypass or d.soc >= d.soc_max) if charging else (d.soc <= d.soc_min)):
+                if d.state <= DeviceState.EXTERNAL or not d.kwh or (d.soc >= d.soc_max if charging else d.soc <= d.soc_min):
                     continue
                 soc = int(d.soc / 10) * 10  # quantized: the ranking only moves on a real SoC difference
                 span = d.soc_max - d.soc_min
@@ -546,9 +547,11 @@ class Distribution(EntityDevice):
         roof_jumps = sorted(j for eid in roof for j in jumps[eid])
 
         # per device its jumps as one signed series (output up is +, input up is -), merged into events along the ramp of one command
-        moves, events = {}, {}
+        moves, events, lag = {}, {}, {}
         for d in devices:
             moves[d] = sorted([(t, v) for t, v in jumps[d.entities["home_output"].entity_id]] + [(t, -v) for t, v in jumps[d.entities["home_input"].entity_id]])
+            # how late its meter reports: the shortest gap between two of its updates, so a step is looked for that much earlier
+            lag[d] = min(PHASE_LAG_MAX_S, min((b - a for (a, _), (b, _) in zip(moves[d], moves[d][1:]) if b > a), default=0.0))
             events[d] = []
             for t, v in moves[d]:
                 if events[d] and t - events[d][-1][1] <= PHASE_MERGE_S:
@@ -570,7 +573,7 @@ class Distribution(EntityDevice):
                 others = [(moves[o], phase) for o, phase in known.items() if o is not d]
                 clean = []
                 for t0, t1, dv in events[d]:
-                    lo, hi = t0 - PHASE_BEFORE_S, t1 + PHASE_AFTER_S
+                    lo, hi = t0 - PHASE_BEFORE_S - lag[d], t1 + PHASE_AFTER_S
                     if abs(dv) < PHASE_STEP_W or any(lo - PHASE_MARGIN_S <= t <= hi for rows in blockers for t, _ in rows):
                         continue
                     dp = [0.0] + [sum(factor * v for eid, factor in self.p1_entities[phase] for t, v in jumps[eid] if lo <= t <= hi) for phase in (Phase.l1, Phase.l2, Phase.l3)]

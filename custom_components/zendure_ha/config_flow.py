@@ -26,6 +26,7 @@ WIFI = vol.Schema({vol.Optional("wifi_ssid"): selector({"text": {}}), vol.Option
 ZENDURE = {"cloud": CLOUD, "local_broker": LOCAL_BROKER, "wifi": WIFI}  # the form sections that together make the "zendure" entry section
 SETTINGS_SCHEMA = vol.Schema({vol.Required("distribution"): section(DISTRIBUTION), **{vol.Required(name): section(schema, {"collapsed": True}) for name, schema in ZENDURE.items()}})
 DEVICE = vol.Schema({vol.Optional("ip"): selector({"text": {}}), vol.Optional("blemac"): selector({"text": {}})})
+DEVICE_EDIT = vol.Schema({**DEVICE.schema, vol.Optional("allow_control", default=True): selector({"boolean": {}})})  # off, the device only reports and stays out of the fleet
 DEVICE_ADD = vol.Schema({vol.Required("sn"): str, vol.Required("product"): str, vol.Optional("device_id"): str, vol.Optional("prodkey"): str, **DEVICE.schema})  # a manual add asks for the identity as well
 PANEL = vol.Schema({vol.Optional("power_entity"): selector({"entity": {"domain": "sensor"}}), vol.Optional("derate_entity"): selector({"entity": {"domain": "number"}})})
 PANEL_ADD = vol.Schema({vol.Required("name"): str, **PANEL.schema})  # a manual add names the group as well
@@ -126,7 +127,7 @@ class DeviceSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             self.hass.config_entries.async_update_subentry(self._get_entry(), sub, data={**sub.data, **user_input})
             return self.async_abort(reason="reconfigure_successful")
-        return self.async_show_form(step_id="reconfigure", data_schema=self.add_suggested_values_to_schema(DEVICE, {k: v for k, v in sub.data.items() if v}), description_placeholders={"name": sub.title})
+        return self.async_show_form(step_id="reconfigure", data_schema=self.add_suggested_values_to_schema(DEVICE_EDIT, {k: v for k, v in sub.data.items() if v or v is False}), description_placeholders={"name": sub.title})
 
 
 class SolarPanelSubentryFlow(ConfigSubentryFlow):

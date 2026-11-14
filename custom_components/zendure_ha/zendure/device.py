@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from enum import IntEnum
 from typing import TYPE_CHECKING, Any
 
@@ -84,7 +85,8 @@ class ZendureDevice:
             self.ble_name = None
         self._msg_id: int = 100000
         self._ble_client: BleakClient | None = None
-        self._ble_replies: asyncio.Queue[dict] = asyncio.Queue()
+        # the device's BLESPP greeting, which a connect waits for
+        self._ble_spp = asyncio.Event()
         if driver is not None:
             # the registry entry carries what HA shows; the serial and the device key stay in the subentry
             dev = dr.async_get(hass).async_get_or_create(config_entry_id=driver.entry_id, config_subentry_id=subentry_id, identifiers={(DOMAIN, self.sn)}, name=name, manufacturer=driver.manufacturer, model=model, model_id=self.prodkey or None, connections={(dr.CONNECTION_BLUETOOTH, self.blemac)} if self.blemac else None)
@@ -100,6 +102,12 @@ class ZendureDevice:
         # ip, blemac or a pack name were learned; the coordinator persists them, on the loop, since telemetry arrives on the paho thread
         if self.on_config_changed is not None:
             self.hass.loop.call_soon_threadsafe(self.on_config_changed, self)
+
+    def _ble_close(self) -> None:
+        # the BLE link closed and forgotten, so the device's connection slot is free for the next attempt or another client
+        if self._ble_client is not None:
+            self.hass.async_create_task(self._ble_client.disconnect())
+            self._ble_client = None
 
     async def _ble_connect(self) -> bool:
         if self._ble_client and self._ble_client.is_connected:
@@ -121,13 +129,16 @@ class ZendureDevice:
                 return False
             self._ble_client = await establish_connection(BleakClient, device, self.device_id)
             _LOGGER.debug("BLE connected to %s (%s)", self.ble_name, self.blemac)
+            # the greeting, which the notify handler acks with a bare BLESPP_OK; a connect goes on without it after 10 s, as before
+            self._ble_spp.clear()
             await self._ble_client.start_notify(READ_CHAR, self._ble_on_notify)
-            await self._ble_wait_for("BLESPP", timeout=10)  # the notify handler acks every BLESPP with a bare BLESPP_OK
+            with suppress(TimeoutError):
+                await asyncio.wait_for(self._ble_spp.wait(), 10)
             await self._ble_command({"properties": ["getAll"], "method": "read"})  # kicks off the continuous reporting
             return True
         except Exception:
             _LOGGER.debug("BLE connect failed for %s", self.device_id, exc_info=True)
-            self._ble_client = None
+            self._ble_close()
             return False
 
     async def _ble_command(self, command: dict, method: str | None = None) -> bool:
@@ -160,17 +171,6 @@ class ZendureDevice:
         if method == "BLESPP" and self._ble_client:
             # ack every BLESPP with a bare BLESPP_OK, exactly like the proven scripts: no messageId, timestamp or deviceId
             asyncio.get_running_loop().create_task(self._ble_client.write_gatt_char(COMMAND_CHAR, b'{"method": "BLESPP_OK"}', response=False))
+            self._ble_spp.set()
         if method == "report":
             self.update_properties(response, time.time(), True)  # telemetry is a continuous push, replies answer a request
-        else:
-            self._ble_replies.put_nowait(response)
-
-    async def _ble_wait_for(self, method: str | None = None, timeout: float = 10.0) -> dict:
-        try:
-            while True:
-                async with asyncio.timeout(timeout):
-                    response = await self._ble_replies.get()
-                if method is None or response.get("method") == method:
-                    return response
-        except TimeoutError:
-            return {}

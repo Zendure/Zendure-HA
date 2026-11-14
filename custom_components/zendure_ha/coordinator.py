@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import timedelta
 from types import MappingProxyType
 from typing import Any
@@ -17,6 +19,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, PANEL_TITLE, Phase, watt_factor
+from .device import DistributionDevice
 from .distribution import Distribution
 from .entity import EntityDevice, unique_name
 from .zendure.driver import ZendureDriver
@@ -107,6 +110,15 @@ class Coordinator:
         for sid, device in built.items():
             if sid not in self.entry.subentries:
                 self.zendure.remove_device(device)  # HA already cleared its registry device and entities along with the subentry
+            # a reconfigured allow_control moves the device in or out of the fleet without a reload; one taken out gets 0 W and HEMS back first
+            elif isinstance(device, DistributionDevice) and (allow := self.entry.subentries[sid].data.get("allow_control", True)) != (device in self.distribution.devices):
+                if allow:
+                    self.distribution.devices.append(device)
+                    device.on_invalidate = self.distribution.on_invalidate
+                else:
+                    device.power_off()
+                    self.distribution.devices.remove(device)
+                self.distribution.on_invalidate()
         self.distribution.solar_panels = [(str(sub.data.get("power_entity") or ""), str(sub.data.get("derate_entity") or "")) for sub in self.entry.subentries.values() if sub.subentry_type == "solar_panel"]
 
     async def _entry_updated(self, _hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -160,6 +172,10 @@ class Coordinator:
         # stop the fleet and hand HEMS back, so no device keeps running on our last setpoint once we are gone
         for d in self.distribution.devices:
             d.power_off()
+        # wait up to 5 s for the queued 0 W and HEMS release on zenSDK and BLE, before the device loops are cancelled
+        with suppress(TimeoutError):
+            async with asyncio.timeout(5):
+                await asyncio.gather(*(d.device_queue.join() for d in self.distribution.devices if hasattr(d, "device_queue")))
         for d in self.devices:
             d.unload()
         await self.zendure.unload()

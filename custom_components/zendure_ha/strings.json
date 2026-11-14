@@ -148,11 +148,13 @@
           "description": "The name of a device never changes; its addresses can.",
           "data": {
             "ip": "IP address",
-            "blemac": "Bluetooth address"
+            "blemac": "Bluetooth address",
+            "allow_control": "Allow control"
           },
           "data_description": {
             "ip": "Fixed address for the local API; learned automatically when empty.",
-            "blemac": "Learned automatically from the Bluetooth advertisement when empty."
+            "blemac": "Learned automatically from the Bluetooth advertisement when empty.",
+            "allow_control": "Off: the device only reports and stays out of the fleet."
           }
         }
       },

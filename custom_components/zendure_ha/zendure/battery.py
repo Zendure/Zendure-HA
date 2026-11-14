@@ -72,7 +72,7 @@ class ZendureBattery(EntityDevice):
         HaSensor(self, "state")
         HaSensor(self, "power", uom="W", device_class="power", state_class="measurement")
         HaSensor(self, "maxTemp", uom="°C", device_class="temperature", state_class="measurement", convert=temp_convert)
-        HaSensor(self, "totalVol", uom="V", device_class="voltage", state_class="measurement")
+        HaSensor(self, "totalVol", uom="V", device_class="voltage", state_class="measurement", convert=centi_convert)
         HaSensor(self, "batcur", uom="A", device_class="current", state_class="measurement", convert=deci_convert)
         HaSensor(self, "maxVol", uom="V", device_class="voltage", state_class="measurement", convert=centi_convert)
         HaSensor(self, "minVol", uom="V", device_class="voltage", state_class="measurement", convert=centi_convert)

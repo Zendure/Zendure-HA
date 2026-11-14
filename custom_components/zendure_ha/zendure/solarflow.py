@@ -10,12 +10,13 @@ from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
 from aiohttp import ClientTimeout
+from homeassistant.components import persistent_notification
 from homeassistant.components.number import NumberMode
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ..binary_sensor import HaBinarySensor
-from ..const import PhaseModi
+from ..const import DOMAIN, PANEL_TITLE, PhaseModi
 from ..device import HOLD_S, REPORT_WAIT_S, DeviceState, DistributionDevice, ProfileCharge, ProfileDischarge
 from ..entity import HaEntity
 from ..number import HaNumber
@@ -34,6 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 HTTP_HEADER = {"content-type": "application/json; charset=UTF-8"}
 HTTP_TIMEOUT = ClientTimeout(total=1)
 OFFLINE_TIMEOUT = 2400.0  # some devices report in bursts with more than a minute of silence in between
+STREAM_TIMEOUT = 60.0  # zenSDK is polled every 2 s and BLE pushes continuously: this long without a report is a lost device, not a burst
 POWER_SET = 40
 POWER_MAX_TIME = 10
 
@@ -65,12 +67,15 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         self.home_output: int = 0
         self.input_limit: int = 0  # the limits the device reports it works with: the echo of our last command
         self.output_limit: int = 0
+        self.grid_state: int | None = None  # the last gridState, to notify once when the AC side loses the grid
+        self.hems_state = False  # the reported hemsState: on a Hyper each write of it is a flash write, so it is only lowered when it is up
         self.device_queue: asyncio.Queue[tuple[Command, Any]] = asyncio.Queue()
         self.device_task = asyncio.get_running_loop().create_task(self.device_loop())
 
     def unload(self) -> None:
         if self.device_task is not None:
             self.device_task.cancel()
+        self._ble_close()
 
     def subentry_data(self) -> dict[str, Any]:
         return {**ZendureDevice.subentry_data(self), "batteries": self.battery_names}
@@ -101,6 +106,7 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         "gridOffPower": (HaSensor, "grid_off_power", {"uom": "W", "device_class": "power", "state_class": "measurement", "aggr": True}),
         "gridPower": (HaSensor, "grid_power", {"uom": "W", "device_class": "power", "state_class": "measurement", "aggr": True}),
         "gridReverse": (HaSelect, "grid_reverse", {"options": {0: "disabled", 1: "allow", 2: "forbidden"}}),
+        "gridState": (HaBinarySensor, "grid_state", {}),
         "inverseMaxPower": (HaSensor, "inverse_max_power", {"uom": "W", "disabled": True}),
         "lampSwitch": (HaSwitch, "lamp_switch", {}),
         "localState": (HaBinarySensor, "local_state", {"disabled": True}),
@@ -142,16 +148,16 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         HaSensor(self, "battery_input", "outputPackPower", uom="W", device_class="power", state_class="measurement", aggr=True)
         HaSensor(self, "battery_output", "packInputPower", uom="W", device_class="power", state_class="measurement", aggr=True)
         HaSensor(self, "temp", "hyperTmp", uom="°C", device_class="temperature", state_class="measurement", convert=temp_convert)
-        HaSensor(self, "remaining_time", "remainingTime", uom="h", device_class="duration", state_class="measurement")
         HaSensor(self, "power_max", "inverseMaxPower", uom="W", device_class="power", state_class="measurement")
         self.setpoint = HaSensor(self, "power_setpoint", uom="W", device_class="power", state_class="measurement")
+        self.setpoint.update_value(0)  # no command sent yet
         HaSelect(self, "power_phase", PhaseModi, on_changed=self.update_phase, restore=True)
 
         HaBinarySensor(self, "bypass", "pass")
         HaBinarySensor(self, "heat_state", "heatState")
         HaBinarySensor(self, "hems_state", "hemsState")
 
-        self.kwhsensor = HaSensor(self, "kwh", uom="kWh", device_class="energy")
+        self.kwhsensor = HaSensor(self, "kwh", uom="kWh", device_class="energy", restore=True)  # over weak wifi the packs report late
         HaSensor(self, "rte", uom="%", state_class="measurement", precision=1)
 
     def mqtt_publish(self, topic: str, command: dict) -> None:
@@ -181,6 +187,9 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
             self.device_queue.put_nowait((Command.WRITE, command))
 
     def power(self, watts: int) -> int:
+        # an offline device is not steered: nothing is sent, the setpoint stays as it was
+        if self.state in (DeviceState.OFFLINE, DeviceState.NOGRID):
+            return self.power_actual
         watts = max(self.power_profile[1].power, min(self.power_profile[0].power, watts))  # clamp to rated power, both directions
 
         # outputPower is an absolute target and the pass-through is already flowing, so ask for it on top or the command sits below it
@@ -214,12 +223,15 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
         # hems overrules the settings while its flag is up: 0 W first, then the flag down on its own write
         if self.connection in [ConnectionType.CLOUD, ConnectionType.LOCAL]:
             self.mqtt_power_off()
-            self.mqtt_publish("properties/write", {"properties": {"hemsState": 0}})
         elif self.connection != ConnectionType.OFFLINE:
             self.device_queue.put_nowait((Command.POWER, _limits(0)))
-            self.device_queue.put_nowait((Command.WRITE, {"properties": {"hemsState": 0}}))
+        # the hems flag down on its own write after the 0 W, only when the device reports it up
+        if self.hems_state:
+            self.hems_state = False
+            self.entity_write(self.entities["hemsState"], 0)
         self.setpoint.update_value(0)
-        self.set_state(DeviceState.EXTERNAL)
+        if self.state not in (DeviceState.OFFLINE, DeviceState.NOGRID):
+            self.set_state(DeviceState.EXTERNAL)  # an offline device stays offline: it counts in no capacity until it reports again
 
     def update_properties(self, payload: dict, now: float, on_ha: bool = False) -> None:
         # update last update
@@ -249,12 +261,14 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
 
             if k in ["outputHomePower", "gridInputPower"]:
                 self.power_actual = self.home_output - self.home_input
-                if abs(self.power_actual - self.power_setpoint) < POWER_SET or (now - self.state_since) > POWER_MAX_TIME:
+                if self.grid_state != 0 and (abs(self.power_actual - self.power_setpoint) < POWER_SET or (now - self.state_since) > POWER_MAX_TIME):
                     self.set_state(DeviceState.ACTIVE)
             elif k == "inverseMaxPower":
                 self.power_profile[0].power = v  # the discharge limit as configured in the Zendure app
                 self.power_profile[0].__post_init__()  # floor and bands follow the new limit
                 self.entities["output_limit"].update_range(0, v)
+            elif k == "gridState":
+                self.grid_state = v
             elif k in ["chargeLimit", "chargeMaxLimit"]:
                 self.entities["input_limit"].update_range(0, v)
             elif k in ["minSoc", "socSet", "socLimit"]:
@@ -267,7 +281,9 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
 
     async def device_loop(self) -> None:
         timeout = 2
+        state = self.state  # the status at the end of the previous round
         while True:
+            cmd = Command.TIMEOUT  # nothing taken off the queue yet this round
             try:
                 # get next item from queue
                 try:
@@ -276,16 +292,33 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
                 except asyncio.TimeoutError:
                     cmd, value = Command.TIMEOUT, None
 
-                # first the state, every round, whatever the command was
-                if self._msg_update + OFFLINE_TIMEOUT < time.time():
+                # first the state, every round, whatever the command was: the broker reports in bursts, zenSDK and BLE stream, so they get a short leash
+                if self._msg_update + (OFFLINE_TIMEOUT if self.connection in (ConnectionType.CLOUD, ConnectionType.LOCAL) else STREAM_TIMEOUT) < time.time():
                     self.connection = ConnectionType.OFFLINE
                     self.power_actual = 0
                     self.set_state(DeviceState.OFFLINE)
+                # no grid on its AC side: it can neither deliver nor charge from the grid, its connection stays
+                elif self.grid_state == 0:
+                    self.power_actual = 0
+                    self.set_state(DeviceState.NOGRID)
+
+                # a status change since the previous round; going offline or losing the grid is always notified
+                if self.state != state:
+                    if self.state in (DeviceState.OFFLINE, DeviceState.NOGRID) and state != DeviceState.CREATED:
+                        persistent_notification.async_create(self.hass, f"{self.name}: {self.state.name.lower()} since {time.strftime('%H:%M')}", PANEL_TITLE, f"{DOMAIN}_grid_{self.sn}")
+                    state = self.state
 
                 # then act on that state
                 match self.connection:
                     case ConnectionType.OFFLINE:
                         await self.cmd_recover()
+                        # back in: the command that came while offline goes again, over the way the next round picks
+                        if self.connection != ConnectionType.OFFLINE and value is not None:
+                            self.device_queue.put_nowait((cmd, value))
+                        # no way back in while it still counted: it stops counting, with no power, until a report brings it back
+                        if self.connection == ConnectionType.OFFLINE and self.state > DeviceState.EXTERNAL:
+                            self.power_actual = 0
+                            self.set_state(DeviceState.OFFLINE)
                         timeout = 2 if self.connection != ConnectionType.OFFLINE else min(300, 2 * timeout)
                     case ConnectionType.ZENSDK:
                         timeout = 2
@@ -305,6 +338,10 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
             except Exception:
                 # the task must never die
                 _LOGGER.exception("device task %s", self.device_id)
+            finally:
+                # a command taken off the queue is done, so an unload can wait for the last ones
+                if cmd != Command.TIMEOUT:
+                    self.device_queue.task_done()
 
     async def cmd_zensdk(self, payload: Any) -> None:
         try:
@@ -314,13 +351,13 @@ class ZendureSolarFlow(ZendureDevice, DistributionDevice):
             if payload:
                 self._msg_id += 1
                 body = json.dumps({**payload, "sn": self.sn, "id": self._msg_id})
-                response = await session.post(f"http://{self.ip}/properties/write", data=body, headers=HTTP_HEADER, timeout=HTTP_TIMEOUT)
-                if response.status >= 400:
-                    _LOGGER.warning("ZENSDK write rejected for %s: HTTP %s %s", self.device_id, response.status, (await response.text())[:200])
+                async with session.post(f"http://{self.ip}/properties/write", data=body, headers=HTTP_HEADER, timeout=HTTP_TIMEOUT) as response:
+                    if response.status >= 400:
+                        _LOGGER.warning("ZENSDK write rejected for %s: HTTP %s %s", self.device_id, response.status, (await response.text())[:200])
 
             # get the properties; an answer puts the device on zenSDK, also one that came in over the broker
-            response = await session.get(f"http://{self.ip}/properties/report", headers=HTTP_HEADER, timeout=HTTP_TIMEOUT)
-            payload = json.loads(await response.text())
+            async with session.get(f"http://{self.ip}/properties/report", headers=HTTP_HEADER, timeout=HTTP_TIMEOUT) as response:
+                payload = json.loads(await response.text())
             self.update_properties(payload, time.time(), True)
             self.connection = ConnectionType.ZENSDK
 
@@ -373,19 +410,16 @@ class ZendureHub(ZendureLegacy):
 
 
 class ZendureHyper(ZendureSolarFlow):
-    """Hyper 2000: steered over hemsEP, which the device applies from RAM. Not deviceAutomation: its charge path writes the Hyper flash on every power change."""
+    """Hyper 2000: steered over properties/write of the limits, kept in RAM and the backup registers. Not hemsEP or deviceAutomation: both write the Hyper flash."""
 
-    _hems_active = False  # hemsState is raised once; power_off lowers it again
+    def __init__(self, *args) -> None:  # noqa: ANN002
+        super().__init__(*args)
+        # a Hyper keeps the Hyper BLE name, also when it calls itself solarFlowPro on the broker
+        self.ble_name = f"Zen{self.sn[0]}{self.sn[2]}_{self.sn[-2:]}" if len(self.sn) >= 3 else None
 
     def mqtt_power(self, watts: int) -> None:
-        # hemsEP behind hemsState=1; charge carries chargePower, discharge outputPower, freq 0 applies at once
-        if not self._hems_active:
-            self.mqtt_publish("properties/write", {"properties": {"hemsState": 1}})
-            self._hems_active = True
-        arguments = {"outputPower": 0, "chargePower": -watts, "freq": 0, "mode": 9, "chargeMode": 3} if watts < 0 else {"outputPower": watts, "chargePower": 0, "freq": 0, "minSoc": int(self.soc_min * 10), "mode": 9}
-        self.mqtt_publish("function/invoke", {"function": "hemsEP", "arguments": arguments})
-
-    def mqtt_power_off(self) -> None:
-        # 0 W over hemsEP; the base power_off then lowers hemsState
-        self.mqtt_publish("function/invoke", {"function": "hemsEP", "arguments": {"outputPower": 0, "chargePower": 0, "freq": 0, "mode": 9, "chargeMode": 3}})
-        self._hems_active = False
+        # a raised hems flag overrules the limits: lowered once, a next report raises it again if the device holds on to it
+        if self.hems_state:
+            self.hems_state = False
+            self.entity_write(self.entities["hemsState"], 0)
+        super().mqtt_power(watts)

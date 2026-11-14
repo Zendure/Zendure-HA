@@ -49,7 +49,7 @@ DEVICE_KEYS: dict[str, str | None] = {
     "connection_status": None,
     "connection": None,
     "ble_adapter": None,
-    "remaining_time": "remaining_time",
+    "remaining_time": None,
     "next_calibration": None,
     "aggr_charge": "battery_input_aggr",
     "aggr_discharge": "battery_output_aggr",
@@ -78,7 +78,9 @@ class Migration:
         self.entry = entry
         self.devices = dr.async_get(hass)
         self.entities = er.async_get(hass)
-        self.last_states = rs.async_get(hass).last_states
+        # HA 2026.11 dropped last_states for async_get_stored_state; the floor 2026.4.3 only has last_states
+        restore = rs.async_get(hass)
+        self.stored_state = restore.async_get_stored_state if hasattr(restore, "async_get_stored_state") else restore.last_states.get
         self.changes: list[tuple[str, str]] = []  # (old entity_id, new entity_id) for the dashboards and automations
         self.store: dict[str, dict[str, Any]] = {}  # device_id -> {unique_id: value} for the v2 Store
 
@@ -93,7 +95,7 @@ class Migration:
             unique_id = snakecase(f"{name}_{key}")
             entity_id = f"{e.domain}.{unique_id}"
             if key in RESTORED or key.endswith("_aggr"):
-                if (stored := self.last_states.get(e.entity_id)) is not None and stored.state.state not in ("unknown", "unavailable", ""):
+                if (stored := self.stored_state(e.entity_id)) is not None and stored.state.state not in ("unknown", "unavailable", ""):
                     value = stored.state.state
                     self.store.setdefault(device_id, {})[unique_id] = value if key == "mode" else float(value)
             if e.entity_id == entity_id and e.unique_id == unique_id:

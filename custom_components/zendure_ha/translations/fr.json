@@ -148,11 +148,13 @@
           "description": "Le nom d'un appareil ne change jamais ; ses adresses peuvent changer.",
           "data": {
             "ip": "Adresse IP",
-            "blemac": "Adresse Bluetooth"
+            "blemac": "Adresse Bluetooth",
+            "allow_control": "Autoriser le pilotage"
           },
           "data_description": {
             "ip": "Adresse fixe pour l'API locale ; apprise automatiquement si vide.",
-            "blemac": "Apprise automatiquement depuis l'annonce Bluetooth si vide."
+            "blemac": "Apprise automatiquement depuis l'annonce Bluetooth si vide.",
+            "allow_control": "Désactivé : l'appareil ne fait que remonter ses données et reste hors de la flotte."
           }
         }
       },

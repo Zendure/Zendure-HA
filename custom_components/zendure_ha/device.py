@@ -25,11 +25,12 @@ class DeviceState(IntEnum):
     """Shared meaning for every vendor; the distribution relies on these semantics."""
 
     CREATED = 0  # just built, the device has never reported
-    OFFLINE = 1  # unreachable: the vendor machinery is probing
-    EXTERNAL = 2  # own behavior, not under our control
-    SENT = 3  # command sent, awaiting the transport ack
-    CONFIRM = 4  # acked, awaiting the output to follow
-    ACTIVE = 5  # under control at a confirmed setpoint (0 W included)
+    NOGRID = 1  # reachable, but no grid on its AC side: it can neither deliver nor charge from the grid
+    OFFLINE = 2  # unreachable: the vendor machinery is probing
+    EXTERNAL = 3  # own behavior, not under our control
+    SENT = 4  # command sent, awaiting the transport ack
+    CONFIRM = 5  # acked, awaiting the output to follow
+    ACTIVE = 6  # under control at a confirmed setpoint (0 W included)
 
 
 @dataclass
@@ -56,7 +57,7 @@ class ProfileDischarge(PowerProfile):
     """Discharge direction profile."""
 
     def available_power(self, device: DistributionDevice) -> int:
-        if device.soc_limit == 2:  # the device's own verdict: empty
+        if device.kwh and device.soc_limit == 2:  # the device's own verdict: empty, only with a pack (one without works as a plain inverter)
             return 0
         # thermal derating: at 55 °C or more, delivering 25 W or more under its setpoint for 25 s, the device is asked no more than it proves to manage plus 15 W
         if device.temp >= 55 and device.power_setpoint - device.power_actual > 25 and time.time() - device.power_since > 25:
