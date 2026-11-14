@@ -19,6 +19,7 @@ from homeassistant.helpers.entity import Entity, EntityPlatformState
 from homeassistant.helpers.template import Template
 
 from .const import DOMAIN
+from .registry import async_get_zendure_device, set_via_device
 
 
 def snakecase(value: str) -> str:
@@ -258,13 +259,12 @@ class EntityDevice:
         )
         if parent is None:
             self.attr_device_info["hw_version"] = deviceId
-        device_registry = dr.async_get(self.hass)
-        if di := device_registry.async_get_device(identifiers={(DOMAIN, sn)}):
+        if di := async_get_zendure_device(self.hass, sn):
             self.attr_device_info["connections"] = di.connections
             self.check_entities(di, snakecase(self.name.lower()))
 
         if parent is not None:
-            self.attr_device_info["via_device"] = (DOMAIN, parent)
+            set_via_device(self.hass, self.attr_device_info, parent)
 
     def check_entities(self, di: DeviceEntry, name: str) -> None:
         # Get all entities for this device and group them by translation_key if they match the current device and platform
@@ -397,6 +397,6 @@ class EntityDevice:
         _LOGGER.info("Updating %s software version from %s to %s", self.name, self.attr_device_info.get("sw_version"), version)
         device_registry = dr.async_get(self.hass)
         identifier = self.sn or self.name
-        device_entry = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
+        device_entry = async_get_zendure_device(self.hass, identifier)
         if device_entry is not None:
             device_registry.async_update_device(device_entry.id, sw_version=version)
