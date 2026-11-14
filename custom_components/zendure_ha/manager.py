@@ -37,7 +37,7 @@ from .const import (
 from .device import DeviceSettings, ZendureDevice, ZendureLegacy
 from .entity import EntityDevice
 from .fusegroup import FuseGroup
-from .number import ZendureRestoreNumber
+from .number import ZendureNumber, ZendureRestoreNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureSensor
 
@@ -67,6 +67,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.p1meterEvent: Callable[[], None] | None = None
         self.p1_history: deque[int] = deque([25, -25], maxlen=8)
         self.p1_factor = 1
+        self.p1_last: int | None = None
         self.update_count = 0
 
         self.charge: list[ZendureDevice] = []
@@ -106,7 +107,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "store_solar"}, self.update_operation),
         )
         self.operationstate = ZendureSensor(self, "operation_state")
-        self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
+        self.manualpower = ZendureRestoreNumber(self, "manual_power", self.update_manual_power, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
@@ -278,6 +279,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if len(self.devices) > 0:
                         for d in self.devices:
                             await d.power_off()
+                case _:
+                    await self._redistribute()
 
     async def _async_update_data(self) -> None:
 
@@ -379,6 +382,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             p1 = int(self.p1_factor * float(new_state.state))
         except ValueError:
             return
+        self.p1_last = p1
 
         # Get time & update simulation
         time = datetime.now()
@@ -402,33 +406,54 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
         # check minimal time between updates
         if isFast or time > self.zero_next:
-            try:
-                # prevent updates during power distribution changes
-                self.zero_fast = datetime.max
-                self.charge.clear()
-                self.charge_limit = 0
-                self.charge_optimal = 0
-                self.charge_weight = 0
-                self.discharge.clear()
-                self.discharge_bypass = 0
-                self.discharge_limit = 0
-                self.discharge_optimal = 0
-                self.discharge_produced = 0
-                self.discharge_weight = 0
-                self.idle.clear()
-                self.idle_lvlmax = 0
-                self.idle_lvlmin = 100
-                self.produced = 0
-                for fg in self.fuseGroups:
-                    fg.initPower = True
-                await self.powerChanged(p1, isFast, time)
-            except Exception as err:
-                _LOGGER.error(err)
-                _LOGGER.error(traceback.format_exc())
+            await self._distribute(p1, isFast, time)
 
-            time = datetime.now()
-            self.zero_next = time + timedelta(seconds=SmartMode.TIMEZERO)
-            self.zero_fast = time + timedelta(seconds=SmartMode.TIMEFAST)
+    async def _distribute(self, p1: int, isFast: bool, time: datetime) -> None:
+        """Run one power distribution round for the given P1 value."""
+        try:
+            # prevent updates during power distribution changes
+            self.zero_fast = datetime.max
+            self.charge.clear()
+            self.charge_limit = 0
+            self.charge_optimal = 0
+            self.charge_weight = 0
+            self.discharge.clear()
+            self.discharge_bypass = 0
+            self.discharge_limit = 0
+            self.discharge_optimal = 0
+            self.discharge_produced = 0
+            self.discharge_weight = 0
+            self.idle.clear()
+            self.idle_lvlmax = 0
+            self.idle_lvlmin = 100
+            self.produced = 0
+            for fg in self.fuseGroups:
+                fg.initPower = True
+            await self.powerChanged(p1, isFast, time)
+        except Exception as err:
+            _LOGGER.error(err)
+            _LOGGER.error(traceback.format_exc())
+
+        time = datetime.now()
+        self.zero_next = time + timedelta(seconds=SmartMode.TIMEZERO)
+        self.zero_fast = time + timedelta(seconds=SmartMode.TIMEFAST)
+
+    async def _redistribute(self) -> None:
+        """Apply a user change (operation, manual power) right away with the last P1 value.
+
+        The distribution normally only runs on a P1 state change. A P1 sensor that
+        reports rarely - or not at all while its value is unchanged - would otherwise
+        delay the new setpoint until its next update.
+        """
+        if self.p1_last is None or self.zero_fast == datetime.max:
+            # no P1 value received yet, or a distribution round is running right now
+            return
+        await self._distribute(self.p1_last, True, datetime.now())
+
+    async def update_manual_power(self, _entity: ZendureNumber, _value: Any) -> None:
+        """Apply a new manual power immediately when manual mode is active."""
+        if self.operation == ManagerMode.MANUAL:
+            await self._redistribute()
 
     async def powerChanged(self, p1: int, isFast: bool, time: datetime) -> None:
         """Return the distribution setpoint."""
