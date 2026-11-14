@@ -340,6 +340,66 @@
       },
       "delta_voltage": {
         "name": "Delta tension"
+      },
+      "ac_status": {
+        "name": "État AC"
+      },
+      "ai_state": {
+        "name": "État IA"
+      },
+      "bat_cal_time": {
+        "name": "Durée de calibrage batterie"
+      },
+      "bindstate": {
+        "name": "État d'appairage"
+      },
+      "charge_max_limit": {
+        "name": "Limite de charge max"
+      },
+      "data_ready": {
+        "name": "Données prêtes"
+      },
+      "dc_status": {
+        "name": "État DC"
+      },
+      "factory_mode_state": {
+        "name": "Mode usine"
+      },
+      "grid_standard": {
+        "name": "Norme réseau"
+      },
+      "grid_state": {
+        "name": "État du réseau"
+      },
+      "iotstate": {
+        "name": "État IoT"
+      },
+      "is_error": {
+        "name": "Erreur"
+      },
+      "lcnstate": {
+        "name": "État LCN"
+      },
+      "local_apienable": {
+        "name": "API locale activée"
+      },
+      "net": {
+        "name": "Réseau"
+      },
+      "otastate": {
+        "name": "État OTA"
+      },
+      "phase_switch": {
+        "name": "Commutateur de phase"
+      },
+      "pv_status": {
+        "name": "État PV"
+      },
+      "smart_mode": {
+        "name": "Mode intelligent"
+      },
+      "soc_comp_switch": {
+        "name": "Compensation SoC"
       }
     },
     "select": {

@@ -9,6 +9,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -178,6 +179,12 @@ class EntityDevice:
         "ts": ("none"),
         "tsZone": ("none"),
     }
+
+    # Raw, untranslated device properties that are still meaningful to end users
+    # (error/status/limit) and should stay in the main sensor list instead of
+    # being pushed into the Diagnostic section with the other raw internal state.
+    diagnosticExclude: set[str] = {"is_error", "gridState", "chargeMaxLimit"}
+
     checkEntity: dict[str, str] = {}
 
     empty = EntityZendure(None, "empty")
@@ -335,7 +342,11 @@ class EntityDevice:
                     case _:
                         _LOGGER.debug("Create sensor %s %s with no unit", self.name, key)
             else:
-                entity = ZendureSensor(self, key)
+                # Unmapped, untranslated raw device property: keep it out of the way in
+                # the Diagnostic section instead of cluttering the main sensor list,
+                # unless it's one of the few still meaningful to end users.
+                category = None if key in self.diagnosticExclude else EntityCategory.DIAGNOSTIC
+                entity = ZendureSensor(self, key, entity_category=category)
 
             if entity is not None and entity.platform is not None:
                 entity.update_value(value)
