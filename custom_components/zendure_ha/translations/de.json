@@ -181,8 +181,8 @@
         "name": "SoC-Begrenzungsstatus",
         "state": {
           "0": "Normal",
-          "1": "Begrenzt",
-          "2": "Voll"
+          "1": "Voll",
+          "2": "Begrenzt"
         }
       },
       "hub_state": {

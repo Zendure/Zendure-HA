@@ -163,6 +163,14 @@
           "1": "Auto-calibration"
         }
       },
+      "soc_limit": {
+        "name": "État de limite SoC",
+        "state": {
+          "0": "Normal",
+          "1": "Pleine",
+          "2": "Limitation"
+        }
+      },
       "hub_state": {
         "name": "État du hub",
         "state": {
