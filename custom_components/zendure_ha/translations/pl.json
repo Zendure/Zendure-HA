@@ -395,6 +395,8 @@
         "state": {
           "unused": "Nieużywana, urządzenie nie ma grupy bezpiecznikowej",
           "owncircuit": "Urządzenie ma własny obwód lub fazę, maks. 3600 W",
+          "group600_1200": "Grupa bezpiecznikowa maks. 600 W / 1200 W ładowanie",
+          "group600_2400": "Grupa bezpiecznikowa maks. 600 W / 2400 W ładowanie",
           "group800": "Grupa bezpiecznikowa maks. 800 W / 1200 W ładowanie",
           "group800_2400": "Grupa bezpiecznikowa maks. 800 W / 2400 W ładowanie",
           "group1200": "Grupa bezpiecznikowa maks. 1200 W",
