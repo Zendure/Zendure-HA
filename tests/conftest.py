@@ -6,11 +6,9 @@ import sys
 
 import pytest
 import pytest_socket
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.zendure_ha.const import DOMAIN
-
-pytest_plugins = "pytest_homeassistant_custom_component"
 
 if sys.platform == "win32":
     # asyncio on Windows builds its self-pipe from an AF_INET socketpair; pytest_socket only lets AF_UNIX through

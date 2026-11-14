@@ -4,7 +4,7 @@ from homeassistant.core import State
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
-from pytest_homeassistant_custom_component.common import MockConfigEntry, mock_restore_cache
+from pytest_homeassistant.common import MockConfigEntry, mock_restore_cache
 
 from custom_components.zendure_ha.const import DOMAIN
 from custom_components.zendure_ha.migration import DEVICE_KEYS, async_migrate

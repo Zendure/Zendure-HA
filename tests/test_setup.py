@@ -2,7 +2,7 @@
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.zendure_ha.const import DOMAIN
 from custom_components.zendure_ha.zendure.driver import ZendureDriver
