@@ -108,7 +108,7 @@ async def test_manual_device_subentry(hass, entry) -> None:  # noqa: ANN001
 
 
 async def test_reconfigure_device_subentry_edits_ip_and_address(hass) -> None:  # noqa: ANN001
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from pytest_homeassistant.common import MockConfigEntry
 
     entry = MockConfigEntry(domain=DOMAIN, title="Zendure", unique_id="Zendure", version=2, data={"distribution": {}, "zendure": {}}, subentries_data=[subentry({"prodkey": "a4ss5P", "device_id": "d1", "sn": "WOB1NHMAEA88", "ip": "", "blemac": ""}, "SF800_88")])
     entry.add_to_hass(hass)
