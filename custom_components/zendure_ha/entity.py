@@ -9,6 +9,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -178,6 +179,38 @@ class EntityDevice:
         "ts": ("none"),
         "tsZone": ("none"),
     }
+
+    # Raw, untranslated device properties that are still meaningful to end users
+    # (error/status/limit) and should stay in the main sensor list instead of
+    # being pushed into the Diagnostic section with the other raw internal state.
+    diagnosticExclude: set[str] = {"is_error", "gridState", "chargeMaxLimit", "packState"}
+
+    # Icons for the same raw device properties, which otherwise fall back to the
+    # generic "eye" icon.
+    diagnosticIcon: dict[str, str] = {
+        "acStatus": "mdi:current-ac",
+        "aiState": "mdi:brain",
+        "batCalTime": "mdi:battery-clock",
+        "bindstate": "mdi:link-variant",
+        "chargeMaxLimit": "mdi:battery-charging-high",
+        "dataReady": "mdi:database-check",
+        "dcStatus": "mdi:current-dc",
+        "factoryModeState": "mdi:factory",
+        "gridStandard": "mdi:transmission-tower",
+        "gridState": "mdi:transmission-tower",
+        "IOTState": "mdi:cloud-check",
+        "is_error": "mdi:alert-circle",
+        "LCNState": "mdi:lan-connect",
+        "localAPIEnable": "mdi:api",
+        "net": "mdi:wifi",
+        "OTAState": "mdi:update",
+        "packState": "mdi:battery-sync",
+        "phaseSwitch": "mdi:swap-horizontal",
+        "pvStatus": "mdi:solar-power",
+        "smartMode": "mdi:robot",
+        "socCompSwitch": "mdi:tune-variant",
+    }
+
     checkEntity: dict[str, str] = {}
 
     empty = EntityZendure(None, "empty")
@@ -264,7 +297,13 @@ class EntityDevice:
                 entity_registry.async_remove(entry.entity_id)
             if found.entity_id != entityid or found.unique_id != new_uid:
                 _LOGGER.info("Migrating entity %s -> %s (unique_id %s -> %s)", found.entity_id, entityid, found.unique_id, new_uid)
-                entity_registry.async_update_entity(found.entity_id, new_entity_id=entityid, new_unique_id=new_uid)
+                try:
+                    entity_registry.async_update_entity(found.entity_id, new_entity_id=entityid, new_unique_id=new_uid)
+                except ValueError:
+                    # entityid/new_uid is already held by a stale entry outside this device
+                    # (e.g. an orphaned registry entry from an earlier migration). Don't let
+                    # that block the rest of this device's entities from being set up.
+                    _LOGGER.warning("Could not migrate entity %s -> %s: target id already registered", found.entity_id, entityid)
 
     async def dataRefresh(self, _update_count: int) -> None:
         return
@@ -335,7 +374,11 @@ class EntityDevice:
                     case _:
                         _LOGGER.debug("Create sensor %s %s with no unit", self.name, key)
             else:
-                entity = ZendureSensor(self, key)
+                # Unmapped, untranslated raw device property: keep it out of the way in
+                # the Diagnostic section instead of cluttering the main sensor list,
+                # unless it's one of the few still meaningful to end users.
+                category = None if key in self.diagnosticExclude else EntityCategory.DIAGNOSTIC
+                entity = ZendureSensor(self, key, icon=self.diagnosticIcon.get(key), entity_category=category)
 
             if entity is not None and entity.platform is not None:
                 entity.update_value(value)
