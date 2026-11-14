@@ -359,6 +359,69 @@
           "6": "BossWerk",
           "7": "TSun"
         }
+      },
+      "ac_status": {
+        "name": "Stan AC"
+      },
+      "ai_state": {
+        "name": "Stan AI"
+      },
+      "bat_cal_time": {
+        "name": "Czas kalibracji baterii"
+      },
+      "bindstate": {
+        "name": "Stan powiązania"
+      },
+      "charge_max_limit": {
+        "name": "Maks. limit ładowania"
+      },
+      "data_ready": {
+        "name": "Dane gotowe"
+      },
+      "dc_status": {
+        "name": "Stan DC"
+      },
+      "factory_mode_state": {
+        "name": "Tryb fabryczny"
+      },
+      "grid_standard": {
+        "name": "Norma sieci"
+      },
+      "grid_state": {
+        "name": "Stan sieci"
+      },
+      "iotstate": {
+        "name": "Stan IoT"
+      },
+      "is_error": {
+        "name": "Błąd"
+      },
+      "lcnstate": {
+        "name": "Stan LCN"
+      },
+      "local_apienable": {
+        "name": "Lokalne API włączone"
+      },
+      "net": {
+        "name": "Sieć"
+      },
+      "otastate": {
+        "name": "Stan OTA"
+      },
+      "phase_switch": {
+        "name": "Przełącznik faz"
+      },
+      "pv_status": {
+        "name": "Stan PV"
+      },
+      "smart_mode": {
+        "name": "Tryb inteligentny"
+      },
+      "soc_comp_switch": {
+        "name": "Kompensacja SoC"
+      },
+      "volt_wakeup": {
+        "name": "Napięcie wybudzenia"
       }
     },
     "select": {

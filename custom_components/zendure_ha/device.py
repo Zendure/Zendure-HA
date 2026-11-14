@@ -158,9 +158,9 @@ class ZendureDevice(EntityDevice):
         self.limitInput = ZendureNumber(self, "inputLimit", self.entityWrite, None, "W", "power", self.charge_limit, 0, NumberMode.SLIDER)
         self.minSoc = ZendureNumber(self, "minSoc", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
         self.socSet = ZendureNumber(self, "socSet", self.entityWrite, None, "%", "soc", 100, 0, NumberMode.SLIDER, 10)
-        self.socStatus = ZendureSensor(self, "socStatus", state=0)
-        self.socLimit = ZendureSensor(self, "socLimit", state=0)
-        self.byPass = ZendureSensor(self, "pass", state=0)
+        self.socStatus = ZendureSensor(self, "socStatus", state=0, icon="mdi:battery-check")
+        self.socLimit = ZendureSensor(self, "socLimit", state=0, icon="mdi:battery-alert")
+        self.byPass = ZendureSensor(self, "pass", state=0, icon="mdi:electric-switch")
 
         fuseGroups = {
             0: "unused",
@@ -191,7 +191,7 @@ class ZendureDevice(EntityDevice):
         self.hemsStateUpdated = datetime.min
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
-        self.connectionStatus = ZendureSensor(self, "connectionStatus")
+        self.connectionStatus = ZendureSensor(self, "connectionStatus", icon="mdi:cloud-check")
         self.connection: ZendureRestoreSelect
         self.bleAdapter: ZendureRestoreSelect | None = None
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
@@ -200,11 +200,11 @@ class ZendureDevice(EntityDevice):
         self.aggrCharge = ZendureRestoreSensor(self, "aggrCharge", None, "kWh", "energy", "total_increasing", 2)
         self.aggrDischarge = ZendureRestoreSensor(self, "aggrDischarge", None, "kWh", "energy", "total_increasing", 2)
         # Round-trip efficiency: ratio of total energy discharged to total energy charged, expressed as a percentage
-        self.roundtripEfficiency = ZendureSensor(self, "roundtripEfficiency", None, "%", None, "measurement", 1)
+        self.roundtripEfficiency = ZendureSensor(self, "roundtripEfficiency", None, "%", None, "measurement", 1, icon="mdi:autorenew")
         self.aggrHomeInput = ZendureRestoreSensor(self, "aggrGridInputPower", None, "kWh", "energy", "total_increasing", 2)
         self.aggrHomeOut = ZendureRestoreSensor(self, "aggrOutputHome", None, "kWh", "energy", "total_increasing", 2)
         self.aggrSolar = ZendureRestoreSensor(self, "aggrSolar", None, "kWh", "energy", "total_increasing", 2)
-        self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0)
+        self.aggrSwitchCount = ZendureRestoreSensor(self, "switchCount", None, None, None, "total_increasing", 0, icon="mdi:counter")
 
     def setLimits(self, charge: int, discharge: int) -> None:
         """Set the device limits."""

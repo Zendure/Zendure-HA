@@ -8,6 +8,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -40,10 +41,19 @@ class ZendureSensor(EntityZendure, SensorEntity):
         factor: int = 1,
         state: Any = None,
         icon: str | None = None,
+        entity_category: EntityCategory | None = None,
     ) -> None:
         """Initialize a Zendure entity."""
         super().__init__(device, uniqueid, "sensor")
-        self.entity_description = SensorEntityDescription(key=uniqueid, name=uniqueid, native_unit_of_measurement=uom, device_class=deviceclass, state_class=stateclass, icon=icon)
+        self.entity_description = SensorEntityDescription(
+            key=uniqueid,
+            name=uniqueid,
+            native_unit_of_measurement=uom,
+            device_class=deviceclass,
+            state_class=stateclass,
+            icon=icon,
+            entity_category=entity_category,
+        )
         self._value_template: Template | None = template
         if precision is not None:
             self._attr_suggested_display_precision = precision
@@ -100,9 +110,11 @@ class ZendureRestoreSensor(ZendureSensor, RestoreEntity):
         deviceclass: Any | None = None,
         stateclass: Any | None = None,
         precision: int | None = None,
+        icon: str | None = None,
+        entity_category: EntityCategory | None = None,
     ) -> None:
         """Initialize a select entity."""
-        super().__init__(device, uniqueid, template, uom, deviceclass, stateclass, precision)
+        super().__init__(device, uniqueid, template, uom, deviceclass, stateclass, precision, icon=icon, entity_category=entity_category)
         self.last_value = 0
         self.lastValueUpdate = dt_util.utcnow()
 

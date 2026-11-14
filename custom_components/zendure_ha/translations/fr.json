@@ -81,10 +81,10 @@
         "name": "État du Wi-Fi"
       },
       "heat_state": {
-        "name": "chauffage de batterie"
+        "name": "Chauffage de batterie"
       },
       "rest_state": {
-        "name": "mode d'économie d'énergie"
+        "name": "Mode d'économie d'énergie"
       }
     },
     "number": {
@@ -129,7 +129,7 @@
         "name": "Total décharges"
       },
       "aggr_output_home": {
-        "name": "introduit dans la maison"
+        "name": "Introduit dans la maison"
       },
       "aggr_solar": {
         "name": "Total solaire"
@@ -137,8 +137,8 @@
       "plug_state": {
         "name": "Multiprise hors réseau",
         "state": {
-          "0": "pas disponible",
-          "1": "connecté"
+          "0": "Pas disponible",
+          "1": "Connecté"
         }
       },
       "connection_status": {
@@ -340,6 +340,69 @@
       },
       "delta_voltage": {
         "name": "Delta tension"
+      },
+      "ac_status": {
+        "name": "État AC"
+      },
+      "ai_state": {
+        "name": "État IA"
+      },
+      "bat_cal_time": {
+        "name": "Durée de calibrage batterie"
+      },
+      "bindstate": {
+        "name": "État d'appairage"
+      },
+      "charge_max_limit": {
+        "name": "Limite de charge max"
+      },
+      "data_ready": {
+        "name": "Données prêtes"
+      },
+      "dc_status": {
+        "name": "État DC"
+      },
+      "factory_mode_state": {
+        "name": "Mode usine"
+      },
+      "grid_standard": {
+        "name": "Norme réseau"
+      },
+      "grid_state": {
+        "name": "État du réseau"
+      },
+      "iotstate": {
+        "name": "État IoT"
+      },
+      "is_error": {
+        "name": "Erreur"
+      },
+      "lcnstate": {
+        "name": "État LCN"
+      },
+      "local_apienable": {
+        "name": "API locale activée"
+      },
+      "net": {
+        "name": "Réseau"
+      },
+      "otastate": {
+        "name": "État OTA"
+      },
+      "phase_switch": {
+        "name": "Commutateur de phase"
+      },
+      "pv_status": {
+        "name": "État PV"
+      },
+      "smart_mode": {
+        "name": "Mode intelligent"
+      },
+      "soc_comp_switch": {
+        "name": "Compensation SoC"
+      },
+      "volt_wakeup": {
+        "name": "Tension de réveil"
       }
     },
     "select": {
@@ -367,32 +430,32 @@
       "hems_state": {
         "name": "État HEMS",
         "state": {
-          "off": "désactivé",
-          "on": "activé"
+          "off": "Désactivé",
+          "on": "Activé"
         }
       },
       "auto_heat": {
         "name": "Chauffage automatique de la batterie",
         "state": {
-          "off": "désactivé",
-          "on": "activé"
+          "off": "Désactivé",
+          "on": "Activé"
         }
       },
       "fuse_group": {
-        "name": "groupe de fusible de l'appareil",
+        "name": "Groupe de fusible de l'appareil",
         "state": {
           "unused": "Aucun (appareil NON-utilisé en couplage intelligent)",
           "owncircuit": "L'appareil a son propre circuit ou phase, max. 3600 W",
-          "group600_1200": "groupe de fusible max. 600 W / 1200 W charge",
-          "group600_2400": "groupe de fusible max. 600 W / 2400 W charge",
-          "group800": "groupe de fusible max. 800 W / 1200 W charge",
-          "group800_2400": "groupe de fusible max. 800 W / 2400 W charge",
-          "group1200": "groupe de fusible max. 1200 W",
-          "group2000": "groupe de fusible max. 2000 W",
-          "group2400": "groupe de fusible max. 2400 W",
-          "group3600": "groupe de fusible max. 3600 W",
-          "group4000": "groupe de fusible max. 4000 W",
-          "group5000": "groupe de fusible max. 5000 W"
+          "group600_1200": "Groupe de fusible max. 600 W / 1200 W charge",
+          "group600_2400": "Groupe de fusible max. 600 W / 2400 W charge",
+          "group800": "Groupe de fusible max. 800 W / 1200 W charge",
+          "group800_2400": "Groupe de fusible max. 800 W / 2400 W charge",
+          "group1200": "Groupe de fusible max. 1200 W",
+          "group2000": "Groupe de fusible max. 2000 W",
+          "group2400": "Groupe de fusible max. 2400 W",
+          "group3600": "Groupe de fusible max. 3600 W",
+          "group4000": "Groupe de fusible max. 4000 W",
+          "group5000": "Groupe de fusible max. 5000 W"
         }
       },
       "connection": {
@@ -438,7 +501,7 @@
       "grid_reverse": {
         "name": "Exportation d'énergie",
         "state": {
-          "disabled": "désactivé",
+          "disabled": "Désactivé",
           "allow": "Autorisé",
           "forbidden": "Interdit"
         }
@@ -457,7 +520,7 @@
         "name": "LED"
       },
       "ac_switch": {
-        "name": "prise secteur"
+        "name": "Prise secteur"
       },
       "buzzer_switch": {
         "name": "Buzzer"

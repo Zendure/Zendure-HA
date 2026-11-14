@@ -360,6 +360,69 @@
       },
       "delta_voltage": {
         "name": "Spannungsdifferenz"
+      },
+      "ac_status": {
+        "name": "AC-Status"
+      },
+      "ai_state": {
+        "name": "KI-Status"
+      },
+      "bat_cal_time": {
+        "name": "Batteriekalibrierungszeit"
+      },
+      "bindstate": {
+        "name": "Bindungsstatus"
+      },
+      "charge_max_limit": {
+        "name": "Max. Ladegrenze"
+      },
+      "data_ready": {
+        "name": "Daten bereit"
+      },
+      "dc_status": {
+        "name": "DC-Status"
+      },
+      "factory_mode_state": {
+        "name": "Werksmodus"
+      },
+      "grid_standard": {
+        "name": "Netznorm"
+      },
+      "grid_state": {
+        "name": "Netzstatus"
+      },
+      "iotstate": {
+        "name": "IoT-Status"
+      },
+      "is_error": {
+        "name": "Fehler"
+      },
+      "lcnstate": {
+        "name": "LCN-Status"
+      },
+      "local_apienable": {
+        "name": "Lokale API aktiviert"
+      },
+      "net": {
+        "name": "Netzwerk"
+      },
+      "otastate": {
+        "name": "OTA-Status"
+      },
+      "phase_switch": {
+        "name": "Phasenumschaltung"
+      },
+      "pv_status": {
+        "name": "PV-Status"
+      },
+      "smart_mode": {
+        "name": "Smart-Modus"
+      },
+      "soc_comp_switch": {
+        "name": "SoC-Kompensation"
+      },
+      "volt_wakeup": {
+        "name": "Aufwachspannung"
       }
     },
     "select": {
