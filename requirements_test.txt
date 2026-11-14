@@ -1,6 +1,6 @@
 # Test-only dependencies. Install alongside requirements.txt:
 #   pip install -r requirements.txt -r requirements_test.txt
-pytest==9.0.3
+pytest==9.2.0
 pytest-asyncio==1.4.0
 # device.py imports Home Assistant Bluetooth at module level.
 pytest-homeassistant[bluetooth]==2026.11.0
