@@ -284,6 +284,69 @@
       },
       "delta_voltage": {
         "name": "Spanningsverschil"
+      },
+      "ac_status": {
+        "name": "AC-status"
+      },
+      "ai_state": {
+        "name": "AI-status"
+      },
+      "bat_cal_time": {
+        "name": "Batterijkalibratietijd"
+      },
+      "bindstate": {
+        "name": "Koppelstatus"
+      },
+      "charge_max_limit": {
+        "name": "Max. laadlimiet"
+      },
+      "data_ready": {
+        "name": "Gegevens gereed"
+      },
+      "dc_status": {
+        "name": "DC-status"
+      },
+      "factory_mode_state": {
+        "name": "Fabrieksmodus"
+      },
+      "grid_standard": {
+        "name": "Netnorm"
+      },
+      "grid_state": {
+        "name": "Netstatus"
+      },
+      "iotstate": {
+        "name": "IoT-status"
+      },
+      "is_error": {
+        "name": "Fout"
+      },
+      "lcnstate": {
+        "name": "LCN-status"
+      },
+      "local_apienable": {
+        "name": "Lokale API ingeschakeld"
+      },
+      "net": {
+        "name": "Netwerk"
+      },
+      "otastate": {
+        "name": "OTA-status"
+      },
+      "phase_switch": {
+        "name": "Faseschakelaar"
+      },
+      "pv_status": {
+        "name": "PV-status"
+      },
+      "smart_mode": {
+        "name": "Slimme modus"
+      },
+      "soc_comp_switch": {
+        "name": "SoC-compensatie"
+      },
+      "volt_wakeup": {
+        "name": "Wekspanning"
       }
     },
     "select": {
