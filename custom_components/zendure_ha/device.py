@@ -45,7 +45,7 @@ class ZendureBattery(EntityDevice):
     """Zendure Battery class for devices."""
 
     @staticmethod
-    def get_battery_type(sn: str, pack_type: int | None = None) -> tuple[str, str, float]:
+    def get_battery_type(sn: str, pack_type: int | None = None, parent_is_sf4000: bool = False) -> tuple[str, str, float]:
         model = "???"
         match sn[0]:
             case "A":
@@ -58,7 +58,9 @@ class ZendureBattery(EntityDevice):
             case "B":
                 # packType 70 is the SF4000 Mix AC+'s internal 8 kWh pack, which shares
                 # its serial prefix with the unrelated 0.96 kWh AB1000S.
-                if pack_type == 70:
+                # packType 70 alone is NOT unique: e.g. SF800 reports packType 70 for
+                # all packs (incl. AB1000S). Only treat it as I8000 on an SF4000.
+                if pack_type == 70 and parent_is_sf4000:
                     model = "I8000"
                     kWh = 8.0
                 else:
@@ -88,7 +90,8 @@ class ZendureBattery(EntityDevice):
 
     def __init__(self, hass: HomeAssistant, sn: str, parent: EntityDevice, pack_type: int | None = None) -> None:
         """Initialize Device."""
-        name, model, self.kWh = ZendureBattery.get_battery_type(sn, pack_type)
+        parent_is_sf4000 = type(parent).__name__.startswith("SolarFlow4000")
+        name, model, self.kWh = ZendureBattery.get_battery_type(sn, pack_type, parent_is_sf4000)
         super().__init__(hass, sn, name, model, "", sn, parent.sn)
         self.attr_device_info["serial_number"] = sn
         self.deltaVoltage = ZendureSensor(self, "deltaVoltage", None, "V", "voltage", "measurement", 3)
