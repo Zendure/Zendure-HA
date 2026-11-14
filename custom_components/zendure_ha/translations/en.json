@@ -431,6 +431,9 @@
       },
       "soc_comp_switch": {
         "name": "SoC Compensation Switch"
+      },
+      "volt_wakeup": {
+        "name": "Wake-up Voltage"
       }
     },
     "select": {
