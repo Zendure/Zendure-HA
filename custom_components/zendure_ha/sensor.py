@@ -45,6 +45,7 @@ class HaSensor(SensorEntity, HaEntity):
         aggr: bool = False,
         convert: Callable[[Any], Any] | None = None,
         disabled: bool = False,
+        restore: bool = False,
     ) -> None:
         super().__init__(device, key, vendor_id, disabled)
         self._attr_suggested_display_precision = precision
@@ -56,6 +57,8 @@ class HaSensor(SensorEntity, HaEntity):
             self._aggr = HaSensor(device, f"{key}_aggr", uom="kWh", device_class="energy", state_class="total_increasing")
             self._aggr._aggregate_init()
             device._restore.append(self._aggr)
+        if restore:
+            device._restore.append(self)
         device.add_entity(self)
 
     @property

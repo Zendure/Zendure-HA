@@ -311,6 +311,9 @@
       "hems_state": {
         "name": "HEMS aktiv"
       },
+      "grid_state": {
+        "name": "Netz"
+      },
       "ct_off": {
         "name": "CT getrennt"
       },

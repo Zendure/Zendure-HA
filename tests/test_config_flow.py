@@ -115,10 +115,10 @@ async def test_reconfigure_device_subentry_edits_ip_and_address(hass) -> None:  
     entry.mock_state(hass, entry.state)
     sub = next(iter(entry.subentries.values()))
     result = await hass.config_entries.subentries.async_init((entry.entry_id, "zendure"), context={"source": "reconfigure", "subentry_id": sub.subentry_id})
-    assert result["type"] is FlowResultType.FORM and set(result["data_schema"].schema) == {"ip", "blemac"}
+    assert result["type"] is FlowResultType.FORM and set(result["data_schema"].schema) == {"ip", "blemac", "allow_control"}
     result = await hass.config_entries.subentries.async_configure(result["flow_id"], {"ip": "192.168.1.70", "blemac": "AA:BB:CC:DD:EE:88"})
     assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
-    assert dict(entry.subentries[sub.subentry_id].data) == {"prodkey": "a4ss5P", "device_id": "d1", "sn": "WOB1NHMAEA88", "ip": "192.168.1.70", "blemac": "AA:BB:CC:DD:EE:88"}
+    assert dict(entry.subentries[sub.subentry_id].data) == {"prodkey": "a4ss5P", "device_id": "d1", "sn": "WOB1NHMAEA88", "ip": "192.168.1.70", "blemac": "AA:BB:CC:DD:EE:88", "allow_control": True}
     assert entry.subentries[sub.subentry_id].title == "SF800_88", "the name never changes"
 
 

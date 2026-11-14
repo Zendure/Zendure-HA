@@ -311,6 +311,9 @@
       "hems_state": {
         "name": "HEMS actif"
       },
+      "grid_state": {
+        "name": "Réseau"
+      },
       "ct_off": {
         "name": "CT déconnecté"
       },
