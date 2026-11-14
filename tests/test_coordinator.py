@@ -41,7 +41,7 @@ async def test_devices_are_built_from_the_subentries(hass) -> None:  # noqa: ANN
     assert hyper in coord.distribution.devices and hub in coord.distribution.devices and hyper in coord.devices
     assert coord.distribution.max_kw == 12.0 and coord.distribution.max_output == 800 and zendure.mqtt_host == "10.0.0.5", "the entry data sections landed on their objects"
 
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, "EOK1GDA3K22")})
+    device = dr.async_get(hass).async_get_device_by_identifier((DOMAIN, "EOK1GDA3K22"), entry.entry_id)
     assert device is not None and device.name == "Hyper2000_22" and device.model_id == "gDa3tb" and device.manufacturer == "Zendure"
     assert device.serial_number is None and device.hw_version is None, "the serial and the device key are not shown"
     assert device.config_entries_subentries[entry.entry_id] == {hyper.subentry_id}

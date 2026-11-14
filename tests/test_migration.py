@@ -27,7 +27,7 @@ async def test_migration(hass) -> None:  # noqa: ANN001
 
     manager = devices.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, "Zendure Manager"), (DOMAIN, "")}, name="Zendure Manager")
     sf = devices.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, "9RUB1mW7"), (DOMAIN, "WOB1NHMAEA88")}, name="SolarFlow 800 Pro", manufacturer="Zendure", model="SolarFlow 800 Pro", model_id="R3mn8U", serial_number="WOB1NHMAEA88", hw_version="9RUB1mW7", connections={(dr.CONNECTION_BLUETOOTH, "AA:BB:CC:DD:EE:88")})
-    pack = devices.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, "CO1F45678912")}, name="AB2000S 78912", manufacturer="Zendure", model="AB2000S", serial_number="CO1F45678912", via_device=(DOMAIN, "9RUB1mW7"))
+    pack = devices.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, "CO1F45678912")}, name="AB2000S 78912", manufacturer="Zendure", model="AB2000S", serial_number="CO1F45678912", via_device_id=sf.id)
     unknown = devices.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, "xdev"), (DOMAIN, "XSN")}, name="Mystery", manufacturer="Zendure", model="SuperBase V6400", model_id="zzzzzz", serial_number="XSN", hw_version="xdev")
 
     ids = {}
