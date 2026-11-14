@@ -111,6 +111,9 @@
       },
       "min_battery_output_power": {
         "name": "Minimalne rozładowanie"
+      },
+      "p1_check_time": {
+        "name": "Kontrola wiarygodności P1"
       }
     },
     "sensor": {
@@ -244,7 +247,8 @@
           "0": "Bezczynny",
           "1": "Ładowanie",
           "2": "Rozładowanie",
-          "3": "Wyłączony"
+          "3": "Wyłączony",
+          "4": "P1 niewiarygodny"
         }
       },
       "state": {

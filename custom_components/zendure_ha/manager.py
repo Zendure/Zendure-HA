@@ -45,6 +45,8 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 _LOGGER = logging.getLogger(__name__)
 
+P1_NOTIFICATION_ID = "zendure_ha_p1_implausible"
+
 type ZendureConfigEntry = ConfigEntry[ZendureManager]
 
 
@@ -68,6 +70,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.p1_history: deque[int] = deque([25, -25], maxlen=8)
         self.p1_factor = 1
         self.update_count = 0
+        self.p1_implausible = False
+        self.p1_implausible_since: datetime | None = None
 
         self.charge: list[ZendureDevice] = []
         self.charge_limit = 0
@@ -111,6 +115,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
         self.globalSoc = ZendureSensor(self, "global_soc", None, "%", "battery", "measurement", 1)
+        self.p1checktime = ZendureRestoreNumber(self, "p1_check_time", None, None, "s", "duration", 600, 0, NumberMode.BOX, True)
 
         # load devices
         for dev in data["deviceList"]:
@@ -437,9 +442,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         power = 0
         totalStoredkWh = 0
         onlinekWh = 0
+        house = p1
 
         for d in self.devices:
             if await d.power_get():
+                # house load = P1 + what the devices feed into / draw from the home bus
+                house += d.homeOutput.asInt - d.homeInput.asInt + max(0, d.pwr_offgrid)
                 # get power production
                 d.pwr_produced = min(0, d.batteryOutput.asInt + d.homeInput.asInt - d.batteryInput.asInt - d.homeOutput.asInt)
                 if d.state == DeviceState.SOCFULL and -d.solarInput.asInt < d.pwr_produced:
@@ -493,6 +501,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         # and p1 >= 0, the result stays >= 0 — the #1151 guarantee holds structurally.
         setpoint -= self.discharge_bypass
 
+        # Optionally stop regulating on a P1 value that contradicts the devices.
+        if not await self._p1_plausible(house, time):
+            return
+
         # Update power distribution.
         _LOGGER.info("P1 ======> p1:%s isFast:%s, setpoint:%sW stored:%sW", p1, isFast, setpoint, self.produced)
         match self.operation:
@@ -527,6 +539,45 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)
+
+    async def _p1_plausible(self, house: int, time: datetime) -> bool:
+        """Return False while P1 contradicts the devices; the devices are then held at 0 W.
+
+        P1 plus what the devices feed in, minus what they draw, is the house load and
+        cannot be clearly negative. If it is, P1 does not describe the current situation -
+        e.g. a P1 meter that delivers its readings minutes late. Regulating on such values
+        swings between charging from and feeding into the grid. The check is opt-in
+        (p1_check_time > 0): other generation the integration does not see, such as a
+        second inverter, also makes this calculation negative.
+        """
+        limit = self.p1checktime.asInt
+        regulating = self.operation in (ManagerMode.MATCHING, ManagerMode.MATCHING_DISCHARGE, ManagerMode.MATCHING_CHARGE, ManagerMode.STORE_SOLAR)
+        if limit <= 0 or not regulating or house >= -SmartMode.P1_IMPLAUSIBLE_POWER:
+            if self.p1_implausible:
+                _LOGGER.warning("P1 is plausible again (house load %sW), resuming regulation", house)
+                persistent_notification.async_dismiss(self.hass, P1_NOTIFICATION_ID)
+            self.p1_implausible = False
+            self.p1_implausible_since = None
+            return True
+
+        if self.p1_implausible_since is None:
+            self.p1_implausible_since = time
+        if not self.p1_implausible:
+            if (time - self.p1_implausible_since).total_seconds() < limit:
+                return True
+            self.p1_implausible = True
+            message = f"P1 contradicts the Zendure devices (house load {house} W) for {limit} s or longer. The devices are held at 0 W until P1 is plausible again."
+            _LOGGER.warning(message)
+            persistent_notification.async_create(self.hass, message, "Zendure: P1 implausible", P1_NOTIFICATION_ID)
+
+        for d in self.charge:
+            await d.power_charge(0)
+        for d in self.discharge:
+            # bypass production of SOCFULL devices is not dispatchable
+            if d.byPass.asInt == 0:
+                await d.power_discharge(0)
+        self.operationstate.update_value(ManagerState.P1_IMPLAUSIBLE.value)
+        return False
 
     async def power_charge(self, setpoint: int, time: datetime, debounce: bool = True) -> None:
         """Charge devices. With debounce, hold off charging for a while after a discharge->charge flip."""

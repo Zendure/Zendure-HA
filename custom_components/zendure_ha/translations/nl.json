@@ -98,6 +98,9 @@
       },
       "soc_set": {
         "name": "SOC Maximaal"
+      },
+      "p1_check_time": {
+        "name": "P1-plausibiliteitscontrole"
       }
     },
     "sensor": {
@@ -208,7 +211,8 @@
           "0": "Inactief",
           "1": "Laden",
           "2": "Ontladen",
-          "3": "Uit"
+          "3": "Uit",
+          "4": "P1 onwaarschijnlijk"
         }
       },
       "state": {

@@ -112,6 +112,9 @@
       },
       "soc_set": {
         "name": "Target SoC"
+      },
+      "p1_check_time": {
+        "name": "P1 plausibility check"
       }
     },
     "sensor": {
@@ -246,7 +249,8 @@
           "0": "Idle",
           "1": "Charging",
           "2": "Discharging",
-          "3": "Off"
+          "3": "Off",
+          "4": "P1 implausible"
         }
       },
       "state": {

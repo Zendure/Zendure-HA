@@ -102,6 +102,9 @@
       },
       "soc_set": {
         "name": "SOC maximum"
+      },
+      "p1_check_time": {
+        "name": "Contrôle de plausibilité P1"
       }
     },
     "sensor": {
@@ -221,7 +224,8 @@
           "0": "En veille",
           "1": "En charge",
           "2": "En décharge",
-          "3": "Éteint"
+          "3": "Éteint",
+          "4": "P1 non plausible"
         }
       },
       "state": {

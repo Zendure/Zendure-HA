@@ -49,6 +49,7 @@ class ManagerState(Enum):
     CHARGE = 1
     DISCHARGE = 2
     OFF = 3
+    P1_IMPLAUSIBLE = 4
 
 
 class SmartMode:
@@ -70,4 +71,5 @@ class SmartMode:
     HEMSOFF_TIMEOUT = 60  # Seconds before HEMS state is set to OFF if no updates are received
 
     POWER_START = 50  # Minimum Power (W) for starting a device
+    P1_IMPLAUSIBLE_POWER = 150  # House load (W) below -this means P1 contradicts the devices
     POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating
