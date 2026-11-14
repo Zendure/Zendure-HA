@@ -44,7 +44,7 @@ async def test_devices_are_built_from_the_subentries(hass) -> None:  # noqa: ANN
     device = dr.async_get(hass).async_get_device_by_identifier((DOMAIN, "EOK1GDA3K22"), entry.entry_id)
     assert device is not None and device.name == "Hyper2000_22" and device.model_id == "gDa3tb" and device.manufacturer == "Zendure"
     assert device.serial_number is None and device.hw_version is None, "the serial and the device key are not shown"
-    assert device.config_entries_subentries[entry.entry_id] == {hyper.subentry_id}
+    assert device.config_subentry_id == hyper.subentry_id
     assert hyper.entities["soc"].unique_id == "hyper2000_22_soc"
     await coord.unload()
 
