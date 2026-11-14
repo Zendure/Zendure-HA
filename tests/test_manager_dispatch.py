@@ -73,6 +73,10 @@ def _make_manager_harness() -> ZendureManager:
     manager.idle_lvlmax = 0
     manager.idle_lvlmin = 0
     manager.pwr_low = 0
+    # P1 plausibility check disabled (the default), see test_manager_p1_plausibility.py
+    manager.p1checktime = SimpleNamespace(asInt=0)
+    manager.p1_implausible = False
+    manager.p1_implausible_since = None
     return manager
 
 
