@@ -191,8 +191,8 @@
         "name": "Stan limitu SoC",
         "state": {
           "0": "Normalny",
-          "1": "Ograniczanie",
-          "2": "Pełny"
+          "1": "Pełny",
+          "2": "Ograniczanie"
         }
       },
       "hub_state": {
