@@ -62,6 +62,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ZendureConfigEntry) -> 
                 c.zendure.disconnect()
             c.zendure = None
         manager.update_p1meter(None)
+        for meter in manager.meters:
+            meter.stop()
+        manager.meters.clear()
         manager.fuseGroups.clear()
         manager.devices.clear()
     return result

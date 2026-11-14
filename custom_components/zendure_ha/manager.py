@@ -35,6 +35,7 @@ from .const import (
     SmartMode,
 )
 from .device import DeviceSettings, ZendureDevice, ZendureLegacy
+from .devices.p1meter import P1Meter
 from .entity import EntityDevice
 from .fusegroup import FuseGroup
 from .number import ZendureRestoreNumber
@@ -52,6 +53,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
     """Class to regular update devices."""
 
     devices: list[ZendureDevice] = []
+    meters: list[P1Meter] = []
     fuseGroups: list[FuseGroup] = []
     simulation: bool = False
 
@@ -118,6 +120,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if (deviceId := dev["deviceKey"]) is None or (prodModel := dev["productModel"]) is None:
                     continue
                 _LOGGER.info("Adding device: %s %s => %s", deviceId, prodModel, dev)
+
+                if P1Meter.isP1Meter(prodModel):
+                    meter = P1Meter(self.hass, deviceId, dev.get("deviceName", prodModel), dev)
+                    meter.start()
+                    self.meters.append(meter)
+                    continue
 
                 init = Api.createdevice.get(prodModel.lower().replace(" ", ""), None)
                 if init is None:
