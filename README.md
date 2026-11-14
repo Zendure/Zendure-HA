@@ -35,6 +35,7 @@ This Home Assistant integration connects your Zendure devices to Home Assistant,
   - Hub2000
   - [SF800](https://github.com/Zendure/Zendure-HA/wiki/SolarFlow-800)
   - SF800 Pro
+  - SF800 Pro2
   - SF800 Plus
   - SF1600 AC+
   - SF2400 AC
