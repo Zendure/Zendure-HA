@@ -8,7 +8,7 @@ import json
 import logging
 import traceback
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from math import sqrt
 from pathlib import Path
@@ -19,6 +19,7 @@ from homeassistant.auth.providers import homeassistant as auth_ha
 from homeassistant.components import bluetooth, persistent_notification
 from homeassistant.components.number import NumberMode
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, UnitOfPower
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -316,6 +317,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         if self.hass and self.hass.loop.is_running():
             self._schedule_refresh()
 
+    @staticmethod
+    def _get_p1_factor(attributes: Mapping[str, Any]) -> int:
+        """Return the scaling factor to convert the P1 sensor value to watts."""
+        return 1000 if attributes.get(ATTR_UNIT_OF_MEASUREMENT, UnitOfPower.WATT) in (UnitOfPower.KILO_WATT, "kilowatt", "kilowatts") else 1
+
     def update_p1meter(self, p1meter: str | None) -> None:
         """Update the P1 meter sensor."""
         _LOGGER.debug("Updating P1 meter to: %s", p1meter)
@@ -323,9 +329,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             self.p1meterEvent()
         if p1meter:
             self.p1meterEvent = async_track_state_change_event(self.hass, [p1meter], self._p1_changed)
-            if (entity := self.hass.states.get(p1meter)) is not None and entity.attributes.get("unit_of_measurement", "W") in ("kW", "kilowatt", "kilowatts"):
-                self.p1_factor = 1000
+            self.p1_factor = self._get_p1_factor(entity.attributes) if (entity := self.hass.states.get(p1meter)) is not None else 1
         else:
+            self.p1_factor = 1
             self.p1meterEvent = None
 
     def writeSimulation(self, time: datetime, p1: int) -> None:
@@ -376,7 +382,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
             return
 
         try:  # convert the state to a float
-            p1 = int(self.p1_factor * float(new_state.state))
+            value = float(new_state.state)
+            if (attrs := getattr(new_state, "attributes", None)) is not None:
+                self.p1_factor = self._get_p1_factor(attrs)
+            p1 = int(self.p1_factor * value)
         except ValueError:
             return
 
