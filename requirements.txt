@@ -5,4 +5,4 @@ ruff==0.17.3
 aiohttp
 bleak-retry-connector>=4.7.1
 voluptuous
-paho.mqtt==2.1.0
+paho.mqtt==2.2.0
