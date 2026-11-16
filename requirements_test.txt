@@ -3,4 +3,4 @@
 pytest==9.0.3
 pytest-asyncio==1.4.0
 # device.py imports Home Assistant Bluetooth at module level.
-pytest-homeassistant[bluetooth]==2026.11.0
+pytest-homeassistant[bluetooth]==2026.11.1
