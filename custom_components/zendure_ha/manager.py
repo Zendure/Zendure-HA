@@ -295,26 +295,32 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     continue
             return False
 
-        time = datetime.now()
-        kwh = 0
-        for device in self.devices:
-            kwh += device.kWh
-            if isinstance(device, ZendureLegacy) and device.bleMac is None:
-                for si in bluetooth.async_discovered_service_info(self.hass, False):
-                    if isBleDevice(device, si):
-                        break
+        try:
+            time = datetime.now()
+            kwh = 0
+            for device in self.devices:
+                kwh += device.kWh
+                if isinstance(device, ZendureLegacy) and device.bleMac is None:
+                    for si in bluetooth.async_discovered_service_info(self.hass, False):
+                        if isBleDevice(device, si):
+                            break
 
-            _LOGGER.debug("Update device: %s (%s)", device.name, device.deviceId)
-            await device.dataRefresh(self.update_count)
-            if device.hemsState.is_on and (time - device.hemsStateUpdated).total_seconds() > SmartMode.HEMSOFF_TIMEOUT:
-                device.hemsState.update_value(0)
-            device.setStatus()
-        self.update_count += 1
-        self.totalKwh.update_value(kwh)
+                _LOGGER.debug("Update device: %s (%s)", device.name, device.deviceId)
+                await device.dataRefresh(self.update_count)
+                if device.hemsState.is_on and (time - device.hemsStateUpdated).total_seconds() > SmartMode.HEMSOFF_TIMEOUT:
+                    device.hemsState.update_value(0)
+                device.setStatus()
+            self.update_count += 1
+            self.totalKwh.update_value(kwh)
 
-        # Manually update the timer
-        if self.hass and self.hass.loop.is_running():
-            self._schedule_refresh()
+        finally:
+            # Manually update the timer: the manager has no coordinator listeners,
+            # so DataUpdateCoordinator never reschedules it on its own. This must
+            # run in `finally` - if anything above raises, skipping it would stop
+            # polling for good until the integration is reloaded. The exception
+            # still propagates, so HA logs it and marks the update as failed.
+            if self.hass and self.hass.loop.is_running():
+                self._schedule_refresh()
 
     def update_p1meter(self, p1meter: str | None) -> None:
         """Update the P1 meter sensor."""
