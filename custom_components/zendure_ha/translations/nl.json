@@ -93,6 +93,9 @@
       "manual_power": {
         "name": "Handmatig vermogen"
       },
+      "smart_discharge_limit": {
+        "name": "Slimme ontlaadlimiet"
+      },
       "min_soc": {
         "name": "SOC Minimaal"
       },
