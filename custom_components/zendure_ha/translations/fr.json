@@ -97,6 +97,9 @@
       "manual_power": {
         "name": "Puissance manuelle"
       },
+      "smart_discharge_limit": {
+        "name": "Limite de décharge intelligente"
+      },
       "min_soc": {
         "name": "SOC minimum"
       },

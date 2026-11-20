@@ -103,6 +103,9 @@
       "manual_power": {
         "name": "Moc ustawiana ręcznie"
       },
+      "smart_discharge_limit": {
+        "name": "Limit rozładowania w trybie smart"
+      },
       "min_soc": {
         "name": "Minimalne SoC"
       },

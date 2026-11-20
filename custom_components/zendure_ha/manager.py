@@ -107,6 +107,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         )
         self.operationstate = ZendureSensor(self, "operation_state")
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
+        # Caps battery discharge in the smart modes; 0 means no limit, so an install that never sets it behaves as before.
+        self.smartdischargelimit = ZendureRestoreNumber(self, "smart_discharge_limit", None, None, "W", "power", 12000, 0, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
         self.power = ZendureSensor(self, "power", None, "W", "power", "measurement", 0)
@@ -500,11 +502,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                 if setpoint < 0:
                     await self.power_charge(setpoint, time)
                 else:
-                    await self.power_discharge(setpoint)
+                    # The limit caps the battery, never solar passthrough that covers demand
+                    await self.power_discharge(max(min(self.produced, setpoint), self.discharge_capped(setpoint)))
 
             case ManagerMode.MATCHING_DISCHARGE:
                 # Discharge to cover demand and always pass through available solar; never charge
-                await self.power_discharge(max(self.produced, setpoint))
+                await self.power_discharge(max(self.produced, self.discharge_capped(setpoint)))
 
             case ManagerMode.MATCHING_CHARGE:
                 # Allow discharge of produced power, otherwise only charge
@@ -527,6 +530,11 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)
+
+    def discharge_capped(self, setpoint: int) -> int:
+        """Apply the smart discharge limit to a discharge setpoint; a limit of 0 means no limit."""
+        limit = self.smartdischargelimit.asInt
+        return min(setpoint, limit) if limit > 0 else setpoint
 
     async def power_charge(self, setpoint: int, time: datetime, debounce: bool = True) -> None:
         """Charge devices. With debounce, hold off charging for a while after a discharge->charge flip."""

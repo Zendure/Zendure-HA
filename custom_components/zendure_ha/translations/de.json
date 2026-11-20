@@ -96,6 +96,9 @@
       "manual_power": {
         "name": "Manuelle Leistung"
       },
+      "smart_discharge_limit": {
+        "name": "Smart-Entladelimit"
+      },
       "min_soc": {
         "name": "SoC-Minimum"
       },
