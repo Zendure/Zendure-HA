@@ -109,7 +109,7 @@
       "soc_set": {
         "name": "Docelowe SoC"
       },
-      "min_battery_output_power": {
+      "min_output_power": {
         "name": "Minimalne rozładowanie"
       }
     },
@@ -491,7 +491,8 @@
           "smart": "Inteligentne dopasowanie",
           "smart_discharging": "Inteligentne rozładowanie",
           "smart_charging": "Inteligentne ładowanie",
-          "store_solar": "Magazynowanie energii słonecznej"
+          "store_solar": "Magazynowanie energii słonecznej",
+          "passthrough_solar": "Przekazywanie energii słonecznej"
         }
       },
       "pass_mode": {
@@ -532,6 +533,13 @@
           "auto": "Auto",
           "normal": "Normalna",
           "fast": "Szybka"
+        }
+      },
+      "soc_balancing": {
+        "name": "Wyrównywanie SoC",
+        "state": {
+          "off": "Wyłączone",
+          "on": "Włączone"
         }
       }
     },

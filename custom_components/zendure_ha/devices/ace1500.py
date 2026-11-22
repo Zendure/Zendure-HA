@@ -20,109 +20,67 @@ _INPUT_LIMIT_MIN_INTERVAL = timedelta(seconds=30)
 
 
 class ACE1500(ZendureLegacy):
+
+    _kWh: float = 0.0
+    pairedHub: ZendureLegacy | None = None
+
     def __init__(self, hass: HomeAssistant, deviceId: str, prodName: str, definition: Any, parent: str | None = None) -> None:
         """Initialise Ace1500."""
         super().__init__(hass, deviceId, prodName, definition["productModel"], definition, parent)
         self.maxSolar = -900
         self.acSwitch = ZendureSwitch(self, "acSwitch", self.entityWrite, None, "switch",1)
         self.dcSwitch = ZendureSelect(self, "dcSwitch", {0: "off", 1: "on"}, self.entityWrite, 1)
-        # Hub-paired vs standalone control mode. The ACE 1500 firmware accepts
-        # different command shapes depending on whether a Hub is driving it:
-        #   - paired: Smart Matching (autoModel=8) with chargingPower in
-        #     autoModelValue, the historical integration default.
-        #   - standalone: autoModel=0 (None program) with direct
-        #     inputLimit/outputLimit property writes. Smart Matching/Battery
-        #     Priority/Smart CT modes all need a Hub heartbeat the integration
-        #     can't supply, so they sit in standby when no Hub is present.
-        # Default is "paired" to preserve existing behavior; users without a
-        # Hub need to flip this to "standalone" for charge/discharge to work.
-        self.hubMode = ZendureRestoreSelect(self, "hubMode", {0: "paired", 1: "standalone"}, self._onHubModeChange, 0)
+        # Hub-paired vs standalone. Paired: the Hub manages the ACE, so only the
+        # Hub's AC mode changes (see charge()) and the ACE counts no capacity of
+        # its own. Standalone: the ACE has its own packs. Charging is the same in
+        # both: direct inputLimit writes, because Smart Matching programs need a
+        # Hub heartbeat the integration can't supply.
+        self.hubMode = ZendureRestoreSelect(self, "hubMode", {0: "paired", 1: "standalone"}, None, 0)
         # Track the last inputLimit value/time so standalone charge writes can
         # be quantized and rate-limited to protect device flash.
         self._last_input_limit: int | None = None
         self._last_input_limit_time = datetime.min
-        # Initial limits set for the default (paired) mode. _onHubModeChange
-        # will adjust them after state restore if hubMode comes back as
-        # "standalone".
-        self.setLimits(-900, 800)
+        # The ACE 1500 cannot feed the home grid, paired or not.
+        # iIs AC outlet is off-grid only, and a paired Hub puts the power out.
+        # Discharge limit 0 keeps the manager from dispatching to it.
+        self.setLimits(-900, 0)
 
-    async def _onHubModeChange(self, select: Any, _value: Any) -> None:
-        """Adjust device limits when the user toggles hubMode. Standalone
-        mode has no AC home output (off-grid socket / USB / XT-60 only), so
-        discharge_limit must be 0 — otherwise the manager would distribute
-        home-discharge demand to this device, expecting up to 800 W of
-        contribution that never materializes, and the other devices would
-        under-discharge to compensate.
+    @property
+    def paired(self) -> bool:
+        return getattr(self, "hubMode", None) is not None and self.hubMode.value == 0
 
-        Read the current value off `select` rather than `self.hubMode`:
-        this callback fires from `ZendureRestoreSelect.async_added_to_hass`
-        during state restore, which can run before `self.hubMode = ...`
-        finishes assigning on the device."""
-        if select.value == 1:
-            self.setLimits(-900, 0)
-        else:
-            self.setLimits(-900, 800)
+    @property
+    def kWh(self) -> float:
+        """Battery capacity this device contributes to the system.
+        """
+        return 0.0 if self.paired else self._kWh
+
+    @kWh.setter
+    def kWh(self, value: float) -> None:
+        self._kWh = value
 
     async def charge(self, power: int) -> int:
-        _LOGGER.info("Power charge %s => %s", self.name, power)
-        if self.hubMode.value == 1:
-            self._chargeStandalone(power)
-        else:
-            self._chargeViaHub(power)
+        _LOGGER.debug("%s => Power charge %s", self.name, power)
+        # Paired too: a Smart Matching (autoModel 8) command makes the Hub switch to
+        # program 8 and the ACE then stops drawing from the grid.
+        self._chargeStandalone(power)
+        # The Hub only takes the ACE's grid power in AC mode input,
+        # in output the ACE draws 0 W. A 0 W command must not switch it back to
+        # input: the pair then keeps drawing from the grid while we ask for nothing.
+        if power < 0 and self.pairedHub is not None and self.hubMode.value == 0:
+            hub = self.pairedHub
+            hub.ac_charge = True
+            # A discharge command leaves the Hub on program 8, and nothing else resets it:
+            # the Hub has no charge current, so its own charge() is never called. Reset it
+            # here, once, or the ACE draws nothing.
+            if (auto_model := hub.entities.get("autoModel")) is not None and auto_model.asInt != 0:
+                await hub.charge(0)
         return power
 
     async def discharge(self, power: int) -> int:
-        _LOGGER.info("Power discharge %s => %s", self.name, power)
-        if self.hubMode.value == 1:
-            self._dischargeStandalone(power)
-        else:
-            self._dischargeViaHub(power)
+        _LOGGER.debug("%s => Power discharge", self.name)
+        self._dischargeStandalone(power)
         return power
-
-    def _chargeViaHub(self, power: int) -> None:
-        """Hub-paired path: Smart Matching mode (autoModel=8) with the charge
-        target carried in autoModelValue.chargingPower. The Hub's periodic
-        commands keep the device acting on the value."""
-        self.mqttInvoke(
-            {
-                "arguments": [
-                    {
-                        "autoModelProgram": 2,
-                        "autoModelValue": {
-                            "chargingType": 1,
-                            "chargingPower": -power,
-                            "freq": 0,
-                            "outPower": 0,
-                        },
-                        "msgType": 1,
-                        "autoModel": 8,
-                    }
-                ],
-                "function": "deviceAutomation",
-            }
-        )
-
-    def _dischargeViaHub(self, power: int) -> None:
-        """Hub-paired path: Smart Matching with discharge target carried in
-        autoModelValue.outPower."""
-        self.mqttInvoke(
-            {
-                "arguments": [
-                    {
-                        "autoModelProgram": 2,
-                        "autoModelValue": {
-                            "chargingType": 0,
-                            "chargingPower": 0,
-                            "freq": 0,
-                            "outPower": max(0, power),
-                        },
-                        "msgType": 1,
-                        "autoModel": 8,
-                    }
-                ],
-                "function": "deviceAutomation",
-            }
-        )
 
     def _chargeStandalone(self, power: int) -> None:
         """Standalone charge: park the device in autoModel=0 (None program)
@@ -165,6 +123,10 @@ class ACE1500(ZendureLegacy):
             self.topic_write,
             {"properties": {"inputLimit": target}},
         )
+        # The paired Hub owns the AC input limit (900 W) and pushes it back to the ACE
+        # within a second, so a limit written only here never throttles the draw.
+        if self.paired and self.pairedHub is not None:
+            self.pairedHub.mqttPublish(self.pairedHub.topic_write, {"properties": {"inputLimit": target}})
         self._last_input_limit = target
         self._last_input_limit_time = now
 

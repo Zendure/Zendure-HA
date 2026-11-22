@@ -102,6 +102,9 @@
       },
       "soc_set": {
         "name": "SOC maximum"
+      },
+      "min_output_power": {
+        "name": "Décharge minimale"
       }
     },
     "sensor": {
@@ -479,7 +482,8 @@
           "smart": "Couplage intelligent",
           "smart_discharging": "Décharge intelligente",
           "smart_charging": "Charge intelligente",
-          "store_solar": "Stocker le solaire"
+          "store_solar": "Stocker le solaire",
+          "passthrough_solar": "Passage solaire"
         }
       },
       "pass_mode": {
@@ -512,6 +516,13 @@
           "auto": "Automatique",
           "normal": "Normal",
           "fast": "Vite"
+        }
+      },
+      "soc_balancing": {
+        "name": "Équilibrage SoC",
+        "state": {
+          "off": "Désactivé",
+          "on": "Activé"
         }
       }
     },

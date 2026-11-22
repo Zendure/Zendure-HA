@@ -1,0 +1,4 @@
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,notes,bypass,bypass2
+1,MATCHING,200,100,not full,0,100,0,0,not full,200,0,200,50,50,,,,,,"dev1 (not full) reports hardware bypass and is excluded from dispatch capacity (#1565); dev2 alone covers the full 200W deficit",1,
+2,MATCHING,300,50,not full,100,0,150,50,not full,100,0,150,50,50,,,,,,"both devices report bypass with no idle alternative -> no_alternative overrides the exclusion, normal SoC-weighted split proceeds as if neither bypassed",1,1
+99,MATCHING_CHARGE,300,70,not full,0,0,70,38,not full,0,0,38,50,43,,,,,,"solar covers the whole setpoint: a bypassing device keeps passing its own solar. Commanding it 0 made it charge, the flag dropped, the next full command put it back in bypass (flip-flop)",1,

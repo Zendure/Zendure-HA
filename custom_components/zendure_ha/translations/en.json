@@ -112,6 +112,9 @@
       },
       "soc_set": {
         "name": "Target SoC"
+      },
+      "min_output_power": {
+        "name": "Min Discharge"
       }
     },
     "sensor": {
@@ -510,7 +513,8 @@
           "smart": "Smart Matching",
           "smart_discharging": "Smart discharge only",
           "smart_charging": "Smart charge only",
-          "store_solar": "Store Solar"
+          "store_solar": "Store Solar",
+          "passthrough_solar": "Passthrough Solar"
         }
       },
       "pass_mode": {
@@ -551,6 +555,13 @@
           "auto": "Auto",
           "normal": "Normal",
           "fast": "Fast"
+        }
+      },
+      "soc_balancing": {
+        "name": "SoC Balancing",
+        "state": {
+          "off": "Off",
+          "on": "On"
         }
       }
     },

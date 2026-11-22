@@ -33,18 +33,29 @@ class _FakeDevice:
     """Minimal stand-in exposing only what power_charge/power_discharge touch."""
 
     def __init__(self, *, pwr_max: int, electric_level: int, state: DeviceState = DeviceState.INACTIVE) -> None:
+        self.name = "dev"
         self.pwr_max = pwr_max
         self.electricLevel = SimpleNamespace(asInt=electric_level)
         self.byPass = SimpleNamespace(asInt=0)
         self.pwr_offgrid = 0
         self.pwr_produced = 0
+        self.pwr_bypass = 0
         self.state = state
+        self.min_output = 0
+        self.awake = False
+        self._floor_battery_preserving = False
+        self.minSoc = SimpleNamespace(asNumber=0.0)
+        self.socLimit = SimpleNamespace(asInt=0)
         self.charge_start = 0
         self.charge_optimal = 0
         self.discharge_start = 0
         self.discharge_optimal = 0
         self.charge_calls: list[int] = []
         self.discharge_calls: list[int] = []
+
+    def on_direction_change(self, direction: PowerFlowDirection, *, battery_preserving: bool = False) -> None:
+        self.awake = direction == PowerFlowDirection.DISCHARGING
+        self._floor_battery_preserving = battery_preserving
 
     async def power_charge(self, power: int) -> int:
         self.charge_calls.append(power)
@@ -57,7 +68,15 @@ class _FakeDevice:
 
 def _make_manager_harness() -> ZendureManager:
     manager = object.__new__(ZendureManager)
+    manager.operation = ManagerMode.MATCHING
     manager.operationstate = _RecordingSensor()
+    manager.power = _RecordingSensor()
+    manager.availableKwh = _RecordingSensor()
+    manager.totalKwh = _RecordingSensor()
+    manager.globalSoc = _RecordingSensor()
+    manager.devices = []
+    manager.fuseGroups = []
+    manager.simulation = False
     manager.charge = []
     manager.charge_limit = 0
     manager.charge_optimal = 0
@@ -65,6 +84,7 @@ def _make_manager_harness() -> ZendureManager:
     manager.charge_last = datetime.min
     manager.charge_weight = 0
     manager.discharge = []
+    manager.discharge_bypass = 0
     manager.discharge_produced = 0
     manager.discharge_limit = 0
     manager.discharge_optimal = 0
@@ -72,7 +92,9 @@ def _make_manager_harness() -> ZendureManager:
     manager.idle = []
     manager.idle_lvlmax = 0
     manager.idle_lvlmin = 0
+    manager.produced = 0
     manager.pwr_low = 0
+    manager.topup_acc = 0
     return manager
 
 

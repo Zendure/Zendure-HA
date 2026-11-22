@@ -101,6 +101,9 @@
       },
       "soc_set": {
         "name": "SoC-Zielwert"
+      },
+      "min_output_power": {
+        "name": "Mindestentladung"
       }
     },
     "sensor": {
@@ -499,7 +502,8 @@
           "smart": "Smarte Leistungsregelung",
           "smart_discharging": "Smartes nur Entladen",
           "smart_charging": "Smartes nur Laden",
-          "store_solar": "Solar speichern"
+          "store_solar": "Solar speichern",
+          "passthrough_solar": "Solar Durchleitung"
         }
       },
       "pass_mode": {
@@ -540,6 +544,13 @@
           "auto": "Automatisch",
           "normal": "Normal",
           "fast": "Schnell"
+        }
+      },
+      "soc_balancing": {
+        "name": "SoC-Ausgleich",
+        "state": {
+          "off": "Aus",
+          "on": "Ein"
         }
       }
     },

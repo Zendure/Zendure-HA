@@ -42,6 +42,7 @@ class ManagerMode(Enum):
     MATCHING_DISCHARGE = 3
     MATCHING_CHARGE = 4
     STORE_SOLAR = 5
+    PASSTHROUGH_SOLAR = 6
 
 
 class ManagerState(Enum):
@@ -71,3 +72,9 @@ class SmartMode:
 
     POWER_START = 50  # Minimum Power (W) for starting a device
     POWER_TOLERANCE = 5  # Device-level power tolerance (W) before updating
+
+
+class PowerFlowDirection(Enum):
+    STANDBY = 0
+    CHARGING = 1
+    DISCHARGING = 2

@@ -98,6 +98,9 @@
       },
       "soc_set": {
         "name": "SOC Maximaal"
+      },
+      "min_output_power": {
+        "name": "Minimale ontlading"
       }
     },
     "sensor": {
@@ -223,7 +226,7 @@
         "name": "Elektriciteitsniveau (SoC)"
       },
       "global_soc": {
-         "name": "Globale batterij SOC"
+        "name": "Globale batterij SOC"
       },
       "roundtrip_efficiency": {
         "name": "Retourrendement"
@@ -257,7 +260,7 @@
           "2": "Aan",
           "3": "Directe netlevering"
         }
-      },      
+      },
       "output_pack_power": {
         "name": "Batterij Laden"
       },
@@ -423,7 +426,8 @@
           "smart": "Slimme Matching",
           "smart_discharging": "Slim ontladen",
           "smart_charging": "Slim opladen",
-          "store_solar": "Zonne-energie opslaan"
+          "store_solar": "Zonne-energie opslaan",
+          "passthrough_solar": "Zonne-energie doorgeven"
         }
       },
       "pass_mode": {
@@ -456,6 +460,13 @@
           "auto": "Automatisch",
           "normal": "Normaal",
           "fast": "Snel"
+        }
+      },
+      "soc_balancing": {
+        "name": "SoC-balancering",
+        "state": {
+          "off": "Uit",
+          "on": "Aan"
         }
       }
     }
