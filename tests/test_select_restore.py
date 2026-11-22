@@ -98,3 +98,72 @@ async def test_explicit_choice_cancels_a_still_pending_restore(added_select) -> 
     select.setDict(extended)
 
     assert select.current_option == "group800"
+
+
+async def test_restore_pending_reflects_unresolved_restore(added_select) -> None:  # noqa: ANN001
+    select = await added_select(DYNAMIC)
+    assert select.restore_pending
+
+    extended: dict[Any, str] = dict(FUSEGROUPS)
+    extended["dev-1"] = DYNAMIC
+    select.setDict(extended)
+
+    assert not select.restore_pending
+
+
+async def test_restore_pending_is_false_for_valid_or_missing_state(added_select) -> None:  # noqa: ANN001
+    assert not (await added_select("owncircuit")).restore_pending
+    assert not (await added_select(None)).restore_pending
+    assert not (await added_select("unavailable")).restore_pending
+
+
+async def test_vanished_device_falls_back_to_first_option(added_select) -> None:  # noqa: ANN001
+    select = await added_select(DYNAMIC)
+
+    # the device named in "Part of ..." is gone: the options never contain it
+    select.setDict(dict(FUSEGROUPS))
+    select.setDict(dict(FUSEGROUPS))
+
+    assert select.current_option == "unused"
+
+
+async def test_update_fusegroups_keeps_restored_part_of_device_powered(zensdk_device) -> None:  # noqa: ANN001
+    """A restored "Part of ..." choice must neither be lost nor power the device off."""
+    from custom_components.zendure_ha.const import ManagerMode
+    from custom_components.zendure_ha.manager import ZendureManager
+
+    class _Dev:
+        """Minimal second device whose select still has a restore pending."""
+
+        deviceId = "dev-2"
+        name = "Second"
+        discharge_limit = 800
+        charge_limit = -800
+        fuseGrp = None
+        powered_off = 0
+
+        def __init__(self, select: ZendureRestoreSelect) -> None:
+            self.fuseGroup = select
+
+        async def power_off(self) -> None:
+            type(self).powered_off += 1
+
+        def setStatus(self) -> None:
+            return
+
+    zensdk_device.fuseGroup._attr_current_option = "owncircuit"
+    select = ZendureRestoreSelect(zensdk_device, "fuseGroup", dict(FUSEGROUPS), None)
+    select._restored = f"Part of {zensdk_device.name} fusegroup"
+    second = _Dev(select)
+
+    manager = object.__new__(ZendureManager)
+    manager.devices = [zensdk_device, second]
+    manager.fuseGroups = []
+    manager.operation = ManagerMode.MATCHING
+
+    await manager.update_fusegroups()
+
+    assert _Dev.powered_off == 0
+    assert select.current_option == f"Part of {zensdk_device.name} fusegroup"
+    assert second.fuseGrp is not None
+    assert second in second.fuseGrp.devices

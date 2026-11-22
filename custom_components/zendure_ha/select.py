@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -103,6 +104,11 @@ class ZendureRestoreSelect(ZendureSelect, RestoreEntity):
         """Initialize a select entity."""
         super().__init__(device, uniqueid, options, onchanged, current)
 
+    @property
+    def restore_pending(self) -> bool:
+        """Return True while a restored state is still waiting for its option to appear."""
+        return self._restored is not None
+
     def setDict(self, options: dict[Any, str]) -> None:
         """Set the options for the select entity and retry a pending restore."""
         super().setDict(options)
@@ -127,7 +133,7 @@ class ZendureRestoreSelect(ZendureSelect, RestoreEntity):
         """Handle entity which will be added."""
         await super().async_added_to_hass()
 
-        if (state := await self.async_get_last_state()) is not None:
+        if (state := await self.async_get_last_state()) is not None and state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
             self._restored = state.state
         self.restorePending()
         if self._attr_current_option not in self._attr_options:

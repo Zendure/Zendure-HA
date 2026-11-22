@@ -202,8 +202,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     case "group5000":
                         fg = FuseGroup(device.name, 5000, -5000)
                     case "unused":
-                        # only switch off, if Manager is used
-                        if self.operation != ManagerMode.OFF:
+                        # only switch off, if Manager is used; a restored "Part of ..." choice is still
+                        # pending here (its option is added by setDict below), so the device is not unused
+                        if self.operation != ManagerMode.OFF and not device.fuseGroup.restore_pending:
                             await device.power_off()
                         continue
                     case _:
