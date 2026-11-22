@@ -810,23 +810,30 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, ZendureBalancing
             return max(0, d.pwr_max - d.pwr_bypass)
 
         # When all discharging devices are in bypass and no idle device is left to start, command them out of bypass
-        no_alternative = (
-            setpoint > 0
-            and sum(capacity(d) for d in self.discharge if d.byPass.asInt == 0) == 0
-            and not any(d.state != DeviceState.SOCEMPTY for d in self.idle)
-        )
+        free_capacity = sum(capacity(d) for d in self.discharge if d.byPass.asInt == 0)
+        idle_can_start = any(d.state != DeviceState.SOCEMPTY for d in self.idle)
+        no_alternative = setpoint > 0 and free_capacity == 0 and not idle_can_start
+        # The devices that are not in bypass (and no idle device) cannot cover the demand: the
+        # shortfall must come from the bypassing ones, or the request is only partly met.
+        shortfall = setpoint > free_capacity and not idle_can_start
 
         def dispatchable(d: ZendureDevice) -> int:
             if no_alternative or d.byPass.asInt == 0:
                 return capacity(d)
-            # Exit bypass mode if the setpoint exceeds the solar production of all devices 
+            # A device that is not full is only in bypass because it passes its solar.
+            # When the solar covers the whole setpoint (always the case in MATCHING_CHARGE),
+            # keep it dispatchable: it passes its solar and stays in bypass. Commanding it 0
+            # makes it charge, the flag drops, the next full command puts it back in bypass.
+            # Exit bypass mode if the setpoint exceeds the solar production of all devices
             # This prevents a device from being stuck in bypass mode when other device can cover the house needs
             solar = sum(max(0, -x.pwr_produced - x.pwr_bypass) for x in self.discharge)
-            if (
-                d.state != DeviceState.SOCFULL
-                and setpoint > solar
-                and not self._soc_close(self.discharge)
-                and d.electricLevel.asInt == max(x.electricLevel.asInt for x in self.discharge)
+            if d.state != DeviceState.SOCFULL and (
+                setpoint <= solar
+                or shortfall
+                or (
+                    not self._soc_close(self.discharge)
+                    and d.electricLevel.asInt == max(x.electricLevel.asInt for x in self.discharge)
+                )
             ):
                 return capacity(d)
             return 0
