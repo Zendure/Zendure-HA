@@ -490,6 +490,13 @@
           "normal": "Normal",
           "fast": "Fast"
         }
+      },
+      "soc_balancing": {
+        "name": "SoC Balancing",
+        "state": {
+          "off": "Off",
+          "on": "On"
+        }
       }
     },
     "switch": {

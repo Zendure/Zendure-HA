@@ -125,6 +125,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
             ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "store_solar"}, self.update_operation),
         )
         self.operationstate = ZendureSensor(self, "operation_state")
+        self.socbalancing = ZendureRestoreSelect(self, "soc_balancing", {0: "off", 1: "on"}, self.update_soc_balancing, 1)
         self.manualpower = ZendureRestoreNumber(self, "manual_power", None, None, "W", "power", 12000, -12000, NumberMode.BOX, True)
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)

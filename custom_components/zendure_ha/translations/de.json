@@ -479,6 +479,13 @@
           "normal": "Normal",
           "fast": "Schnell"
         }
+      },
+      "soc_balancing": {
+        "name": "SoC-Ausgleich",
+        "state": {
+          "off": "Aus",
+          "on": "Ein"
+        }
       }
     },
     "switch": {

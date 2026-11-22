@@ -443,6 +443,13 @@
           "normal": "Normal",
           "fast": "Vite"
         }
+      },
+      "soc_balancing": {
+        "name": "Équilibrage SoC",
+        "state": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
       }
     },
     "switch": {
