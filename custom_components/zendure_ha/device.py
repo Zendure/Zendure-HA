@@ -715,7 +715,10 @@ class ZendureDevice(EntityDevice):
     async def power_discharge(self, power: int) -> int:
         """Set discharge power."""
         power = max(0, min(power, self.discharge_limit))
-        if abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
+        # Battery-preserving: a small gap is still sent while the battery covers it,
+        # or the old, higher limit stays and the battery discharges for minutes.
+        draining = self._floor_battery_preserving and self.batteryOutput.asInt > 0 and power < self.homeOutput.asInt
+        if not draining and abs(power - self.homeOutput.asInt + self.homeInput.asInt) <= SmartMode.POWER_TOLERANCE:
             _LOGGER.debug("%s => Power discharge, no action, %sW (SoC %s%%)", self.name, power, self.electricLevel.asInt)
             return self.homeOutput.asInt
         await self.discharge(power)
