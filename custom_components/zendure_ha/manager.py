@@ -944,6 +944,19 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, ZendureBalancing
                 battery_budget = max(0, battery_budget - max(0, actual - solar))
                 dev_start += 1 if actual != 0 and d.electricLevel.asInt + 3 < self.idle_lvlmax else 0
 
+        # MATCHING_CHARGE passes solar only. An idle device that stores its own solar is not in
+        # self.discharge (home output is 0), yet its solar is part of the setpoint, so nothing
+        # else passes it on. Start it with its own solar. A SOCEMPTY device keeps its solar on
+        # purpose (see self.produced above).
+        if self.operation == ManagerMode.MATCHING_CHARGE:
+            for d in list(self.idle):
+                solar = min(max(0, -d.pwr_produced), setpoint)
+                if solar > SmartMode.POWER_TOLERANCE and d.state != DeviceState.SOCEMPTY:
+                    _LOGGER.info("Start idle device %s => %sW of its own solar (SoC %s%%)", d.name, solar, d.electricLevel.asInt)
+                    await d.power_discharge(solar)
+                    setpoint -= solar
+                    self.idle.remove(d)
+
         # start idle device if needed
         if dev_start > 0 and setpoint >= 0 and len(self.idle) > 0:
             self.idle.sort(key=lambda d: d.electricLevel.asInt, reverse=True)
