@@ -195,8 +195,8 @@
         "name": "SoC Limit State",
         "state": {
           "0": "Normal",
-          "1": "Limiting",
-          "2": "Full"
+          "1": "Full",
+          "2": "Limiting"
         }
       },
       "hub_state": {
@@ -374,6 +374,69 @@
       },
       "delta_voltage": {
         "name": "Delta Voltage"
+      },
+      "ac_status": {
+        "name": "AC Status"
+      },
+      "ai_state": {
+        "name": "AI State"
+      },
+      "bat_cal_time": {
+        "name": "Battery Calibration Time"
+      },
+      "bindstate": {
+        "name": "Bind State"
+      },
+      "charge_max_limit": {
+        "name": "Max Charge Limit"
+      },
+      "data_ready": {
+        "name": "Data Ready"
+      },
+      "dc_status": {
+        "name": "DC Status"
+      },
+      "factory_mode_state": {
+        "name": "Factory Mode"
+      },
+      "grid_standard": {
+        "name": "Grid Standard"
+      },
+      "grid_state": {
+        "name": "Grid State"
+      },
+      "iotstate": {
+        "name": "IoT State"
+      },
+      "is_error": {
+        "name": "Error"
+      },
+      "lcnstate": {
+        "name": "LCN State"
+      },
+      "local_apienable": {
+        "name": "Local API Enabled"
+      },
+      "net": {
+        "name": "Network"
+      },
+      "otastate": {
+        "name": "OTA State"
+      },
+      "phase_switch": {
+        "name": "Phase Switch"
+      },
+      "pv_status": {
+        "name": "PV Status"
+      },
+      "smart_mode": {
+        "name": "Smart Mode"
+      },
+      "soc_comp_switch": {
+        "name": "SoC Compensation Switch"
+      },
+      "volt_wakeup": {
+        "name": "Wake-up Voltage"
       }
     },
     "select": {
@@ -417,6 +480,8 @@
         "state": {
           "unused": "Unused, device has No FuseGroup",
           "owncircuit": "Device has its own circuit or phase, max. 3600w",
+          "group600_1200": "FuseGroup max. 600w / 1200w charge",
+          "group600_2400": "FuseGroup max. 600w / 2400w charge",
           "group800": "FuseGroup max. 800w / 1200w charge",
           "group800_2400": "FuseGroup max. 800w / 2400w charge",
           "group1200": "FuseGroup max. 1200w",

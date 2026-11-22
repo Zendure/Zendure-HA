@@ -184,8 +184,8 @@
         "name": "SoC-Begrenzungsstatus",
         "state": {
           "0": "Normal",
-          "1": "Begrenzt",
-          "2": "Voll"
+          "1": "Voll",
+          "2": "Begrenzt"
         }
       },
       "hub_state": {
@@ -363,6 +363,69 @@
       },
       "delta_voltage": {
         "name": "Spannungsdifferenz"
+      },
+      "ac_status": {
+        "name": "AC-Status"
+      },
+      "ai_state": {
+        "name": "KI-Status"
+      },
+      "bat_cal_time": {
+        "name": "Batteriekalibrierungszeit"
+      },
+      "bindstate": {
+        "name": "Bindungsstatus"
+      },
+      "charge_max_limit": {
+        "name": "Max. Ladegrenze"
+      },
+      "data_ready": {
+        "name": "Daten bereit"
+      },
+      "dc_status": {
+        "name": "DC-Status"
+      },
+      "factory_mode_state": {
+        "name": "Werksmodus"
+      },
+      "grid_standard": {
+        "name": "Netznorm"
+      },
+      "grid_state": {
+        "name": "Netzstatus"
+      },
+      "iotstate": {
+        "name": "IoT-Status"
+      },
+      "is_error": {
+        "name": "Fehler"
+      },
+      "lcnstate": {
+        "name": "LCN-Status"
+      },
+      "local_apienable": {
+        "name": "Lokale API aktiviert"
+      },
+      "net": {
+        "name": "Netzwerk"
+      },
+      "otastate": {
+        "name": "OTA-Status"
+      },
+      "phase_switch": {
+        "name": "Phasenumschaltung"
+      },
+      "pv_status": {
+        "name": "PV-Status"
+      },
+      "smart_mode": {
+        "name": "Smart-Modus"
+      },
+      "soc_comp_switch": {
+        "name": "SoC-Kompensation"
+      },
+      "volt_wakeup": {
+        "name": "Aufwachspannung"
       }
     },
     "select": {
@@ -406,6 +469,8 @@
         "state": {
           "unused": "Nicht verwendet, Gerät hat keine Sicherungsgruppe",
           "owncircuit": "Gerät hat einen eigenen Stromkreis oder eine eigene Phase, max. 3600 W",
+          "group600_1200": "Sicherungsgruppe max. 600 W / 1200W laden",
+          "group600_2400": "Sicherungsgruppe max. 600 W / 2400W laden",
           "group800": "Sicherungsgruppe max. 800 W / 1200W laden",
           "group800_2400": "Sicherungsgruppe max. 800 W / 2400W laden",
           "group1200": "Sicherungsgruppe max. 1200 W",

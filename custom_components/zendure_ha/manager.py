@@ -202,6 +202,10 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
                 match device.fuseGroup.state:
                     case "owncircuit" | "group3600":
                         fg = FuseGroup(device.name, 3600, -3600)
+                    case "group600_1200":
+                        fg = FuseGroup(device.name, 600, -1200)
+                    case "group600_2400":
+                        fg = FuseGroup(device.name, 600, -2400)
                     case "group800":
                         fg = FuseGroup(device.name, 800, -1200)
                     case "group800_2400":
@@ -239,14 +243,16 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
                 fusegroups: dict[Any, str] = {
                     0: "unused",
                     1: "owncircuit",
-                    2: "group800",
-                    3: "group800_2400",
-                    4: "group1200",
-                    5: "group2000",
-                    6: "group2400",
-                    7: "group3600",
-                    8: "group4000",
-                    9: "group5000",
+                    2: "group600_1200",
+                    3: "group600_2400",
+                    4: "group800",
+                    5: "group800_2400",
+                    6: "group1200",
+                    7: "group2000",
+                    8: "group2400",
+                    9: "group3600",
+                    10: "group4000",
+                    11: "group5000",
                 }
                 for deviceId, fg in fuseGroups.items():
                     if deviceId != device.deviceId:
@@ -549,96 +555,31 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
                 # Bypass already flows to the home, so it is not part of the target.
                 await self.power_discharge(max(self.produced - self.discharge_bypass, max(0, p1)))
 
-            case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
-                # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge
+            case ManagerMode.MATCHING_CHARGE:
+                # Allow discharge of produced power, otherwise only charge
                 # d.pwr_produced is negative, but self.produced is positive
-                if setpoint > 0 and self.produced > SmartMode.POWER_START and self.operation == ManagerMode.MATCHING_CHARGE:
+                if setpoint > 0 and self.produced > SmartMode.POWER_START:
                     await self.power_discharge(min(self.produced, setpoint))
                 else:
                     await self.power_charge(min(0, setpoint), time)
 
+            case ManagerMode.STORE_SOLAR:
+                # Only charge; it never discharges, so there is no flip to debounce
+                await self.power_charge(min(0, setpoint), time, debounce=False)
+
             case ManagerMode.MANUAL:
-                # Manual power into or from home
+                # Manual power into or from home; the user fixes the direction, nothing to debounce
                 if (setpoint := int(self.manualpower.asNumber)) > 0:
                     await self.power_discharge(setpoint)
                 else:
-                    await self.power_charge(setpoint, time)
+                    await self.power_charge(setpoint, time, debounce=False)
 
             case ManagerMode.OFF:
                 self.operationstate.update_value(ManagerState.OFF.value)
 
-    @staticmethod
-    def _apply_min_output(
-        power: int,
-        device: ZendureDevice,
-        *,
-        awake: bool | None = None,
-        battery_preserving: bool | None = None,
-    ) -> int:
-        """Raise a discharge command to min_output while awake and eligible.
-        """
-        if awake is None:
-            awake = device.awake
-        if battery_preserving is None:
-            battery_preserving = device._floor_battery_preserving
-        if not awake or device.min_output <= 0:
-            return power
-        if battery_preserving:
-            solar_cap = max(0, -device.pwr_produced - device.pwr_bypass)
-            return min(max(power, device.min_output), solar_cap)
-        if device.state in (DeviceState.SOCEMPTY, DeviceState.SOCFULL):
-            return power
-        if device.electricLevel.asInt <= device.minSoc.asNumber:
-            return power
-        return max(power, device.min_output)
-
-    @staticmethod
-    def _ramp(power: int, device: ZendureDevice) -> int:
-        """Cap a command step against the device's real output.
-
-        A steep change (e.g. 258W to 100W between 5s cycles) makes the hub
-        confirm the command and then charge its battery instead of delivering
-        it. Small steps don't trigger this. Only while awake and not at a
-        battery limit.
-        """
-        # Max change of a discharge command per 5s cycle (W). Steeper steps make
-        # the hub confirm the command and then charge its battery instead of delivering it.
-        DISCHARGE_RAMP = 50
-        # A bigger gap than this between the command and what the device delivers
-        # means a big demand change (kettle on/off): send the command immediately.
-        RAMP_SKIP = 500
-        if device.awake and device.state not in (DeviceState.SOCEMPTY, DeviceState.SOCFULL):
-            real = device.homeOutput.asInt - device.homeInput.asInt
-            if real < 0:
-                # Importing from the grid: ramping up from a negative real
-                # would keep the command at 0 and the device could never
-                # start discharging.
-                return power
-            if abs(power - real) > RAMP_SKIP:
-                return power
-            return max(real - DISCHARGE_RAMP, min(power, real + DISCHARGE_RAMP))
-        return power
-
-    def _set_direction(
-        self, direction: PowerFlowDirection, *, battery_preserving: bool = False
-    ) -> None:
-        if direction != self.direction:
-            _LOGGER.debug("Setpoint direction => %s", direction.name.lower())
-            self.direction = direction
-        for d in self.devices:
-            d.on_direction_change(direction, battery_preserving=battery_preserving)
-
-    async def power_charge(self, setpoint: int, time: datetime) -> None:
-        """Charge devices."""
-
-        self._set_direction(PowerFlowDirection.CHARGING)
-
-        # In battery-preserving modes, hold a floored device at min(min_output, its
-        # own solar) instead of stopping it
-        battery_preserving = self.operation in (
-            ManagerMode.MATCHING_CHARGE,
-            ManagerMode.STORE_SOLAR,
-        )
+    async def power_charge(self, setpoint: int, time: datetime, debounce: bool = True) -> None:
+        """Charge devices. With debounce, hold off charging for a while after a discharge->charge flip."""
+        _LOGGER.info("Charge => setpoint %sW", setpoint)
 
         # stop discharging devices
         for d in self.discharge:
@@ -666,7 +607,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
         #     self.idle = still_idle
 
         # prevent hysteria
-        if self.charge_time > time:
+        if not debounce:
+            # the caller fixes the direction: charge now and leave no hold-off pending
+            if self.charge_time == datetime.max:
+                self.pwr_low = 0
+            self.charge_time = min(self.charge_time, time)
+        elif self.charge_time > time:
             if self.charge_time == datetime.max:
                 self.charge_time = time + timedelta(seconds=2 if (time - self.charge_last).total_seconds() > 300 else 60)
                 self.charge_last = self.charge_time
