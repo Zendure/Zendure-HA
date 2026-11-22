@@ -426,7 +426,8 @@
           "smart": "Inteligentne dopasowanie",
           "smart_discharging": "Inteligentne rozładowanie",
           "smart_charging": "Inteligentne ładowanie",
-          "store_solar": "Magazynowanie energii słonecznej"
+          "store_solar": "Magazynowanie energii słonecznej",
+          "passthrough_solar": "Przekazywanie energii słonecznej"
         }
       },
       "pass_mode": {

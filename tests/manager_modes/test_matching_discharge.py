@@ -1,8 +1,7 @@
 """MATCHING_DISCHARGE — manager-mode conformance against the spec CSV.
 
-`power_discharge(max(self.produced, setpoint))` — discharge only, NEVER charge:
-all solar is always passed to home (surplus exported, not stored) and the battery
-only covers the gap when demand exceeds PV.
+`power_discharge(max(0, setpoint))` — discharge only, NEVER charge: covers the
+demand; solar beyond the demand is stored. Solar pass-through is PASSTHROUGH_SOLAR.
 """
 
 from __future__ import annotations
