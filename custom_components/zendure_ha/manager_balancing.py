@@ -134,10 +134,13 @@ class ZendureBalancing:
             else:
                 eff_floor = min(max(solar[d], floor[d]), headroom)
                 # Strict handover: the whole remaining budget to this device.
-                # A full battery already passes its solar to the home on its
-                # own; it stays out of the split unless it is the only device
-                # that can help (same rule as the default path).
-                if d.state == DeviceState.SOCFULL and not no_alternative:
+                # A full battery with solar already passes that solar to the
+                # home on its own; it stays out of the split unless it is the
+                # only device that can help (same rule as the default path).
+                # Without solar it passes nothing, and it is the fullest
+                # battery: zeroing it makes it go idle, get restarted and
+                # zeroed again every other cycle.
+                if d.state == DeviceState.SOCFULL and solar[d] > 0 and not no_alternative:
                     strict_give = 0
                 else:
                     strict_give = min(remaining, max(0, headroom - eff_floor))
