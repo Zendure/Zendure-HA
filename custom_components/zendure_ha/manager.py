@@ -38,7 +38,7 @@ from .const import (
 from .device import DeviceSettings, ZendureDevice, ZendureLegacy
 from .entity import EntityDevice
 from .fusegroup import FuseGroup
-from .manager_balancing import ZendureBalancing
+from .manager_balancing import SocBalancingMixin
 from .number import ZendureRestoreNumber
 from .select import ZendureRestoreSelect, ZendureSelect
 from .sensor import ZendureSensor
@@ -65,31 +65,13 @@ def _log_power_flow(d: ZendureDevice) -> str | None:
     return flow
 
 
-class ZendureManager(DataUpdateCoordinator[None], EntityDevice, ZendureBalancing):
+class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixin):
     """Class to regular update devices."""
 
     devices: list[ZendureDevice] = []
     fuseGroups: list[FuseGroup] = []
     simulation: bool = False
     direction: PowerFlowDirection = PowerFlowDirection.STANDBY
-    # True = balance SoC in both directions: while discharging, the battery
-    # budget goes to the highest-SoC device, up to its limit, then to the next
-    # one; while charging, it goes to the lowest-SoC device. False = the
-    # SoC-weighted splits. When the batteries are close (see
-    # soc_balancing_spread), the proportional split takes over either way.
-    # On by default since 2026-09-27; the change takes effect on the next
-    # integration reload.
-    soc_balancing: bool = True
-    # When every battery's SoC is within this many % of the others, the split
-    # falls back to the proportional one: putting everything on one device no
-    # longer speeds up balancing, it only spreads the wear unevenly.
-    soc_balancing_spread: int = 1
-    # Spread at which the balancing tilt reaches the full 100/0 handover.
-    # Between soc_balancing_spread and this value the split blends toward the
-    # default weighted one, so the transition where balancing engages is
-    # continuous - a hard handover there flips the split every time the
-    # devices' SoC cross the threshold.
-    soc_balancing_spread_gain: int = 10
 
     def __init__(self, hass: HomeAssistant, entry: ZendureConfigEntry) -> None:
         """Initialize Zendure Manager."""
@@ -690,7 +672,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, ZendureBalancing
         dev_start = min(0, setpoint - self.charge_optimal * 2) if setpoint < -SmartMode.POWER_START else 0
         limit = self.charge_limit
         setpoint = max(limit, setpoint)
-        if self.soc_balancing and not self._soc_close(self.charge):
+        if self._balancing_active(self.charge):
             setpoint, dev_start = await self._charge_balancing(setpoint, dev_start)
         else:
             for i, d in enumerate(sorted(self.charge, key=lambda d: d.electricLevel.asInt, reverse=True)):
@@ -827,10 +809,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, ZendureBalancing
             if d.state != DeviceState.SOCFULL and (
                 setpoint <= solar
                 or shortfall
-                or (
-                    not self._soc_close(self.discharge)
-                    and d.electricLevel.asInt == max(x.electricLevel.asInt for x in self.discharge)
-                )
+                or self._balancing_bypass_exit(d)
             ):
                 return capacity(d)
             return 0
@@ -854,7 +833,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, ZendureBalancing
 
         solar_shares = self._solar_share_split(setpoint) if solaronly and solar_total > 0 else {}
 
-        if self.soc_balancing and not self._soc_close(self.discharge):
+        if self._balancing_active(self.discharge):
             setpoint, dev_start = await self._discharge_balancing(
                 setpoint, dev_start, solaronly, solar_total,
                 battery_budget, dispatchable, no_alternative,
