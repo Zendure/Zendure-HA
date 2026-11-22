@@ -468,6 +468,13 @@
           "normal": "Normalna",
           "fast": "Szybka"
         }
+      },
+      "soc_balancing": {
+        "name": "Wyrównywanie SoC",
+        "state": {
+          "off": "Wyłączone",
+          "on": "Włączone"
+        }
       }
     },
     "switch": {

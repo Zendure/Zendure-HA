@@ -3,12 +3,12 @@ device, so the group converges fastest.
 
 Discharging: floors first, then the remaining budget blends the default
 weighted split with the strict 100/0 handover to the highest-SoC device,
-tilted by the SoC spread (0 at soc_balancing_spread, 1 at
-soc_balancing_spread_gain). Charging mirrors it toward the lowest-SoC
-device. When every battery's SoC is within soc_balancing_spread % of the
+tilted by the SoC spread (0 at SOC_SPREAD_MIN, 1 at
+SOC_SPREAD_FULL). Charging mirrors it toward the lowest-SoC
+device. When every battery's SoC is within SOC_SPREAD_MIN % of the
 others, the split falls back to the default proportional one.
 
-Opt-in behaviour behind ZendureManager.soc_balancing (default True). This
+Behaviour behind ZendureManager.soc_balancing (default True). This
 module flips the flag on for every case in data/soc_balancing.csv, so the
 default SoC-weighted splits stay pinned by the other suites untouched.
 """
@@ -81,3 +81,4 @@ async def test_discharge_balancing_full_device_without_solar_discharges() -> Non
 
     assert dev_full.discharge_calls == [300]
     assert dev_low.discharge_calls == [0]
+

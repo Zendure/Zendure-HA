@@ -4,21 +4,28 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from .const import DeviceState
 from .device import ZendureDevice
+from .select import ZendureSelect
 
 _LOGGER = logging.getLogger(__name__)
+
+# Below this SoC spread (%) the normal proportional split is used.
+SOC_SPREAD_MIN = 1
+# Spread (%) at which the split becomes a full 100/0 handover.
+SOC_SPREAD_FULL = 10
 
 
 class SocBalancingMixin:
     """Discharge the fullest battery first, charge the emptiest first."""
 
     soc_balancing: bool = True
-    # Below this SoC spread (%) the normal proportional split is used.
-    soc_balancing_spread: int = 1
-    # Spread (%) at which the split becomes a full 100/0 handover.
-    soc_balancing_spread_gain: int = 10
+
+    def update_soc_balancing(self, entity: ZendureSelect, _value: Any) -> None:
+        self.soc_balancing = entity.value == 1
+        _LOGGER.info("Update SoC balancing: %s", entity.current_option)
 
     def _balancing_active(self, devices: list[ZendureDevice]) -> bool:
         return self.soc_balancing and not self._soc_close(devices)
@@ -31,17 +38,17 @@ class SocBalancingMixin:
         if not devices:
             return False
         levels = [d.electricLevel.asInt for d in devices]
-        return max(levels) - min(levels) <= self.soc_balancing_spread
+        return max(levels) - min(levels) <= SOC_SPREAD_MIN
 
     def _balancing_gain(self, spread: int) -> float:
-        """0 at soc_balancing_spread, 1 at soc_balancing_spread_gain, linear between.
+        """0 at SOC_SPREAD_MIN, 1 at SOC_SPREAD_FULL, linear between.
 
         A hard switch would flip the split every time the SoC values cross the threshold.
         """
-        window = self.soc_balancing_spread_gain - self.soc_balancing_spread
+        window = SOC_SPREAD_FULL - SOC_SPREAD_MIN
         if window <= 0:
             return 1.0
-        return min(1.0, max(0.0, (spread - self.soc_balancing_spread) / window))
+        return min(1.0, max(0.0, (spread - SOC_SPREAD_MIN) / window))
 
     async def _charge_balancing(self, setpoint: int, dev_start: int) -> tuple[int, int]:
         if not self.charge:
