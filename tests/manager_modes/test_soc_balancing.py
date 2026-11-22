@@ -62,3 +62,22 @@ async def test_charge_balancing_full_device_gets_nothing() -> None:
 
     assert dev_low.charge_calls == [-500]
     assert dev_full.charge_calls == [0]
+
+
+async def test_discharge_balancing_full_device_without_solar_discharges() -> None:
+    """A full battery with no solar passes nothing on its own, so it must
+    take the discharge budget as the fullest battery. Zeroing it made the
+    device go idle, get restarted and be zeroed again every other cycle.
+    """
+    dev_full = _FakeDevice(electric_level=100, state=DeviceState.SOCFULL)
+    dev_low = _FakeDevice(electric_level=70, state=DeviceState.INACTIVE)
+    mgr = _manager(dev_low)
+    mgr.discharge = [dev_full, dev_low]
+    mgr.discharge_limit = 2400
+    mgr.discharge_optimal = 600
+    mgr.discharge_weight = 1200 * 100 + 1200 * 70
+
+    await mgr.power_discharge(300)
+
+    assert dev_full.discharge_calls == [300]
+    assert dev_low.discharge_calls == [0]
