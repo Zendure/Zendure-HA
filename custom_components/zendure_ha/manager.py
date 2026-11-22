@@ -122,7 +122,7 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
         self.attr_device_info["sw_version"] = integration.manifest.get("version", "unknown")
 
         self.operationmode = (
-            ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "store_solar"}, self.update_operation),
+            ZendureRestoreSelect(self, "Operation", {0: "off", 1: "manual", 2: "smart", 3: "smart_discharging", 4: "smart_charging", 5: "store_solar", 6: "passthrough_solar"}, self.update_operation),
         )
         self.operationstate = ZendureSensor(self, "operation_state")
         self.socbalancing = ZendureRestoreSelect(self, "soc_balancing", {0: "off", 1: "on"}, self.update_soc_balancing, 1)
@@ -544,8 +544,13 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
                     await self.power_discharge(setpoint)
 
             case ManagerMode.MATCHING_DISCHARGE:
-                # Discharge to cover demand and always pass through available solar; never charge.
-                await self.power_discharge(max(self.produced - self.discharge_bypass, setpoint))
+                # Only discharge, do nothing if setpoint is negative
+                await self.power_discharge(max(0, setpoint))
+
+            case ManagerMode.PASSTHROUGH_SOLAR:
+                # Pass all solar to house; use battery only to cover remaining P1 demand.
+                # Bypass already flows to the home, so it is not part of the target.
+                await self.power_discharge(max(self.produced - self.discharge_bypass, max(0, p1)))
 
             case ManagerMode.MATCHING_CHARGE | ManagerMode.STORE_SOLAR:
                 # Allow discharge of produced power in MATCHING_CHARGE-Mode, otherwise only charge

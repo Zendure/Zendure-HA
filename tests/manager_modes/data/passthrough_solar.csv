@@ -1,0 +1,16 @@
+case,mode,input_w,pv_w,soc,battery_discharging_w,battery_charging_w,device_to_grid_w,pv2_w,soc2,battery2_discharging_w,battery2_charging_w,device2_to_grid_w,level,level2,fuse_w,offgrid_w,offgrid2_w,exports,exports2,notes
+2,PASSTHROUGH_SOLAR,-300,50,any,0,0,50,,,,,,,,,,,,,"P1=-300/PV=50/any: solar passes to home, battery idle"
+3,PASSTHROUGH_SOLAR,-300,100,any,0,0,100,,,,,,,,,,,,,"P1=-300/PV=100/any: solar passes to home, battery idle"
+4,PASSTHROUGH_SOLAR,-300,200,any,0,0,200,,,,,,,,,,,,,"P1=-300/PV=200/any: solar passes to home, battery idle"
+6,PASSTHROUGH_SOLAR,-100,50,any,0,0,50,,,,,,,,,,,,,"P1=-100/PV=50/any: solar passes to home, battery idle"
+7,PASSTHROUGH_SOLAR,-100,100,any,0,0,100,,,,,,,,,,,,,"P1=-100/PV=100/any: solar passes to home, battery idle"
+8,PASSTHROUGH_SOLAR,-100,200,any,0,0,200,,,,,,,,,,,,,"P1=-100/PV=200/any: solar passes to home, battery idle"
+10,PASSTHROUGH_SOLAR,0,50,any,0,0,50,,,,,,,,,,,,,"P1=0/PV=50/any: solar passes to home, battery idle"
+11,PASSTHROUGH_SOLAR,0,100,any,0,0,100,,,,,,,,,,,,,"P1=0/PV=100/any: solar passes to home, battery idle"
+12,PASSTHROUGH_SOLAR,0,200,any,0,0,200,,,,,,,,,,,,,"P1=0/PV=200/any: solar passes to home, battery idle"
+20,PASSTHROUGH_SOLAR,100,200,any,0,0,200,,,,,,,,,,,,,"P1=100/PV=200/any: solar passes to home, battery idle"
+202,PASSTHROUGH_SOLAR,0,200,FULL,0,0,200,100,EMPTY,0,0,100,,,,,,,,
+205,PASSTHROUGH_SOLAR,-100,200,FULL,0,0,200,100,not full,0,0,100,,,,,,,,"FULL bypasses its 200W solar to home on its own: dev2 passes only its own 100W solar, battery stays idle"
+208,PASSTHROUGH_SOLAR,0,340,not full,0,0,340,470,EMPTY,0,470,0,,,,,,,,"SOCEMPTY dev2 stores all its own solar (never exports, no kickstart) - that solar must not inflate self.produced/the group discharge target, or dev1 gets forced to drain its own battery covering a phantom gap dev2 was never going to help with"
+211,PASSTHROUGH_SOLAR,-1050,550,FULL,0,0,550,500,not full,0,0,500,,,,,,,,"P1 negative, FULL sibling bypassing 550W: dev2 passes only its own 500W solar, battery stays at 0 - the bypass already flows to home and must not be covered by dev2's battery"
+212,PASSTHROUGH_SOLAR,-4000,800,not full,0,0,800,200,not full,0,0,200,80,20,,,,,,"P1=-4000 export, balancing off: the default split caps each share at its own solar - dev1 passes its 800W, dev2 its 200W, no battery drain"

@@ -361,7 +361,8 @@
           "smart": "Slimme Matching",
           "smart_discharging": "Slim ontladen",
           "smart_charging": "Slim opladen",
-          "store_solar": "Zonne-energie opslaan"
+          "store_solar": "Zonne-energie opslaan",
+          "passthrough_solar": "Zonne-energie doorgeven"
         }
       },
       "pass_mode": {
