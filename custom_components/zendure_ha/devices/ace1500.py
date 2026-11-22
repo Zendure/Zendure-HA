@@ -65,9 +65,16 @@ class ACE1500(ZendureLegacy):
         # program 8 and the ACE then stops drawing from the grid.
         self._chargeStandalone(power)
         # The Hub only takes the ACE's grid power in AC mode input,
-        # in output the ACE draws 0 W
-        if self.pairedHub is not None and self.hubMode.value == 0:
-            self.pairedHub.ac_charge = True
+        # in output the ACE draws 0 W. A 0 W command must not switch it back to
+        # input: the pair then keeps drawing from the grid while we ask for nothing.
+        if power < 0 and self.pairedHub is not None and self.hubMode.value == 0:
+            hub = self.pairedHub
+            hub.ac_charge = True
+            # A discharge command leaves the Hub on program 8, and nothing else resets it:
+            # the Hub has no charge current, so its own charge() is never called. Reset it
+            # here, once, or the ACE draws nothing.
+            if (auto_model := hub.entities.get("autoModel")) is not None and auto_model.asInt != 0:
+                await hub.charge(0)
         return power
 
     async def discharge(self, power: int) -> int:
@@ -116,6 +123,10 @@ class ACE1500(ZendureLegacy):
             self.topic_write,
             {"properties": {"inputLimit": target}},
         )
+        # The paired Hub owns the AC input limit (900 W) and pushes it back to the ACE
+        # within a second, so a limit written only here never throttles the draw.
+        if self.paired and self.pairedHub is not None:
+            self.pairedHub.mqttPublish(self.pairedHub.topic_write, {"properties": {"inputLimit": target}})
         self._last_input_limit = target
         self._last_input_limit_time = now
 
