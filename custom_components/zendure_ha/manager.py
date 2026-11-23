@@ -943,7 +943,8 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice, SocBalancingMixi
                     self.idle.remove(d)
 
         # start idle device if needed
-        if dev_start > 0 and setpoint >= 0 and len(self.idle) > 0:
+        # Devices overshoot the command by a few W (949 W for 926 W); allow a small negative rest.
+        if dev_start > 0 and setpoint > -SmartMode.POWER_START and len(self.idle) > 0:
             self.idle.sort(key=lambda d: d.electricLevel.asInt, reverse=True)
             for d in self.idle:
                 if d.state != DeviceState.SOCEMPTY:
