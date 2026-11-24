@@ -21,6 +21,7 @@
           "mqttlog": "Log MQTT communication",
           "mqttlocal": "Use local MQTT",
           "auto_mqtt_user": "Automatically manage MQTT users",
+          "cloudrelay": "Relay local MQTT data to the Zendure cloud (needed for the Zendure app)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
         }
@@ -32,6 +33,7 @@
           "mqttuser": "MQTT User",
           "mqttpsw": "MQTT Password",
           "auto_mqtt_user": "Automatically manage MQTT users",
+          "cloudrelay": "Relay local MQTT data to the Zendure cloud (needed for the Zendure app)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
         }
@@ -43,6 +45,7 @@
           "mqttlog": "Log MQTT communication",
           "mqttlocal": "Use local MQTT",
           "auto_mqtt_user": "Automatically manage MQTT users",
+          "cloudrelay": "Relay local MQTT data to the Zendure cloud (needed for the Zendure app)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Password"
         }
@@ -55,7 +58,8 @@
         "data": {
           "p1meter": "P1 Sensor for smart matching",
           "mqttlog": "Log MQTT communication",
-          "auto_mqtt_user": "Automatically manage MQTT users"
+          "auto_mqtt_user": "Automatically manage MQTT users",
+          "cloudrelay": "Relay local MQTT data to the Zendure cloud (needed for the Zendure app)"
         },
         "description": "Amend your options.",
         "title": "Zendure Integration Options"
