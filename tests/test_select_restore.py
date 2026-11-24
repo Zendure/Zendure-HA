@@ -13,6 +13,8 @@ from typing import Any
 
 import pytest
 
+from custom_components.zendure_ha.const import ManagerMode
+from custom_components.zendure_ha.manager import ZendureManager
 from custom_components.zendure_ha.select import ZendureRestoreSelect
 
 FUSEGROUPS: dict[int, str] = {0: "unused", 1: "owncircuit", 2: "group800"}
@@ -127,43 +129,114 @@ async def test_vanished_device_falls_back_to_first_option(added_select) -> None:
     assert select.current_option == "unused"
 
 
+class _PlainDevice:
+    """Minimal device for driving ZendureManager.update_fusegroups()."""
+
+    discharge_limit = 800
+    charge_limit = -800
+
+    def __init__(self, deviceId: str, name: str, select: ZendureRestoreSelect) -> None:
+        self.deviceId = deviceId
+        self.name = name
+        self.fuseGroup = select
+        self.fuseGrp = None
+        self.powered_off = 0
+
+    async def power_off(self) -> None:
+        self.powered_off += 1
+
+    def setStatus(self) -> None:
+        return
+
+
+def _make_manager(devices: list, operation: ManagerMode = ManagerMode.MATCHING) -> ZendureManager:
+    manager = object.__new__(ZendureManager)
+    manager.devices = devices
+    manager.fuseGroups = []
+    manager.operation = operation
+    return manager
+
+
+async def test_last_state_loaded_once_added_to_hass(hass, zensdk_device) -> None:  # noqa: ANN001
+    select = _make_select(hass, zensdk_device, None)
+    assert not select.last_state_loaded
+
+    await select.async_added_to_hass()
+
+    assert select.last_state_loaded
+
+
+async def test_cancelled_restore_is_not_applied_later(added_select) -> None:  # noqa: ANN001
+    select = await added_select(DYNAMIC)
+
+    select.cancelRestore()
+
+    assert not select.restore_pending
+    extended: dict[Any, str] = dict(FUSEGROUPS)
+    extended["dev-1"] = DYNAMIC
+    select.setDict(extended)
+    assert select.current_option == "unused"
+
+
 async def test_update_fusegroups_keeps_restored_part_of_device_powered(zensdk_device) -> None:  # noqa: ANN001
     """A restored "Part of ..." choice must neither be lost nor power the device off."""
-    from custom_components.zendure_ha.const import ManagerMode
-    from custom_components.zendure_ha.manager import ZendureManager
-
-    class _Dev:
-        """Minimal second device whose select still has a restore pending."""
-
-        deviceId = "dev-2"
-        name = "Second"
-        discharge_limit = 800
-        charge_limit = -800
-        fuseGrp = None
-        powered_off = 0
-
-        def __init__(self, select: ZendureRestoreSelect) -> None:
-            self.fuseGroup = select
-
-        async def power_off(self) -> None:
-            type(self).powered_off += 1
-
-        def setStatus(self) -> None:
-            return
-
     zensdk_device.fuseGroup._attr_current_option = "owncircuit"
     select = ZendureRestoreSelect(zensdk_device, "fuseGroup", dict(FUSEGROUPS), None)
     select._restored = f"Part of {zensdk_device.name} fusegroup"
-    second = _Dev(select)
-
-    manager = object.__new__(ZendureManager)
-    manager.devices = [zensdk_device, second]
-    manager.fuseGroups = []
-    manager.operation = ManagerMode.MATCHING
+    second = _PlainDevice("dev-2", "Second", select)
+    manager = _make_manager([zensdk_device, second])
 
     await manager.update_fusegroups()
 
-    assert _Dev.powered_off == 0
+    assert second.powered_off == 0
     assert select.current_option == f"Part of {zensdk_device.name} fusegroup"
     assert second.fuseGrp is not None
     assert second in second.fuseGrp.devices
+
+
+async def test_update_fusegroups_keeps_restore_while_its_device_is_loading(hass, zensdk_device) -> None:  # noqa: ANN001
+    """The device named in "Part of ..." has not restored its own choice yet: wait for it, do not power off."""
+    owner = _PlainDevice("dev-1", "Owner", _make_select(hass, zensdk_device, "owncircuit"))
+    member = _PlainDevice("dev-2", "Member", _make_select(hass, zensdk_device, "Part of Owner fusegroup"))
+    manager = _make_manager([owner, member])
+
+    # member's select is added first, owner's still shows its initial "unused"
+    await member.fuseGroup.async_added_to_hass()
+    await manager.update_fusegroups()
+
+    assert member.fuseGroup.restore_pending
+    assert member.fuseGroup.current_option == "unused"
+    assert member.powered_off == 0
+
+    # owner's select restores "owncircuit"; its onchanged callback runs update_fusegroups() again
+    await owner.fuseGroup.async_added_to_hass()
+
+    assert not member.fuseGroup.restore_pending
+    assert member.fuseGroup.current_option == "Part of Owner fusegroup"
+    assert member.powered_off == 0
+    assert member.fuseGrp is not None
+    assert member in member.fuseGrp.devices
+
+
+@pytest.mark.parametrize(("operation", "powered_off"), [(ManagerMode.MATCHING, 1), (ManagerMode.OFF, 0)])
+async def test_update_fusegroups_drops_restore_of_vanished_device(hass, zensdk_device, operation: ManagerMode, powered_off: int) -> None:  # noqa: ANN001
+    """Once every select has loaded its state, a "Part of ..." device that is gone ends the pending restore."""
+    owner = _PlainDevice("dev-1", "Owner", _make_select(hass, zensdk_device, "owncircuit"))
+    member = _PlainDevice("dev-2", "Member", _make_select(hass, zensdk_device, "Part of Gone fusegroup"))
+    manager = _make_manager([owner, member], operation)
+    for device in manager.devices:
+        await device.fuseGroup.async_added_to_hass()
+
+    await manager.update_fusegroups()
+
+    assert not member.fuseGroup.restore_pending
+    assert member.fuseGroup.current_option == "unused"
+    assert member.fuseGrp is None
+    assert member.powered_off == powered_off
+    assert owner.powered_off == 0
+
+    # from now on it is handled like any other unused device
+    await manager.update_fusegroups()
+
+    assert member.powered_off == 2 * powered_off
+    assert member.fuseGroup.current_option == "unused"
