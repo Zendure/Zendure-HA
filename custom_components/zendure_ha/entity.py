@@ -17,6 +17,7 @@ from homeassistant.helpers import restore_state as rs
 from homeassistant.helpers.device_registry import DeviceEntry, DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityPlatformState
 from homeassistant.helpers.template import Template
+from homeassistant.helpers.typing import UNDEFINED
 
 from .const import DOMAIN
 
@@ -298,7 +299,11 @@ class EntityDevice:
             if found.entity_id != entityid or found.unique_id != new_uid:
                 _LOGGER.info("Migrating entity %s -> %s (unique_id %s -> %s)", found.entity_id, entityid, found.unique_id, new_uid)
                 try:
-                    entity_registry.async_update_entity(found.entity_id, new_entity_id=entityid, new_unique_id=new_uid)
+                    entity_registry.async_update_entity(
+                        found.entity_id,
+                        new_entity_id=entityid if found.entity_id != entityid else UNDEFINED,
+                        new_unique_id=new_uid if found.unique_id != new_uid else UNDEFINED,
+                    )
                 except ValueError:
                     # entityid/new_uid is already held by a stale entry outside this device
                     # (e.g. an orphaned registry entry from an earlier migration). Don't let
