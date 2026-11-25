@@ -332,6 +332,9 @@
       "remaining_time": {
         "name": "Remaining Time"
       },
+      "last_received": {
+        "name": "Last Message Received"
+      },
       "soft_version": {
         "name": "BMS Firmware"
       },

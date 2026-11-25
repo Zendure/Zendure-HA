@@ -270,6 +270,9 @@
       "remaining_time": {
         "name": "Resterende Tijd"
       },
+      "last_received": {
+        "name": "Laatst ontvangen bericht"
+      },
       "soft_version": {
         "name": "BMS Firmware"
       },

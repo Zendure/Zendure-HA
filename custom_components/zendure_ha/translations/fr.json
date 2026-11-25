@@ -307,6 +307,9 @@
       "remaining_time": {
         "name": "Temps de restant"
       },
+      "last_received": {
+        "name": "Dernier message reçu"
+      },
       "soft_version": {
         "name": "Micrologiciel BMS"
       },
