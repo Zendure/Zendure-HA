@@ -215,10 +215,66 @@ async def test_power_changed_debounces_only_matching_modes(
     manager.produced = produced
     manager.operation = operation
     manager.manualpower = SimpleNamespace(asNumber=manual)
+    manager.smartdischargelimit = SimpleNamespace(asInt=0)
     manager.power_charge = AsyncMock()
     manager.power_discharge = AsyncMock()
 
     await manager.powerChanged(p1, False, _NOW)
 
     assert manager.power_charge.await_args_list == charge_calls
+    assert manager.power_discharge.await_args_list == discharge_calls
+
+
+@pytest.mark.parametrize(
+    ("operation", "p1", "produced", "limit", "discharge_calls"),
+    [
+        # 0 means no limit: unchanged behaviour
+        (ManagerMode.MATCHING, 1500, 0, 0, [call(1500)]),
+        (ManagerMode.MATCHING_DISCHARGE, 1500, 0, 0, [call(1500)]),
+        # the battery is capped at the limit
+        (ManagerMode.MATCHING, 1500, 0, 600, [call(600)]),
+        (ManagerMode.MATCHING_DISCHARGE, 1500, 0, 600, [call(600)]),
+        # demand below the limit is covered exactly - the limit is a cap, not a setpoint
+        (ManagerMode.MATCHING, 400, 0, 600, [call(400)]),
+        (ManagerMode.MATCHING_DISCHARGE, 400, 0, 600, [call(400)]),
+        # solar passthrough is never cut by the battery limit
+        (ManagerMode.MATCHING, 1500, 900, 600, [call(900)]),
+        (ManagerMode.MATCHING_DISCHARGE, 1500, 900, 600, [call(900)]),
+    ],
+    ids=[
+        "matching-no-limit",
+        "matching_discharge-no-limit",
+        "matching-capped",
+        "matching_discharge-capped",
+        "matching-below-limit",
+        "matching_discharge-below-limit",
+        "matching-solar-passthrough",
+        "matching_discharge-solar-passthrough",
+    ],
+)
+async def test_power_changed_applies_smart_discharge_limit(
+    operation: ManagerMode,
+    p1: int,
+    produced: int,
+    limit: int,
+    discharge_calls: list[Any],
+) -> None:
+    """The smart discharge limit caps how much the smart modes discharge the battery,
+    so an external planner can cover only part of the demand; 0 disables it.
+    """
+    manager = _make_manager_harness()
+    manager.devices = []
+    manager.power = _RecordingSensor()
+    manager.availableKwh = _RecordingSensor()
+    manager.globalSoc = _RecordingSensor()
+    manager.discharge_bypass = 0
+    manager.produced = produced
+    manager.operation = operation
+    manager.smartdischargelimit = SimpleNamespace(asInt=limit)
+    manager.power_charge = AsyncMock()
+    manager.power_discharge = AsyncMock()
+
+    await manager.powerChanged(p1, False, _NOW)
+
+    assert manager.power_charge.await_args_list == []
     assert manager.power_discharge.await_args_list == discharge_calls

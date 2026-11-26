@@ -107,6 +107,9 @@
       "manual_power": {
         "name": "Manual Power"
       },
+      "smart_discharge_limit": {
+        "name": "Smart Discharge Limit"
+      },
       "min_soc": {
         "name": "SoC Minimum"
       },
