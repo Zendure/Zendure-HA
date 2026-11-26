@@ -351,14 +351,14 @@ class ZendureDriver:
         return {"prodkey": str(report.get("productKey") or ""), "device_id": str(report.get("deviceId") or ""), "sn": str(report.get("sn") or ""), "product": str(report.get("product") or ""), "ip": ip}
 
     def match_bluetooth(self, info: Any) -> EntityDevice | None:
-        # the advertised name is the BLE name of one of our devices; the manufacturer data carries a serial tail that settles ties
+        # identify by the serial tail in the manufacturer data (authoritative, like the vendor app); the derived BLE name is only a fallback when there is none, since that name is wrong when a serial does not start with the product letter
+        tails = [m.decode("utf-8", "ignore")[:-1] for m in (getattr(info, "manufacturer_data", None) or {}).values() if m and len(m) > 1]
         for d in self.devices.values():
-            if not d.ble_name or not (info.name or "").startswith(d.ble_name):
-                continue
-            tails = [m.decode("utf-8", "ignore")[:-1] for m in (getattr(info, "manufacturer_data", None) or {}).values() if m and len(m) > 1]
-            if tails and not any(t and d.sn.endswith(t) for t in tails):
-                continue
-            return d
+            if tails:
+                if any(t and d.sn.endswith(t) for t in tails):
+                    return d
+            elif d.ble_name and (info.name or "").startswith(d.ble_name):
+                return d
         return None
 
     def _add_mqtt_client(self, conn: ConnectionType, host: str, port: int, username: str, password: str, client_id: str | None = None) -> None:

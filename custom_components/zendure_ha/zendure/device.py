@@ -28,6 +28,9 @@ _LOGGER = logging.getLogger(__name__)
 COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
 READ_CHAR = "0000c305-0000-1000-8000-00805f9b34fb"
 
+# the BLE advertised name of a legacy/Hyper device starts with a per-product letter (from solarflow-bt-manager), not sn[0]
+BLE_LETTER = {"hyper": "E", "hub1200": "P", "hub2000": "H", "aio": "R", "ace": "F"}
+
 
 def signed_convert(v) -> int:
     """Decode a 16-bit two's complement value."""
@@ -80,7 +83,9 @@ class ZendureDevice:
         if (model.lower().startswith("solarflow") or "smart" in model.lower()) and len(sn) >= 4:
             self.ble_name: str | None = f"Zen{sn[0]}{sn[2]}{sn[3]}_{sn[-1]}"  # SolarFlow and smart meters
         elif len(sn) >= 3:
-            self.ble_name = f"Zen{sn[0]}{sn[2]}_{sn[-2:]}"  # Hyper and others
+            # legacy and Hyper advertise Zen<product letter><sn[2]>_<sn[-2:]>; the first letter is per product, not sn[0]
+            letter = next((v for k, v in BLE_LETTER.items() if k in model.lower()), sn[0])
+            self.ble_name = f"Zen{letter}{sn[2]}_{sn[-2:]}"
         else:
             self.ble_name = None
         self._msg_id: int = 100000
