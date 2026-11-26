@@ -320,3 +320,72 @@ async def test_negative_offgrid_is_an_inverter_feeding_the_socket(hass, entry) -
     dist = make_distribution(hass, entry, [d1], DistributionMode.OFF)
     await dist._process_p1(500, dist.power, 1000.0)
     assert dist.entities["charge_power"].state == 0, "a negative reading is solar coming in, never a load to cover"
+
+
+async def stale(dist: Distribution, p1: int, start: float, ticks: int) -> float:
+    # a meter stuck on an old reading while the devices follow their setpoints
+    now = start
+    for _ in range(ticks):
+        now += 1.0
+        await dist._process_p1(p1, dist.power, now)
+        for d in dist.devices:
+            d.power_actual = d.power_setpoint
+    return now
+
+
+def notifications(monkeypatch) -> list[tuple[str, str]]:  # noqa: ANN001
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr("custom_components.zendure_ha.distribution.persistent_notification.async_create", lambda _hass, message, _title, notification_id: calls.append(("create", notification_id)))
+    monkeypatch.setattr("custom_components.zendure_ha.distribution.persistent_notification.async_dismiss", lambda _hass, notification_id: calls.append(("dismiss", notification_id)))
+    return calls
+
+
+async def test_a_stale_meter_turns_a_discharge_into_charging_without_the_p1_check(hass, entry) -> None:  # noqa: ANN001
+    # the meter still shows 1500 W feed-in the fleet has long answered: P1 plus the fleet delivery is a house load of -700 W
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1])
+    now = await run(dist, 800, 1000.0, 20)
+    assert d1.power_setpoint > 700
+    await stale(dist, -1500, now, 120)
+    assert d1.power_setpoint < 0
+
+
+async def test_the_p1_check_holds_the_fleet_on_a_meter_that_contradicts_it(hass, entry, monkeypatch) -> None:  # noqa: ANN001
+    calls = notifications(monkeypatch)
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1])
+    dist.p1_check_time = 30
+    now = await run(dist, 800, 1000.0, 20)
+    now = await stale(dist, -1500, now, 20)
+    assert not dist.p1_implausible, "tolerated for p1_check_time"
+    now = await stale(dist, -1500, now, 100)
+    assert dist.p1_implausible
+    assert d1.power_setpoint == 0
+    assert calls == [("create", "zendure_ha_p1_implausible")]
+
+    # the meter is back: the distribution resumes and the notification goes
+    await run(dist, 800, now, 20)
+    assert not dist.p1_implausible
+    assert d1.power_setpoint > 700
+    assert calls[-1] == ("dismiss", "zendure_ha_p1_implausible")
+
+
+async def test_the_p1_check_counts_the_solar_the_integration_knows(hass, entry, monkeypatch) -> None:  # noqa: ANN001
+    notifications(monkeypatch)
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1], DistributionMode.STORE_SOLAR)
+    dist.p1_check_time = 30
+    dist.solar = 2000  # 2000 W of solar, 1500 W of it fed in: a house load of 500 W
+    await stale(dist, -1500, 1000.0, 60)
+    assert not dist.p1_implausible
+
+
+async def test_the_p1_check_leaves_manual_mode_alone(hass, entry, monkeypatch) -> None:  # noqa: ANN001
+    notifications(monkeypatch)
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1], DistributionMode.MANUAL)
+    dist.p1_check_time = 30
+    dist.manual_power = 600
+    await stale(dist, -1500, 1000.0, 60)
+    assert not dist.p1_implausible
+    assert d1.power_setpoint == 600

@@ -33,6 +33,7 @@ from .switch import HaSwitch
 _LOGGER = logging.getLogger(__name__)
 
 RANGE_MIN = 50  # minimal watts
+P1_IMPLAUSIBLE_W = 150  # a house load below minus this contradicts the fleet, see p1_plausible
 WEAR_DAYS = 7
 WEAR_BIAS = 0.6  # wear weight in the order score
 PHASE_DAYS = 10  # how far back the detection reads the recorder; raw states live about this long
@@ -112,6 +113,9 @@ class Distribution(EntityDevice):
         self.phase_limited = [False, False, False, False]  # per phase whether the phase guard holds it out of the regular distribution
         self.pwr_low = 0.0  # discharging: how long the first running device has sat under 1.5 times its start level, in watt-ticks
         self.setpoint: int = 0
+        self.p1_check_time = 0.0  # seconds a contradicting P1 is tolerated before the fleet is held at 0; 0 is off
+        self.p1_implausible_since: float | None = None
+        self.p1_implausible = False
         self.capacity = 0.0
 
     def entity_create(self) -> None:
@@ -119,6 +123,7 @@ class Distribution(EntityDevice):
         HaNumber(self, "manual_power", uom="W", minimum=-10000, maximum=10000, restore=True)
         HaNumber(self, "setpoint_correction", uom="W", minimum=-1000, maximum=1000, restore=True)
         HaSwitch(self, "allow_export", restore=True, default=True)
+        HaNumber(self, "p1_check_time", uom="s", minimum=0, maximum=600, restore=True)
 
         # Battery fleet aggregate (sum / capacity-weighted over all units)
         HaSensor(self, "soc", uom="%", device_class="battery", state_class="measurement", precision=1)
@@ -287,10 +292,43 @@ class Distribution(EntityDevice):
         elapsed = min(3.0, now - self.p1_time) if self.p1_time else 1.0
         self.p1_time = now
 
+        # a P1 that contradicts the fleet holds it at 0, the way idle does
+        if not self.p1_plausible(p1 + self.solar + power_actual, mode, now):
+            self.setpoint = 0
+            self.update_power(False, 0, elapsed)
+            return
+
         # the demand is what the meter shows plus what the fleet delivers; the setpoint follows from mode, stabilizer and direction
         self.setpoint = self.update_setpoint(mode, p1 + power_actual + int(self.setpoint_correction), self.solar, now, elapsed)
         self.setpoint_avg += (abs(self.setpoint) - self.setpoint_avg) * elapsed / 900  # ~15-min EMA of the demand
         self.update_power(self.setpoint < 0, self.setpoint, elapsed)
+
+    def p1_plausible(self, house: int, mode: DistributionMode, now: float) -> bool:
+        """False while P1 contradicts the fleet: the meter plus what the fleet and the solar deliver is the house load, which cannot be clearly negative.
+
+        A meter that delivers its readings late (an IOmeter after a Wi-Fi or RF dropout: 40 to 200 s) still shows the feed-in the fleet has long
+        answered, and the fleet swings between charging and discharging on it. Off by default: solar the integration does not know of, such as a
+        second inverter, makes the sum negative as well.
+        """
+        limit = int(self.p1_check_time)
+        if limit <= 0 or mode == DistributionMode.MANUAL or house >= -P1_IMPLAUSIBLE_W:
+            if self.p1_implausible:
+                _LOGGER.warning("P1 is plausible again (house load %s W), the distribution resumes", house)
+                persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_p1_implausible")
+            self.p1_implausible_since = None
+            self.p1_implausible = False
+            return True
+
+        if self.p1_implausible_since is None:
+            self.p1_implausible_since = now
+        if not self.p1_implausible:
+            if now - self.p1_implausible_since < limit:
+                return True
+            self.p1_implausible = True
+            message = f"P1 contradicts the fleet (house load {house} W) for {limit} s or longer. The fleet is held at 0 W until P1 is plausible again."
+            _LOGGER.warning(message)
+            persistent_notification.async_create(self.hass, message, PANEL_TITLE, f"{DOMAIN}_p1_implausible")
+        return False
 
     def update_telemetry(self, p1: int) -> int:
         """What the fleet does now: the sum, the setpoint per phase in self.sp, the live sensors; returns power_actual."""

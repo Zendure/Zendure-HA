@@ -268,6 +268,9 @@
       "setpoint_correction": {
         "name": "Correction de consigne"
       },
+      "p1_check_time": {
+        "name": "Contrôle de plausibilité P1"
+      },
       "soc_min": {
         "name": "SoC minimum"
       },
