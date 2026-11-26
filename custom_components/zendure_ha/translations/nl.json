@@ -268,6 +268,9 @@
       "setpoint_correction": {
         "name": "Setpointcorrectie"
       },
+      "p1_check_time": {
+        "name": "P1-plausibiliteitscontrole"
+      },
       "soc_min": {
         "name": "Minimale SoC"
       },
