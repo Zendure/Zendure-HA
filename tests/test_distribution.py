@@ -118,6 +118,47 @@ async def test_manual_mode_follows_the_manual_power(hass, entry) -> None:  # noq
     assert d1.power_setpoint == 600
 
 
+async def test_a_new_manual_power_goes_out_without_waiting_for_the_meter(hass, entry) -> None:  # noqa: ANN001
+    # a meter that reports only on change, or once a minute, must not hold the new value back: the last P1 total is used right away
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1], DistributionMode.MANUAL)
+    dist.manual_power = 600
+    await run(dist, 0, 1000.0, 5)
+    await dist.entities["manual_power"].async_set_native_value(300)
+    assert dist.manual_power == 300
+    assert d1.power_setpoint == 300
+
+
+async def test_a_new_manual_power_outside_manual_mode_waits_for_the_meter(hass, entry) -> None:  # noqa: ANN001
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1])
+    await run(dist, 500, 1000.0, 10)
+    before = d1.power_setpoint
+    await dist.entities["manual_power"].async_set_native_value(-1000)
+    assert dist.manual_power == -1000
+    assert d1.power_setpoint == before
+
+
+async def test_a_new_manual_power_before_the_first_meter_report_is_only_stored(hass, entry) -> None:  # noqa: ANN001
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1], DistributionMode.MANUAL)
+    await dist.entities["manual_power"].async_set_native_value(300)
+    assert dist.manual_power == 300
+    assert d1.power_setpoint == 0
+
+
+async def test_a_new_mode_goes_out_without_waiting_for_the_meter(hass, entry) -> None:  # noqa: ANN001
+    d1 = FakeDevice(hass, "d1", 60.0)
+    dist = make_distribution(hass, entry, [d1], DistributionMode.OFF)
+    dist.p1_device = "p1_meter"
+    dist.manual_power = 400
+    await run(dist, 0, 1000.0, 3)
+    assert d1.power_setpoint == 0
+    dist.entities["mode"].update_value(DistributionMode.MANUAL.value)
+    await dist.update_mode(dist.entities["mode"], "manual")
+    assert d1.power_setpoint == RANGE_MIN  # a standing device starts at once, the next meter reports ramp it up
+
+
 async def test_export_replay_writes_the_replay_file(hass, entry, monkeypatch, tmp_path) -> None:  # noqa: ANN001
     import json
     from datetime import datetime, timezone
