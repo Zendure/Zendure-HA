@@ -21,6 +21,7 @@ except ImportError:
 
 from homeassistant.components import bluetooth, persistent_notification
 from homeassistant.components.number import NumberMode
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
@@ -39,6 +40,8 @@ _LOGGER = logging.getLogger(__name__)
 CONST_HEADER = {"content-type": "application/json; charset=UTF-8"}
 CONST_TIMEOUT = ClientTimeout(total=2)
 SF_COMMAND_CHAR = "0000c304-0000-1000-8000-00805f9b34fb"
+# Minimum time between two state writes of the "last message received" sensor.
+LAST_RECEIVED_INTERVAL = timedelta(seconds=30)
 
 
 class ZendureBattery(EntityDevice):
@@ -134,6 +137,9 @@ class ZendureDevice(EntityDevice):
 
         self.batteries: dict[str, ZendureBattery | None] = {}
         self.lastseen = datetime.min
+        # Arrival time of the last device message (timezone aware, exact, not throttled).
+        self.last_received: datetime | None = None
+        self._last_received_published: datetime | None = None
         self._messageid = 0
         self.kWh = 0.0
 
@@ -192,6 +198,7 @@ class ZendureDevice(EntityDevice):
         self.availableKwh = ZendureSensor(self, "available_kwh", None, "kWh", "energy_storage", None, 1)
         self.totalKwh = ZendureSensor(self, "total_kwh", None, "kWh", "energy_storage", "measurement", 2)
         self.connectionStatus = ZendureSensor(self, "connectionStatus", icon="mdi:cloud-check")
+        self.lastReceived = ZendureSensor(self, "lastReceived", deviceclass="timestamp", entity_category=EntityCategory.DIAGNOSTIC)
         self.connection: ZendureRestoreSelect
         self.bleAdapter: ZendureRestoreSelect | None = None
         self.remainingTime = ZendureSensor(self, "remainingTime", None, "h", "duration", "measurement")
@@ -342,6 +349,19 @@ class ZendureDevice(EntityDevice):
         elif self.mqtt is not None:
             self.mqtt.publish(topic, payload)
 
+    def markReceived(self) -> None:
+        """Record that a message from the device just arrived."""
+        # Runs before the value filters (entityUpdate, ZendureSensor.update_value), so it also
+        # advances when every value in the message is unchanged. `last_received` stays exact;
+        # the sensor is only written every LAST_RECEIVED_INTERVAL to keep the recorder quiet.
+        now = dt_util.utcnow()
+        self.last_received = now
+        published = self._last_received_published
+        due = published is None or not timedelta(0) <= now - published < LAST_RECEIVED_INTERVAL
+        # Count the write only if the entity took it (it ignores values until it is added to HA).
+        if due and self.lastReceived.update_value(now):
+            self._last_received_published = now
+
     def mqttInvoke(self, command: Any) -> None:
         self._messageid += 1
         command["messageId"] = self._messageid
@@ -355,6 +375,9 @@ class ZendureDevice(EntityDevice):
             self.setStatus()
         else:
             self.lastseen = datetime.now() + timedelta(minutes=5)
+
+        if payload.get("properties") or payload.get("packData"):
+            self.markReceived()
 
         if (properties := payload.get("properties", None)) and len(properties) > 0:
             for key, value in properties.items():

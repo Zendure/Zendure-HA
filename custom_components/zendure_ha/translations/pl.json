@@ -323,6 +323,9 @@
       "remaining_time": {
         "name": "Pozostały czas"
       },
+      "last_received": {
+        "name": "Ostatnia odebrana wiadomość"
+      },
       "soft_version": {
         "name": "Oprogramowanie BMS"
       },
