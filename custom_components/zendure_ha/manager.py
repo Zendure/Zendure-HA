@@ -173,6 +173,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         async def updateFuseGroup(_entity: ZendureRestoreSelect, _value: Any) -> None:
             await self.update_fusegroups()
 
+        # once every fuseGroup select has loaded its last state, this pass builds every "Part of ..." option there can be
+        all_loaded = all(device.fuseGroup.last_state_loaded for device in self.devices)
+
         fuseGroups: dict[str, FuseGroup] = {}
         for device in self.devices:
             try:
@@ -202,8 +205,9 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     case "group5000":
                         fg = FuseGroup(device.name, 5000, -5000)
                     case "unused":
-                        # only switch off, if Manager is used
-                        if self.operation != ManagerMode.OFF:
+                        # only switch off, if Manager is used; a restored "Part of ..." choice is still
+                        # pending here (its option is added by setDict below), so the device is not unused
+                        if self.operation != ManagerMode.OFF and not device.fuseGroup.restore_pending:
                             await device.power_off()
                         continue
                     case _:
@@ -239,6 +243,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     if deviceId != device.deviceId:
                         fusegroups[deviceId] = f"Part of {fg.name} fusegroup"
                 device.fuseGroup.setDict(fusegroups)
+
+                # a restore still pending now names a device which is gone: drop it and handle the device as unused
+                if all_loaded and device.fuseGroup.restore_pending:
+                    device.fuseGroup.cancelRestore()
+                    if self.operation != ManagerMode.OFF:
+                        await device.power_off()
             except AttributeError as err:
                 _LOGGER.error("Device %s missing fuseGroup attribute: %s", device.name, err)
             except Exception as err:

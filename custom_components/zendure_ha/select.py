@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -96,18 +97,55 @@ class ZendureSelect(EntityZendure, SelectEntity):
 class ZendureRestoreSelect(ZendureSelect, RestoreEntity):
     """Representation of a Zendure select entity with restore."""
 
+    # restored state which is not (yet) a valid option, e.g. a dynamic fusegroup option
+    _restored: str | None = None
+    # True once async_added_to_hass has looked up the last state
+    last_state_loaded: bool = False
+
     def __init__(self, device: EntityDevice, uniqueid: str, options: dict[int, str], onchanged: Callable | None, current: int | None = None) -> None:
         """Initialize a select entity."""
         super().__init__(device, uniqueid, options, onchanged, current)
+
+    @property
+    def restore_pending(self) -> bool:
+        """Return True while a restored state is still waiting for its option to appear."""
+        return self._restored is not None
+
+    def setDict(self, options: dict[Any, str]) -> None:
+        """Set the options for the select entity and retry a pending restore."""
+        super().setDict(options)
+        self.restorePending()
+
+    def restorePending(self) -> None:
+        """Apply the restored state as soon as it has become a valid option."""
+        if (restored := self._restored) is None or restored not in self._attr_options:
+            return
+        self._restored = None
+        if restored != self._attr_current_option:
+            self._attr_current_option = restored
+            if self.hass and self.hass.loop.is_running():
+                self.async_write_ha_state()
+
+    def cancelRestore(self) -> None:
+        """Drop a pending restore whose option will never appear; the current option stays."""
+        if self._restored is not None:
+            _LOGGER.warning("%s: restored option '%s' is no longer available, using '%s'", self.entity_id, self._restored, self._attr_current_option)
+            self._restored = None
+
+    async def async_select_option(self, option: str) -> None:
+        """Update the current selected option; an explicit choice cancels a pending restore."""
+        self._restored = None
+        await super().async_select_option(option)
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
         await super().async_added_to_hass()
 
-        state = await self.async_get_last_state()
-        if state is not None and state.state in self._attr_options:
-            self._attr_current_option = state.state
-        elif self._attr_current_option not in self._attr_options:
+        if (state := await self.async_get_last_state()) is not None and state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            self._restored = state.state
+        self.last_state_loaded = True
+        self.restorePending()
+        if self._attr_current_option not in self._attr_options:
             self._attr_current_option = self._attr_options[0]
 
         # do the onchanged callback
