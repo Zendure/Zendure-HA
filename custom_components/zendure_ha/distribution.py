@@ -102,6 +102,7 @@ class Distribution(EntityDevice):
         self.charging = False
         self.reverse_delta = 0.0  # 0 = no reversal running, otherwise watt-seconds left until the flip
         self.p1_time = 0.0
+        self.p1_last: int | None = None  # the last P1 total, so a change by the user does not wait for the next meter report
         self.wear_date = 0.0
         self.order_date = 0.0
         self.setpoint_avg = 0.0
@@ -116,7 +117,7 @@ class Distribution(EntityDevice):
 
     def entity_create(self) -> None:
         HaSelect(self, "mode", DistributionModi, on_changed=self.update_mode, restore=True)
-        HaNumber(self, "manual_power", uom="W", minimum=-10000, maximum=10000, restore=True)
+        HaNumber(self, "manual_power", uom="W", minimum=-10000, maximum=10000, restore=True, on_changed=self.update_manual_power)
         HaNumber(self, "setpoint_correction", uom="W", minimum=-1000, maximum=1000, restore=True)
         HaSwitch(self, "allow_export", restore=True, default=True)
 
@@ -260,6 +261,18 @@ class Distribution(EntityDevice):
         if self.on_save is not None:
             await self.on_save()
 
+        if mode != DistributionMode.OFF:
+            await self.apply_now()
+
+    async def update_manual_power(self, _entity: HaNumber, _value: Any) -> None:
+        if DistributionMode(int(self.mode)) == DistributionMode.MANUAL:
+            await self.apply_now()
+
+    async def apply_now(self) -> None:
+        """Run the distribution with the last P1 total: a meter that only reports on change, or once a minute, would hold back a new mode or manual power until its next report."""
+        if self.p1_last is not None:
+            await self._process_p1(self.p1_last, self.power, time.time())
+
     def on_invalidate(self) -> None:
         self.order_date = 0
         self.capacity = sum(0 if d.state <= DeviceState.OFFLINE else d.kwh * (d.soc_max - d.soc_min) / 100 for d in self.devices)
@@ -267,6 +280,7 @@ class Distribution(EntityDevice):
 
     async def _process_p1(self, p1: int, power: list[float], now: float) -> None:
         now = now or time.time()
+        self.p1_last = p1
         self.power = power  # what the meter shows per phase, slot 0 is the three-phase slot and stays 0
 
         # once a day: the 7-day wear/RTE figures, and every device's phase from its jumps in the recorder

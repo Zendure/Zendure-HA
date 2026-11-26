@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
 
@@ -41,9 +42,11 @@ class HaNumber(NumberEntity, HaEntity):
         step: float | None = None,
         restore: bool = False,
         disabled: bool = False,
+        on_changed: Callable | None = None,
     ) -> None:
         super().__init__(device, key, vendor_id, disabled)
         self.factor = factor
+        self._on_changed = on_changed
         self._step = step  # NumberEntity owns `step`; a float knob keeps the resolution of its step; None is the integer device knob
         self._decimals = max(0, -Decimal(str(step)).normalize().as_tuple().exponent) if step is not None else 0
         self.entity_description = NumberEntityDescription(
@@ -73,8 +76,13 @@ class HaNumber(NumberEntity, HaEntity):
         return True
 
     async def async_set_native_value(self, value: float) -> None:
-        # optimistic update: soc knobs are not echoed back by the device, without this the UI never reflects the change
         raw = self._round(value / self.factor)
+        if self._on_changed is not None:
+            # a setting of the integration itself, as the select and the switch do: the value first, the callback then sees it in place
+            self.update_value(raw)
+            await self._invoke(self._on_changed, self, raw)
+            return
+        # optimistic update: soc knobs are not echoed back by the device, without this the UI never reflects the change
         await self._invoke(self.device.entity_write, self, raw)
         self.update_value(raw)
 
