@@ -22,6 +22,7 @@
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale MQTT gebruiken",
           "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
+          "cloudrelay": "Lokale MQTT-gegevens doorsturen naar de Zendure-cloud (nodig voor de Zendure-app)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Wachtwoord"
         }
@@ -33,6 +34,7 @@
           "mqttuser": "MQTT Gebruiker",
           "mqttpsw": "MQTT Wachtwoord",
           "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
+          "cloudrelay": "Lokale MQTT-gegevens doorsturen naar de Zendure-cloud (nodig voor de Zendure-app)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Wachtwoord"
         }
@@ -45,6 +47,7 @@
           "mqttlog": "MQTT-Communicatie loggen",
           "mqttlocal": "Lokale MQTT gebruiken",
           "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
+          "cloudrelay": "Lokale MQTT-gegevens doorsturen naar de Zendure-cloud (nodig voor de Zendure-app)",
           "wifissid": "Wifi SSID",
           "wifipsw": "Wifi Wachtwoord"
         }
@@ -56,7 +59,8 @@
       "init": {
         "data": {
           "scan_interval": "Scaninterval (seconden)",
-          "auto_mqtt_user": "MQTT-gebruikers automatisch beheren"
+          "auto_mqtt_user": "MQTT-gebruikers automatisch beheren",
+          "cloudrelay": "Lokale MQTT-gegevens doorsturen naar de Zendure-cloud (nodig voor de Zendure-app)"
         },
         "description": "Pas je opties aan.",
         "title": "Zendure Integratie Opties"

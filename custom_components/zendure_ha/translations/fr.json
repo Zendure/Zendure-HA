@@ -23,6 +23,7 @@
           "mqttlog": "Journaliser la communication MQTT",
           "mqttlocal": "Utiliser MQTT local",
           "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT",
+          "cloudrelay": "Transférer les données MQTT locales vers le cloud Zendure (nécessaire pour l'app Zendure)",
           "wifissid": "SSID Wi-Fi",
           "wifipsw": "Mot de passe Wi-Fi"
         }
@@ -34,6 +35,7 @@
           "mqttuser": "Utilisateur MQTT",
           "mqttpsw": "Mot de passe MQTT",
           "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT",
+          "cloudrelay": "Transférer les données MQTT locales vers le cloud Zendure (nécessaire pour l'app Zendure)",
           "wifissid": "SSID Wi-Fi",
           "wifipsw": "Mot de passe Wi-Fi"
         }
@@ -47,6 +49,7 @@
           "mqttlog": "Journaliser la communication MQTT",
           "mqttlocal": "Utiliser MQTT local",
           "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT",
+          "cloudrelay": "Transférer les données MQTT locales vers le cloud Zendure (nécessaire pour l'app Zendure)",
           "wifissid": "SSID Wi-Fi",
           "wifipsw": "Mot de passe Wi-Fi"
         }
@@ -60,7 +63,8 @@
           "scan_interval": "Intervalle d'analyse (secondes)",
           "p1meter": "Capteur P1 pour le couplage intelligent",
           "mqttlog": "Journaliser communication MQTT",
-          "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT"
+          "auto_mqtt_user": "Gérer automatiquement les utilisateurs MQTT",
+          "cloudrelay": "Transférer les données MQTT locales vers le cloud Zendure (nécessaire pour l'app Zendure)"
         },
         "description": "Modifiez vos options.",
         "title": "Options de l'intégration Zendure"

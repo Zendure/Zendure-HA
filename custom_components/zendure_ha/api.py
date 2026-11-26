@@ -21,6 +21,7 @@ from paho.mqtt import enums as mqtt_enums
 
 from .const import (
     CONF_APPTOKEN,
+    CONF_CLOUDRELAY,
     CONF_HAKEY,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -91,6 +92,7 @@ class Api:
     mqttCloud = mqtt_client.Client(userdata="cloud")
     mqttLocal = mqtt_client.Client(userdata="local")
     mqttLogging: bool = False
+    cloudRelay: bool = True
     devices: dict[str, ZendureDevice] = {}
     cloudServer: str = ""
     cloudPort: str = ""
@@ -104,6 +106,7 @@ class Api:
     def Init(self, data: Mapping[str, Any], mqtt: Mapping[str, Any]) -> None:
         """Initialize Zendure Api."""
         Api.mqttLogging = data.get(CONF_MQTTLOG, False)
+        Api.cloudRelay = data.get(CONF_CLOUDRELAY, True)
         Api.mqttCloud.__init__(mqtt_enums.CallbackAPIVersion.VERSION2, mqtt["clientId"], False, "cloud", mqtt_enums.MQTTProtocolVersion.MQTTv31)
         url = mqtt["url"]
         Api.cloudServer, Api.cloudPort = url.rsplit(":", 1) if ":" in url else (url, "1883")
@@ -221,6 +224,16 @@ class Api:
             raise ApiError("no_mqtt")
         return dict(result)
 
+    @staticmethod
+    def stopCloudRelay() -> None:
+        """Disconnect all per-device cloud relay clients."""
+        for device in Api.devices.values():
+            if device.zendure is not None:
+                device.zendure.loop_stop()
+                if device.zendure.is_connected():
+                    device.zendure.disconnect()
+                device.zendure = None
+
     def mqttInit(self, client: mqtt_client.Client, srv: str, port: str, user: str, psw: str) -> None:
         try:
             client.on_connect = self.mqttConnect
@@ -319,14 +332,17 @@ class Api:
                         device.mqtt = client
                         device.setStatus()
 
-                    if device.zendure is None:
-                        psw = hashlib.md5(device.deviceId.encode()).hexdigest().upper()[8:24]  # noqa: S324
-                        device.zendure = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2, device.deviceId, False, "zendure")
-                        self.mqttInit(device.zendure, Api.cloudServer, Api.cloudPort, device.deviceId, psw)
+                    # Relay local messages to the Zendure cloud (keeps the Zendure app working).
+                    # Can be disabled in the options when the app is not used.
+                    if Api.cloudRelay:
+                        if device.zendure is None:
+                            psw = hashlib.md5(device.deviceId.encode()).hexdigest().upper()[8:24]  # noqa: S324
+                            device.zendure = mqtt_client.Client(mqtt_enums.CallbackAPIVersion.VERSION2, device.deviceId, False, "zendure")
+                            self.mqttInit(device.zendure, Api.cloudServer, Api.cloudPort, device.deviceId, psw)
 
-                    if device.zendure is not None and device.zendure.is_connected():
-                        payload["isHA"] = True
-                        device.zendure.publish(msg.topic, json.dumps(payload, default=lambda o: o.__dict__))
+                        if device.zendure is not None and device.zendure.is_connected():
+                            payload["isHA"] = True
+                            device.zendure.publish(msg.topic, json.dumps(payload, default=lambda o: o.__dict__))
             else:
                 _LOGGER.debug("Local message from unknown device %s: %s", msg.topic, deviceId)
 

@@ -15,6 +15,7 @@ from .api import Api, ApiError
 from .const import (
     CONF_APPTOKEN,
     CONF_AUTO_MQTT_USER,
+    CONF_CLOUDRELAY,
     CONF_MQTTLOCAL,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
@@ -57,6 +58,7 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             ),
             vol.Optional(CONF_AUTO_MQTT_USER, default=False): bool,
+            vol.Optional(CONF_CLOUDRELAY, default=True): bool,
             vol.Optional(CONF_WIFISSID): str,
             vol.Optional(CONF_WIFIPSW): selector.TextSelector(
                 selector.TextSelectorConfig(
@@ -175,6 +177,7 @@ class ZendureOptionsFlowHandler(OptionsFlow):
                 vol.Required(CONF_P1METER, default=self.config_entry.data[CONF_P1METER]): str,
                 vol.Required(CONF_MQTTLOG, default=self.config_entry.data[CONF_MQTTLOG]): bool,
                 vol.Optional(CONF_AUTO_MQTT_USER, default=self.config_entry.data.get(CONF_AUTO_MQTT_USER, False)): bool,
+                vol.Optional(CONF_CLOUDRELAY, default=self.config_entry.data.get(CONF_CLOUDRELAY, True)): bool,
                 vol.Optional(CONF_SIM, default=self.config_entry.data.get(CONF_SIM, False)): bool,
             }
         )

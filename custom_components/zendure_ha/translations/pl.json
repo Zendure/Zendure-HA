@@ -17,6 +17,7 @@
           "mqttlog": "Rejestruj komunikację MQTT",
           "mqttlocal": "Użyj lokalnego MQTT",
           "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "cloudrelay": "Przekazuj lokalne dane MQTT do chmury Zendure (wymagane dla aplikacji Zendure)",
           "wifissid": "SSID sieci Wi-Fi",
           "wifipsw": "Hasło Wi-Fi"
         }
@@ -28,6 +29,7 @@
           "mqttuser": "Użytkownik MQTT",
           "mqttpsw": "Hasło MQTT",
           "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "cloudrelay": "Przekazuj lokalne dane MQTT do chmury Zendure (wymagane dla aplikacji Zendure)",
           "wifissid": "SSID sieci Wi-Fi",
           "wifipsw": "Hasło Wi-Fi"
         }
@@ -39,6 +41,7 @@
           "mqttlog": "Rejestruj komunikację MQTT",
           "mqttlocal": "Użyj lokalnego MQTT",
           "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "cloudrelay": "Przekazuj lokalne dane MQTT do chmury Zendure (wymagane dla aplikacji Zendure)",
           "wifissid": "SSID sieci Wi-Fi",
           "wifipsw": "Hasło Wi-Fi"
         }
@@ -51,7 +54,8 @@
         "data": {
           "p1meter": "Czujnik P1 do inteligentnego dopasowania",
           "mqttlog": "Rejestruj komunikację MQTT",
-          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT"
+          "auto_mqtt_user": "Automatycznie zarządzaj użytkownikami MQTT",
+          "cloudrelay": "Przekazuj lokalne dane MQTT do chmury Zendure (wymagane dla aplikacji Zendure)"
         },
         "description": "Zmień swoje opcje.",
         "title": "Opcje integracji Zendure"
