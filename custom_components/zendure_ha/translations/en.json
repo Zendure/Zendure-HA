@@ -55,9 +55,16 @@
         "data": {
           "p1meter": "P1 Sensor for smart matching",
           "mqttlog": "Log MQTT communication",
-          "auto_mqtt_user": "Automatically manage MQTT users"
+          "auto_mqtt_user": "Automatically manage MQTT users",
+          "use_mdns": "Use mDNS hostname for local devices",
+          "overwrite_ip": "Use manually configured IP addresses"
         },
-        "description": "Amend your options.",
+        "sections": {
+          "device_local_ips": {
+            "name": "Device local IP addresses"
+          }
+        },
+        "description": "Amend your options. Device local IP fields are prefilled from the cloud. Enable manual IP addresses to keep your entered values when the cloud IP changes; otherwise the cloud IP is refreshed automatically. Leave a field empty to use mDNS/cloud fallback.",
         "title": "Zendure Integration Options"
       }
     }

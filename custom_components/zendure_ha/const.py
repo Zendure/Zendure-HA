@@ -18,6 +18,10 @@ CONF_MQTTPSW = "mqttpsw"
 CONF_WIFISSID = "wifissid"
 CONF_WIFIPSW = "wifipsw"
 CONF_AUTO_MQTT_USER = "auto_mqtt_user"
+CONF_LOCAL_IPS = "local_ips"
+CONF_LOCAL_IP_SECTION = "device_local_ips"
+CONF_OVERWRITE_IP = "overwrite_ip"
+CONF_USE_MDNS = "use_mdns"
 
 CONF_HAKEY = "C*dafwArEOXK"
 

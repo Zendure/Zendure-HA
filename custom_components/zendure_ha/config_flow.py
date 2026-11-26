@@ -8,6 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
@@ -15,14 +16,18 @@ from .api import Api, ApiError
 from .const import (
     CONF_APPTOKEN,
     CONF_AUTO_MQTT_USER,
+    CONF_LOCAL_IP_SECTION,
+    CONF_LOCAL_IPS,
     CONF_MQTTLOCAL,
     CONF_MQTTLOG,
     CONF_MQTTPORT,
     CONF_MQTTPSW,
     CONF_MQTTSERVER,
     CONF_MQTTUSER,
+    CONF_OVERWRITE_IP,
     CONF_P1METER,
     CONF_SIM,
+    CONF_USE_MDNS,
     CONF_WIFIPSW,
     CONF_WIFISSID,
     DOMAIN,
@@ -163,12 +168,49 @@ class ZendureConfigFlow(ConfigFlow, domain=DOMAIN):
 class ZendureOptionsFlowHandler(OptionsFlow):
     """Handles the options flow."""
 
+    def __init__(self) -> None:
+        """Initialize the options flow."""
+        self._devices: dict[str, str] = {}
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle options flow."""
         if user_input is not None:
-            data = self.config_entry.data | user_input
+            device_fields = self._devices
+            device_input = user_input.get(CONF_LOCAL_IP_SECTION, {})
+            local_ips: dict[str, str] = {}
+            if user_input.get(CONF_OVERWRITE_IP, False):
+                local_ips = {
+                    serial: device_input.get(serial, "").strip()
+                    for serial in device_fields
+                    if device_input.get(serial, "").strip()
+                }
+            data = self.config_entry.data | {
+                key: value
+                for key, value in user_input.items()
+                if key != CONF_LOCAL_IP_SECTION
+            }
+            data[CONF_LOCAL_IPS] = local_ips
             self.hass.config_entries.async_update_entry(self.config_entry, data=data)
             return self.async_create_entry(title="", data=data)
+
+        overwrite_ip = self.config_entry.data.get(CONF_OVERWRITE_IP, False)
+        configured_ips: dict[str, str] = {}
+        if overwrite_ip:
+            configured_ips = self.config_entry.data.get(CONF_LOCAL_IPS, {})
+        try:
+            devices = await Api.Connect(self.hass, dict(self.config_entry.data), False)
+        except ApiError as err:
+            _LOGGER.warning("Unable to retrieve device IPs for options flow: %s", err)
+            devices = None
+
+        self._devices = {
+            device["snNumber"]: configured_ips.get(device["snNumber"], device.get("ip", ""))
+            for device in (devices or {}).get("deviceList", [])
+            if device.get("snNumber")
+        }
+        self._devices.update(
+            {serial: ip for serial, ip in configured_ips.items() if serial not in self._devices}
+        )
 
         options_schema = vol.Schema(
             {
@@ -176,6 +218,25 @@ class ZendureOptionsFlowHandler(OptionsFlow):
                 vol.Required(CONF_MQTTLOG, default=self.config_entry.data[CONF_MQTTLOG]): bool,
                 vol.Optional(CONF_AUTO_MQTT_USER, default=self.config_entry.data.get(CONF_AUTO_MQTT_USER, False)): bool,
                 vol.Optional(CONF_SIM, default=self.config_entry.data.get(CONF_SIM, False)): bool,
+                vol.Optional(
+                    CONF_OVERWRITE_IP,
+                    default=overwrite_ip,
+                ): bool,
+                vol.Optional(
+                    CONF_USE_MDNS,
+                    default=self.config_entry.data.get(CONF_USE_MDNS, True),
+                ): bool,
+                vol.Required(CONF_LOCAL_IP_SECTION): section(
+                    vol.Schema(
+                        {
+                            vol.Optional(
+                                serial,
+                                description={"suggested_value": ip},
+                            ): str
+                            for serial, ip in self._devices.items()
+                        }
+                    )
+                ),
             }
         )
 

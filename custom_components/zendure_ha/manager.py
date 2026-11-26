@@ -27,7 +27,10 @@ from homeassistant.loader import async_get_integration
 from .api import Api
 from .const import (
     CONF_AUTO_MQTT_USER,
+    CONF_LOCAL_IPS,
+    CONF_OVERWRITE_IP,
     CONF_P1METER,
+    CONF_USE_MDNS,
     DOMAIN,
     DeviceState,
     ManagerMode,
@@ -44,6 +47,7 @@ from .sensor import ZendureSensor
 SCAN_INTERVAL = timedelta(seconds=60)
 
 _LOGGER = logging.getLogger(__name__)
+
 
 type ZendureConfigEntry = ConfigEntry[ZendureManager]
 
@@ -113,6 +117,12 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
         self.globalSoc = ZendureSensor(self, "global_soc", None, "%", "battery", "measurement", 1)
 
         # load devices
+        config_data = self.config_entry.data
+        local_ips = (
+            config_data.get(CONF_LOCAL_IPS, {})
+            if config_data.get(CONF_OVERWRITE_IP, False)
+            else {}
+        )
         for dev in data["deviceList"]:
             try:
                 if (deviceId := dev["deviceKey"]) is None or (prodModel := dev["productModel"]) is None:
@@ -125,7 +135,18 @@ class ZendureManager(DataUpdateCoordinator[None], EntityDevice):
                     continue
 
                 # create the device and mqtt server
-                device = init(self.hass, deviceId, dev.get("deviceName", prodModel), dev)
+                cloud_ip = dev.get("ip", "")
+                local_ip = local_ips.get(dev.get("snNumber", ""), "")
+                device_definition = dev | {
+                    "ip": local_ip or cloud_ip,
+                    CONF_USE_MDNS: config_data.get(CONF_USE_MDNS, True) and not local_ip,
+                }
+                device = init(
+                    self.hass,
+                    deviceId,
+                    dev.get("deviceName", prodModel),
+                    device_definition,
+                )
                 device.discharge_start = device.discharge_limit // 10
                 device.discharge_optimal = device.discharge_limit // 4
                 Api.devices[deviceId] = device
