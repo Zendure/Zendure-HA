@@ -35,6 +35,17 @@ def snakecase(value: str) -> str:
     return value
 
 
+def device_by_identifier(hass: HomeAssistant, identifier: str) -> dr.DeviceEntry | None:
+    """Find a device by identifier, using the entry-scoped lookup when available."""
+    registry = dr.async_get(hass)
+    if (entries := hass.config_entries.async_entries(DOMAIN)) and hasattr(registry, "async_get_device_by_identifier"):
+        return registry.async_get_device_by_identifier((DOMAIN, identifier), entries[0].entry_id)
+    if hasattr(registry, "async_get_devices"):
+        devices = registry.async_get_devices(identifiers={(DOMAIN, identifier)})
+        return devices[0] if devices else None
+    return registry.async_get_device(identifiers={(DOMAIN, identifier)})
+
+
 _LOGGER = logging.getLogger(__name__)
 
 CONST_FACTOR = 2
@@ -84,6 +95,33 @@ class EntityZendure(Entity):
 
 
 class EntityDevice:
+    """Common elements for all Zendure devices."""
+
+    _attr_device_info: DeviceInfo
+    _via_device_identifier: tuple[str, str] | None = None
+
+    @property
+    def attr_device_info(self) -> DeviceInfo:
+        """Return the device info, resolving the parent link once it is available."""
+        if (
+            self._via_device_identifier is not None
+            and "via_device_id" in DeviceInfo.__optional_keys__
+            and "via_device_id" not in self._attr_device_info
+        ):
+            self._set_via_device()
+        return self._attr_device_info
+
+    def _set_via_device(self) -> None:
+        """Set the parent link using the parameter supported by this core."""
+        if self._via_device_identifier is None:
+            return
+        if "via_device_id" in DeviceInfo.__optional_keys__:
+            parent = device_by_identifier(self.hass, self._via_device_identifier[1])
+            via = {"via_device_id": parent.id} if parent is not None else {}
+        else:
+            via = {"via_device": self._via_device_identifier}
+        self._attr_device_info.update(via)
+
     createEntity: dict[str, Any] = {
         "power": ("W", "power"),
         "packInputPower": ("W", "power"),
@@ -248,7 +286,7 @@ class EntityDevice:
         self.sn = sn
 
         Migration.check_device(self.hass, deviceId, self.name, model, sn)
-        self.attr_device_info = DeviceInfo(
+        self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, deviceId)} | {(DOMAIN, sn)},
             name=self.name,
             manufacturer="Zendure",
@@ -256,15 +294,15 @@ class EntityDevice:
             model_id=model_id,
             serial_number=sn,
         )
+        self._via_device_identifier = (DOMAIN, parent) if parent is not None else None
         if parent is None:
             self.attr_device_info["hw_version"] = deviceId
-        device_registry = dr.async_get(self.hass)
-        if di := device_registry.async_get_device(identifiers={(DOMAIN, sn)}):
+        if di := device_by_identifier(self.hass, sn):
             self.attr_device_info["connections"] = di.connections
             self.check_entities(di, snakecase(self.name.lower()))
 
         if parent is not None:
-            self.attr_device_info["via_device"] = (DOMAIN, parent)
+            self._set_via_device()
 
     def check_entities(self, di: DeviceEntry, name: str) -> None:
         # Get all entities for this device and group them by translation_key if they match the current device and platform
@@ -395,8 +433,7 @@ class EntityDevice:
 
     def updateVersion(self, version: str) -> None:
         _LOGGER.info("Updating %s software version from %s to %s", self.name, self.attr_device_info.get("sw_version"), version)
-        device_registry = dr.async_get(self.hass)
         identifier = self.sn or self.name
-        device_entry = device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
+        device_entry = device_by_identifier(self.hass, identifier)
         if device_entry is not None:
-            device_registry.async_update_device(device_entry.id, sw_version=version)
+            dr.async_get(self.hass).async_update_device(device_entry.id, sw_version=version)
